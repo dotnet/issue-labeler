@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -119,53 +120,211 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Helpers
         /// <param name="input">path to the reference dataset</param>
         /// <param name="output">the output to store the new dataset</param>
         /// <param name="includeFileColumns">when true, it contains extra columns with file related information</param>
-        public void AddOrRemoveColumnsPriorToTraining(string input, string output, bool includeFileColumns = true)
+        public void AddOrRemoveColumnsPriorToTraining(string input, string output, bool skipUnknownAreas = true, bool includeFileColumns = true)
         {
             var lines = File.ReadAllLines(input);
-            Debug.Assert(lines[0].Equals("ID\tArea\tTitle\tDescription\tIsPR\tFilePaths", StringComparison.OrdinalIgnoreCase));
-            string newHeader = "Area\tTitle\tDescription\tIsPR\tNumMentions\tUserMentions";
+            string curHeader = 
+                "CombinedID\tID\tArea\tTitle\tDescription\tIsPR\tFilePaths\t" + 
+                "CreatedAt\tHtmlUrl\tNumComments\tAllLabels\tMilestone\t" + 
+                "IssueAuthor\tIssueAssignee\tIssueAssignees\tIssueCloser\t" + 
+                "PrAuthor\tPrAssignee\tPrAssignees\tPrMerger\tPrReviewers\t" + 
+                "CommitCommenters\tCommitComments\tCommenters\tComments";
+            // "ID\tArea\tTitle\tDescription\tIsPR\tFilePaths"
+
+            var headerIndices = new Dictionary<string, int>();
+            var headerNames = curHeader.Split('\t');
+            for (int i = 0; i < headerNames.Length; i++)
+            {
+                headerIndices.Add(headerNames[i], i);
+            }
+
+            var headersToSkip = new string[] { "CombinedID", "ID", "CreatedAt", "HtmlUrl", "AllLabels", "NumComments", "Milestone"
+                , "CommentsCombined"
+            };
+            var indicesToKeepAsIs = new string[] { "Area", "Title", "Description", "IsPR", "IssueAuthor" };
+            var newOnesToAdd = new string[] { "NumMentions", "UserMentions" };
+
+            var newHeader = "";
+            var sbInner = new StringBuilder();
+            foreach (var item in indicesToKeepAsIs.Union(newOnesToAdd.SkipLast(1)))
+            {
+                sbInner.Append(item).Append("\t");
+            }
+            sbInner.Append(newOnesToAdd.Last());
             if (includeFileColumns)
             {
-                newHeader += "\tFileCount\tFiles\tFilenames\tFileExtensions\tFolderNames\tFolders";
+                sbInner.Append("\tFileCount\tFiles\tFilenames\tFileExtensions\tFolderNames\tFolders");
             }
-            string[] newLines = new string[lines.Length];
-            newLines[0] = newHeader;
-            string line; // current line
-            string area, body, title;
-            for (int i = 1; i < lines.Length; i++) // skipping header
-            {
-                _sb.Clear();
-                line = lines[i];
-                string[] lineSplitByTab = line.Split('\t');
-                Debug.Assert(int.TryParse(lineSplitByTab[0], out int _)); // skip ID
-                area = lineSplitByTab[1];
-                title = lineSplitByTab[2];
-                body = lineSplitByTab[3];
-                int.TryParse(lineSplitByTab[4], out int isPrAsNumber);
-                Debug.Assert((isPrAsNumber == 1 || isPrAsNumber == 0));
-                _sb.Append(area)
-                    .Append('\t').Append(title)
-                    .Append('\t').Append(body)
-                    .Append('\t').Append(isPrAsNumber);
+            newHeader = sbInner.ToString();
 
-                AppendColumnsForUserMentions(body);
-                if (includeFileColumns)
+            var indicesWithFuncToChange = new string[] { 
+                "IssueAssignee", "IssueAssignees", "IssueCloser", 
+                "PrMerger", "PrAuthor", "PrAssignee", "PrAssignees", "PrReviewers", 
+                "CommitCommenters", "CommitComments", 
+                "Commenters", "Comments" 
+            };
+            //Debug.Assert(headerIndices.Count == headersToSkip.Length + indicesToKeepAsIs.Length + indicesWithFuncToChange.Length + 1);
+            string body, area;
+            var newLines = new List<string>();
+            newLines.Add(newHeader);
+            if (lines.Length != 0)
+            {
+                foreach (var line in lines.Where(x => !x.StartsWith("CombinedID") && !string.IsNullOrEmpty(x)))
                 {
-                    AppendColumnsForFileDiffs(lineSplitByTab[5], isPr: isPrAsNumber == 1);
+                    _sb.Clear();
+                    var lineSplitByTab = line.Split("\t");
+                    Prevalidate(headerIndices, lineSplitByTab);
+                    if (skipUnknownAreas && string.IsNullOrEmpty(lineSplitByTab[headerIndices["Area"]]))
+                    {
+                        continue;
+                    }
+
+                    Debug.Assert(int.TryParse(lineSplitByTab[headerIndices["ID"]], out int _)); // skip ID
+                    body = lineSplitByTab[headerIndices["Description"]];
+                    int.TryParse(lineSplitByTab[headerIndices["IsPR"]], out int isPrAsNumber);
+                    Debug.Assert((isPrAsNumber == 1 || isPrAsNumber == 0));
+
+                    area = lineSplitByTab[headerIndices["Area"]].Equals("area-Build", StringComparison.OrdinalIgnoreCase) ? "area-Infrastructure-coreclr" : lineSplitByTab[headerIndices["Area"]];
+                    _sb.Append(area)
+                        .Append('\t').Append(lineSplitByTab[headerIndices["Title"]])
+                        .Append('\t').Append(body)
+                        .Append('\t').Append(isPrAsNumber);
+                    _sb.Append('\t').Append(lineSplitByTab[headerIndices["IssueAuthor"]]);
+
+                    string commentsCombined = CommentsCombined(headerIndices, lineSplitByTab, out string moreMentions);
+                    AppendColumnsForUserMentions(body + " " + commentsCombined, moreMentions);
+                    //_sb.Append('\t').Append(commentsCombined);
+                    if (includeFileColumns)
+                    {
+                        AppendColumnsForFileDiffs(lineSplitByTab[headerIndices["FilePaths"]], isPr: isPrAsNumber == 1, repoFrom: lineSplitByTab[0].Split(",")[1]);
+                    }
+                    newLines.Add(_sb.ToString().Replace('"', '`'));
                 }
-                newLines[i] = _sb.ToString().Replace('"', '`');
             }
+
             File.WriteAllLines(output, newLines);
         }
+        private readonly StringBuilder _commentsSb = new StringBuilder();
+        private readonly StringBuilder _mentionsSb = new StringBuilder();
 
-        private void AppendColumnsForUserMentions(string body)
+
+        private string CommentsCombined(Dictionary<string, int> headerIndices, string[] splits, out string moreMentions)
+        {
+            moreMentions = string.Empty;
+            _commentsSb.Clear();
+            _mentionsSb.Clear();
+            for (int i = 12; i < splits.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(splits[i]))
+                {
+                    if (splits[i].Contains(" "))
+                    {
+                        if (_commentsSb.Length > 0)
+                        {
+                            _commentsSb.Append(". ");
+                        }
+                        _commentsSb.Append(splits[i]);
+                    }
+                    else
+                    {
+                        if (_mentionsSb.Length > 0)
+                        {
+                            _mentionsSb.Append(";");
+                        }
+                        _mentionsSb.Append(splits[i]);
+                    }
+                }
+            }
+            moreMentions = _mentionsSb.ToString();
+            return _commentsSb.ToString();
+        }
+
+        private void Prevalidate(Dictionary<string, int> headerIndices, string[] splits)
+        {
+            if (splits[headerIndices["IsPR"]].Equals("1"))
+            {
+                Debug.Assert(splits.Length == 25);
+                Debug.Assert(!string.IsNullOrEmpty(splits[headerIndices["IssueAuthor"]]));
+                Debug.Assert(!string.IsNullOrEmpty(splits[headerIndices["PrAuthor"]]));
+                if (!string.IsNullOrEmpty(splits[headerIndices["PrMerger"]]))
+                {
+                    Debug.Assert(splits[headerIndices["PrMerger"]].Split(";").Length == 1);
+                }
+                if (!string.IsNullOrEmpty(splits[headerIndices["PrAssignee"]]))
+                {
+                    Debug.Assert(splits[headerIndices["PrAssignee"]].Split(";").Length == 1);
+                }
+                if (!string.IsNullOrEmpty(splits[headerIndices["PrAssignees"]]))
+                {
+                    Debug.Assert(splits[headerIndices["PrAssignees"]].Split(" ").Length == 1);
+                }
+                if (!string.IsNullOrEmpty(splits[headerIndices["PrReviewers"]]))
+                {
+                    Debug.Assert(splits[headerIndices["PrReviewers"]].Split(" ").Length == 1);
+                }
+                if (!string.IsNullOrEmpty(splits[headerIndices["CommitCommenters"]]))
+                {
+                    Debug.Assert(splits[headerIndices["CommitCommenters"]].Split(" ").Length == 1);
+                }
+
+                //if (splits.Length == headerIndices.Count - 1)
+                //{
+                //    Debug.Assert(
+                //        (
+                //            (splits[0].Contains("corefx") && int.Parse(splits[0].Split(",")[2]) < 30192) ||
+                //            (splits[0].Contains("coreclr") && int.Parse(splits[0].Split(",")[2]) < 18613)
+                //        ) &&
+                //        splits.Length == 24 && headerIndices.Count == 25);
+
+                //    for (int i = 12; i < splits.Length; i++)
+                //    {
+                //        Debug.Assert(!splits[i].Contains("LGTM") && !splits[i].Contains(" "));
+                //    }
+                //}
+                //else
+                //{
+                    Debug.Assert(!string.IsNullOrEmpty(splits[headerIndices["IssueAuthor"]]));
+                    Debug.Assert(
+                        (
+                            (splits[0].Contains("core-setup")) ||
+                            (splits[0].Contains("corefx")) ||// && int.Parse(splits[0].Split(",")[2]) >= 30192) ||
+                            (splits[0].Contains("coreclr")) ||// && int.Parse(splits[0].Split(",")[2]) >= 18613)
+                            (splits[0].Contains("runtime"))
+                        ) &&
+                        splits.Length == 25 && headerIndices.Count == 25);
+
+                    for (int i = 12; i < headerIndices.Count; i++)
+                    {
+                        if (i == 22 || i == 24)
+                        {
+                            continue;
+                        }
+                        Debug.Assert(!(splits[i].Contains("LGTM") || splits[i].Contains(" ")));
+                    }
+                //}
+            }
+            else
+            {
+                Debug.Assert(splits.Length == headerIndices.Count - 1);
+                Debug.Assert(splits.Length == 24 && headerIndices.Count == 25);
+
+                Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrMerger"]]));
+                Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrAuthor"]]));
+                Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrAssignee"]]));
+                Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrAssignees"]]));
+                Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrReviewers"]]));
+            }
+        }
+
+        private void AppendColumnsForUserMentions(string body, string moreMentions)
         {
             var userMentions = _regexForUserMentions.Matches(body).Select(x => x.Value).ToArray();
+            userMentions = userMentions.Union(moreMentions.Split(";").Select(x => "@" + x)).ToArray();
             _sb.Append('\t').Append(userMentions.Length)
                 .Append('\t').Append(FlattenIntoColumn(userMentions));
         }
 
-        private void AppendColumnsForFileDiffs(string semicolonDelimitedFilesWithDiff, bool isPr)
+        private void AppendColumnsForFileDiffs(string semicolonDelimitedFilesWithDiff, bool isPr, string repoFrom, bool alreadyFixed = true)
         {
             if (isPr)
             {
@@ -174,12 +333,53 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Helpers
                 _sb.Append('\t').Append(numFilesChanged);
                 if (numFilesChanged != 0)
                 {
-                    _diffHelper.ResetTo(filePaths);
+                    if (!alreadyFixed)
+                    {
+                        for (int i = 0; i < filePaths.Length; i++)
+                        {
+                            if (filePaths[i].StartsWith($"src/coreclr/"))
+                            {
+                                filePaths[i] = $"src/coreclr/src/" + filePaths[i].Substring(
+                                    $"src/coreclr/".Length);
+                            }
+                            if (filePaths[i].Contains($"src/coreclr/src/mscorlib/shared/"))
+                            {
+                                filePaths[i] = filePaths[i].Replace(
+                                    $"src/coreclr/src/mscorlib/shared/",
+                                    $"src/libraries/System.Private.CoreLib/src/");
+                            }
+                            if (filePaths[i].Contains($"src/coreclr/System.Private.CoreLib/shared"))
+                            {
+                                filePaths[i] = filePaths[i].Replace(
+                                    $"src/coreclr/src/System.Private.CoreLib/shared/",
+                                    $"src/libraries/System.Private.CoreLib/src/");
+                            }
+                            else if (filePaths[i].Contains($".azure-ci.yml"))
+                            {
+                                filePaths[i] = filePaths[i].Replace(
+                                    $".azure-ci.yml",
+                                    $"eng/pipelines/" + repoFrom + $"/.azure-ci.yml");
+                            }
+                            else if (filePaths[i].Contains($"azure-pipelines.yml"))
+                            {
+                                filePaths[i] = filePaths[i].Replace(
+                                    $"azure-pipelines.yml",
+                                    $"eng/pipelines/" + repoFrom + $"/azure-pipelines.yml");
+                            }
+                            else if (filePaths[i].Contains($"eng/pipelines/"))
+                            {
+                                filePaths[i] = filePaths[i].Replace(
+                                    $"eng/pipelines",
+                                    $"eng/pipelines/" + repoFrom);
+                            }
+                        }
+                    }
+                    var segmentedDiff = _diffHelper.SegmentDiff(filePaths);
                     _sb.Append('\t').Append(FlattenIntoColumn(filePaths))
-                        .Append('\t').Append(FlattenIntoColumn(_diffHelper.Filenames))
-                        .Append('\t').Append(FlattenIntoColumn(_diffHelper.Extensions))
-                        .Append('\t').Append(FlattenIntoColumn(_diffHelper.FolderNames))
-                        .Append('\t').Append(FlattenIntoColumn(_diffHelper.Folders));
+                        .Append('\t').Append(FlattenIntoColumn(segmentedDiff.filenames))
+                        .Append('\t').Append(FlattenIntoColumn(segmentedDiff.extensions))
+                        .Append('\t').Append(FlattenIntoColumn(segmentedDiff.folderNames))
+                        .Append('\t').Append(FlattenIntoColumn(segmentedDiff.folders));
                 }
                 else
                 {

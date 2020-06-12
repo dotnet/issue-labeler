@@ -26,15 +26,49 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public float IsPR;
 
         [LoadColumn(4)]
-        public Single NumMentions;
+        public string IssueAuthor;
 
         [LoadColumn(5)]
+        public Single NumMentions;
+
+        [LoadColumn(6)]
         public string UserMentions;
 
         [NoColumn]
-        public List<object> Labels { get; set; }
+        public List<Label> Labels { get; set; }
 
         [NoColumn]
         public int Number { get; set; }
+    }
+
+    public class Label
+    {
+        [LoadColumn(0)]
+        [ColumnName("id")]
+        public long Id;
+
+        [LoadColumn(1)]
+        [ColumnName("node_id")]
+        public string NodeId;
+
+        [LoadColumn(2)]
+        [ColumnName("url")]
+        public string Url;
+
+        [LoadColumn(3)]
+        [ColumnName("name")]
+        public string Name;
+
+        [LoadColumn(4)]
+        [ColumnName("color")]
+        public string Color;
+
+        [LoadColumn(5)]
+        [ColumnName("default")]
+        public bool Flag;
+
+        [LoadColumn(6)]
+        [ColumnName("description")]
+        public string Description;
     }
 }

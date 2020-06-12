@@ -11,5 +11,6 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public IssueModel Issue { set; get; }
 
         public PrModel Pull_Request { set; get; }
+        public Label Label { set; get; }
     }
 }

@@ -4,6 +4,8 @@
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
@@ -25,19 +27,43 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         {
             IssueModel issueOrPullRequest = data.Issue ?? data.Pull_Request;
             GithubObjectType issueOrPr = data.Issue == null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
-
-            if (data.Action == "opened" && issueOrPullRequest.Labels.Count == 0)
+            bool areaLabelAddedOrNewlyEmpty = false;
+            var labels = new List<string>();
+            int number = issueOrPullRequest.Number;
+            if (data.Action == "opened")
             {
-                string title = issueOrPullRequest.Title;
-                int number = issueOrPullRequest.Number;
-                string body = issueOrPullRequest.Body;
-
-                await Issuelabeler.PredictAndApplyLabelAsync(number, title, body, issueOrPr, Logger);
-                Logger.LogInformation("! Labeling completed");
+                areaLabelAddedOrNewlyEmpty = true;
+                var predictedLabels = await Issuelabeler.PredictLabelAsync(number, issueOrPr, Logger, canCommentOnIssue: false);
+                labels.AddRange(predictedLabels);
+            }
+            else if (data.Action == "unlabeled" || data.Action == "labeled")
+            {
+                if (data.Label != null && !string.IsNullOrEmpty(data.Label.Name))
+                {
+                    string labelName = data.Label.Name;
+                    if (labelName.StartsWith("area-"))
+                    {
+                        Logger.LogInformation($"! Area label {labelName} for {issueOrPr} {issueOrPullRequest.Number} got {data.Action}.");
+                        areaLabelAddedOrNewlyEmpty = true;
+                    }
+                }
             }
             else
             {
-                Logger.LogInformation($"! The {issueOrPr} {issueOrPullRequest.Number} is already opened or it already has a label");
+                Logger.LogInformation($"! The {issueOrPr} {issueOrPullRequest.Number} was {data.Action}.");
+            }
+
+            if (areaLabelAddedOrNewlyEmpty)
+            {
+                if (issueOrPr == GithubObjectType.Issue)
+                {
+                    labels.Add("untriaged");
+                }
+            }
+
+            if (labels.Count > 0)
+            {
+                await Issuelabeler.UpdateAreaLabelAsync(number, issueOrPr, Logger, labels);
             }
         }
     }
