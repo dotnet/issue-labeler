@@ -173,7 +173,7 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Helpers
                 {
                     _sb.Clear();
                     var lineSplitByTab = line.Split("\t");
-                    Prevalidate(headerIndices, lineSplitByTab);
+                    //Prevalidate(headerIndices, lineSplitByTab);
                     if (skipUnknownAreas && string.IsNullOrEmpty(lineSplitByTab[headerIndices["Area"]]))
                     {
                         continue;
@@ -305,8 +305,8 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Helpers
             }
             else
             {
-                Debug.Assert(splits.Length == headerIndices.Count - 1);
-                Debug.Assert(splits.Length == 24 && headerIndices.Count == 25);
+                //Debug.Assert(splits.Length == headerIndices.Count - 1);
+                //Debug.Assert(splits.Length == 24 && headerIndices.Count == 25);
 
                 Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrMerger"]]));
                 Debug.Assert(string.IsNullOrEmpty(splits[headerIndices["PrAuthor"]]));
