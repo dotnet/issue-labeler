@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <!-- Libs -->
+    <CommandLineParserVersion>2.2.1</CommandLineParserVersion>
+    <MicrosoftAzureServicesAppAuthenticationVersion>1.3.1</MicrosoftAzureServicesAppAuthenticationVersion>
+    <!-- update MicrosoftDataAnalysisVersion to 2.0.0 -->
+    <MicrosoftDataAnalysisVersion>0.1.0</MicrosoftDataAnalysisVersion>
+    <OctokitVersion>0.32.0</OctokitVersion>
+    <MicrosoftAspNetCoreAllVersion>2.0.0</MicrosoftAspNetCoreAllVersion>
+    <MicrosoftDotNetGitHubIssueLabelerAssetsVersion>1.12.5</MicrosoftDotNetGitHubIssueLabelerAssetsVersion>
+    <MicrosoftMLVersion>1.0.0</MicrosoftMLVersion>
+    <MicrosoftVisualStudioWebCodeGenerationDesignVersion>2.0.4</MicrosoftVisualStudioWebCodeGenerationDesignVersion>
+  </PropertyGroup>
+</Project>

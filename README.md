@@ -1,18 +1,13 @@
-# New Repo Project
+# Issue Labeler Project
 
-The new-repo project is a default template for .NET Foundation projects. It's also probably a fine start for other .NET projects (have at it, but change the license). It contains the correct license, a decent README, and initial project structure (including a standard .gitignore for the Visual Studio family of products).
+issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on github issues and pull requests. We consider labels  with names starting with "area-" as the label of interest, even though that could be easily configured to be anything else. This repository shows how we could use existing issue and pull requests on a github repository to train ML models that can in turn be used for predicting area labels of incoming issues on any given trained repository automatically upon creation.
+
+## How it works
+The pretrained [ML.NET](https://github.com/dotnet/machinelearning) model is consumed through a nuget package Microsoft.DotNet.GitHubIssueLabeler.Assets. This model has been trained on over 15,000 issues, and 10,000 PRs already labeled in the runtime repo. To see a simple end-to-end machine learning sample for how to create a model, you can check [here](https://github.com/dotnet/machinelearning-samples/tree/master/samples/csharp/end-to-end-apps/MulticlassClassification-GitHubLabeler).
+
+Whenever an issue is opened in the repo, the web api receives the payload (using webhooks) containing all the information about the issue like title, body, milestone, issue number etc. It then supplies this information to already loaded pretrained model and the model predicts a probability distribution over the all possible labels. We then take the label with maximum probability and compare it with a threshold. if the predicted probability is greater than threshold then we apply the label otherwise we do nothing. We use a separate model for predicting label for pull requests, since PRs contain extra information through their file diffs. 
 
 You can learn more about the project from the project [Documentation](Documentation).
-
-## Using New Repo
-
-You can simply `git clone` this project to get started. It is recommended that you don't preserve history of the project (it isn't generally meaningful) for your repo, but make a copy and `git init` your project from source.
-
-Consult [CHECKLIST.md] for helpful suggestions on preparing your repo to go public.
-
-## Building
-
-You don't "build" New Repo, however, this will be meaningful for many other projects.
 
 ## Contributing
 
@@ -27,12 +22,12 @@ This project is licensed with the [MIT license](LICENSE).
 
 ## .NET Foundation
 
-New Repo is a [.NET Foundation project](https://dotnetfoundation.org/projects).
+issue-labeler is a [.NET Foundation project](https://dotnetfoundation.org/projects).
 
 ## Related Projects
 
 You should take a look at these related projects:
 
-- [.NET Core](https://github.com/dotnet/core)
-- [ASP.NET](https://github.com/aspnet)
-- [Mono](https://github.com/mono)
+- [dotnet/machinelearning](https://github.com/dotnet/machinelearning)
+- [dotnet/runtime](https://github.com/dotnet/runtime)
+- [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
