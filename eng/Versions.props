@@ -8,8 +8,10 @@
     <MicrosoftDataAnalysisVersion>0.1.0</MicrosoftDataAnalysisVersion>
     <OctokitVersion>0.32.0</OctokitVersion>
     <MicrosoftAspNetCoreAllVersion>2.0.0</MicrosoftAspNetCoreAllVersion>
-    <MicrosoftDotNetGitHubIssueLabelerAssetsVersion>1.12.5</MicrosoftDotNetGitHubIssueLabelerAssetsVersion>
-    <MicrosoftMLVersion>1.0.0</MicrosoftMLVersion>
+    <MicrosoftDotNetGitHubIssueLabelerAssetsVersion>1.12.6</MicrosoftDotNetGitHubIssueLabelerAssetsVersion>
+    <MicrosoftAutoMLVersion>0.15.1</MicrosoftAutoMLVersion>
+    <MicrosoftMLVersion>1.5.0</MicrosoftMLVersion>
     <MicrosoftVisualStudioWebCodeGenerationDesignVersion>2.0.4</MicrosoftVisualStudioWebCodeGenerationDesignVersion>
   </PropertyGroup>
 </Project>
+ 

@@ -9,22 +9,22 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
     public class PrModel : IssueModel
     {
-        [LoadColumn(7)]
-        public Single FileCount;
-
-        [LoadColumn(8)]
-        public string Files;
-
         [LoadColumn(9)]
-        public string Filenames;
+        public float FileCount;
 
         [LoadColumn(10)]
-        public string FileExtensions;
+        public string Files;
 
         [LoadColumn(11)]
-        public string FolderNames;
+        public string Filenames;
 
         [LoadColumn(12)]
+        public string FileExtensions;
+
+        [LoadColumn(13)]
+        public string FolderNames;
+
+        [LoadColumn(14)]
         public string Folders;
 
         [NoColumn]

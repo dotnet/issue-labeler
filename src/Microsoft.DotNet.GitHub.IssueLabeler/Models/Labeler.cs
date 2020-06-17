@@ -280,9 +280,9 @@ area-System.ComponentModel : split off System.ComponentModel.Composition (for ME
             {
                 Number = number,
                 Title = title,
-                Body = body,
+                Description = body,
                 IsPR = 0,
-                IssueAuthor = author,
+                Author = author,
                 UserMentions = string.Join(' ', userMentions),
                 NumMentions = userMentions.Length
             };
@@ -294,9 +294,9 @@ area-System.ComponentModel : split off System.ComponentModel.Composition (for ME
             {
                 Number = number,
                 Title = title,
-                Body = body,
+                Description = body,
                 IsPR = 1,
-                IssueAuthor = author,
+                Author = author,
                 UserMentions = string.Join(' ', userMentions),
                 NumMentions = userMentions.Length,
             };

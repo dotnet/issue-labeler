@@ -13,26 +13,31 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     {
         [JsonIgnore]
         [LoadColumn(0)]
-        public string Area;
+        public string CombinedID;
 
         [LoadColumn(1)]
-        public string Title;
+        public float ID;
 
         [LoadColumn(2)]
-        [ColumnName("Description")]
-        public string Body;
+        public string Area;
 
         [LoadColumn(3)]
-        public float IsPR;
+        public string Title;
 
         [LoadColumn(4)]
-        public string IssueAuthor;
+        public string Description;
 
         [LoadColumn(5)]
-        public Single NumMentions;
+        public string Author;
 
         [LoadColumn(6)]
+        public float IsPR;
+
+        [LoadColumn(7)]
         public string UserMentions;
+
+        [LoadColumn(8)]
+        public float NumMentions;
 
         [NoColumn]
         public List<Label> Labels { get; set; }
