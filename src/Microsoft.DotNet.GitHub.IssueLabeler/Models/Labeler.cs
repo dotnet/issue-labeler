@@ -140,7 +140,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
         }
 
-        internal async Task<string> JustPredictLabelAsync(int number, ILogger logger)
+        internal async Task<Hubbup.MikLabelModel.LabelSuggestion> JustPredictLabelAsync(int number, ILogger logger)
         {
             if (_client == null)
             {
@@ -154,30 +154,23 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             logger.LogInformation($"! Just checking for {iop} {number}.");
             bool isPr = iop.PullRequest != null;
             var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
-            string areaLabel = null;
+            Hubbup.MikLabelModel.LabelSuggestion labelSuggestion = null;
             if (!isPr)
             {
                 IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
-                areaLabel = Predictor.Predict(issue, logger, _threshold);
+                labelSuggestion = Predictor.Predict(_repoOwner, _repoName, issue, logger, _threshold);
             }
             else
             {
                 PrModel pr = await CreatePullRequest(number, iop.Title, iop.Body, userMentions, iop.User.Login, logger);
-                areaLabel = Predictor.Predict(pr, logger, _threshold);
+                labelSuggestion = Predictor.Predict(_repoOwner, _repoName, pr, logger, _threshold);
                 if (pr.ShouldAddDoc)
                 {
                     logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
                 }
             }
-
-            if (areaLabel == null)
-            {
-                logger.LogInformation($"! The Model was not able to assign the label to the {iop} {number} confidently.");
-            }
-            logger.LogInformation($"! Just checked for {iop} {number}.");
-            return RenameMapping(areaLabel);
+            return labelSuggestion;
         }
-
 
         internal async Task<List<string>> PredictLabelAsync(int number, GithubObjectType issueOrPr, ILogger logger, bool canCommentOnIssue = false)
         {
@@ -193,16 +186,16 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
 
             List<string> labels = new List<string>();
-            string areaLabel = null;
+            Hubbup.MikLabelModel.LabelSuggestion labelSuggestion = null;
             if (issueOrPr == GithubObjectType.Issue)
             {
                 IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
-                areaLabel = Predictor.Predict(issue, logger, _threshold);
+                labelSuggestion = Predictor.Predict(_repoOwner, _repoName, issue, logger, _threshold);
             }
             else
             {
                 PrModel pr = await CreatePullRequest(number, iop.Title, iop.Body, userMentions, iop.User.Login, logger);
-                areaLabel = Predictor.Predict(pr, logger, _threshold);
+                labelSuggestion = Predictor.Predict(_repoOwner, _repoName, pr, logger, _threshold);
                 if (pr.ShouldAddDoc)
                 {
                     logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
@@ -218,60 +211,21 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 }
             }
 
-            if (areaLabel == null)
+            var topChoice = labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
+            if (topChoice.Score < _threshold)
             {
                 logger.LogInformation($"! The Model was not able to assign the label to the {issueOrPr} {number} confidently.");
             }
             else
             {
-                labels.Add(RenameMapping(areaLabel));
+                if (topChoice.LabelName.Equals("area-Infrastructure") || topChoice.LabelName.Equals("area-System.Runtime"))
+                {
+                    logger.LogInformation($"# skipped: prefer manual prediction instead.");
+                    return labels;
+                }
+                labels.Add(topChoice.LabelName);
             }
             return labels;
-        }
-
-        private static string RenameMapping(string predictedLabel)
-        {
-            var ret = predictedLabel;
-            switch (predictedLabel)
-            {
-                /* ????
-area-System.ComponentModel : split off System.ComponentModel.Composition (for MEF1 specific issues)
-                 */
-                case "area-Meta-corelib":
-                    ret = "area-Meta";
-                    break;
-                case "area-System.AppContext":
-                case "area-System.Runtime.Extensions":
-                    ret = "area-System.Runtime";
-                    break;
-                case "area-System.IO.Packaging":
-                    ret = "area-System.IO.Compression";
-                    break;
-                case "area-System.Security.Cryptography.Xml":
-                    ret = "area-System.Security";
-                    break;
-                case "area-AssemblyLoader":
-                case "area-CodeGen":
-                case @"area-CrossGen/NGEN":
-                case "area-crossgen2":
-                case "area-Diagnostics":
-                case "area-ExceptionHandling":
-                case "area-GC":
-                case "area-Interop":
-                case "area-PAL":
-                case "area-TieredCompilation":
-                case "area-Tracing":
-                case "area-TypeSystem":
-                case "area-R2RDump":
-                case "area-ReadyToRun":
-                case "area-ILTools":
-                case "area-VM":
-                    ret = predictedLabel + "-coreclr";
-                    break;
-                default:
-                    break;
-            }
-            return ret;
         }
 
         private static IssueModel CreateIssue(int number, string title, string body, string[] userMentions, string author)

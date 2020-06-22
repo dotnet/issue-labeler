@@ -43,10 +43,13 @@ namespace CreateMikLabelModel.ML
             TrainerSetup = (trainers) =>
             {
                 trainers.Clear();
-                trainers.Add(MulticlassClassificationTrainer.SdcaMaximumEntropy);
+                if (forPrs)
+                    trainers.Add(MulticlassClassificationTrainer.FastTreeOva);
+                else
+                    trainers.Add(MulticlassClassificationTrainer.SdcaMaximumEntropy);
             };
 
-            ExperimentTime = 60;
+            ExperimentTime = 300;
             LabelColumnName = "Area";
             ForPrs = forPrs;
             Paths = paths;

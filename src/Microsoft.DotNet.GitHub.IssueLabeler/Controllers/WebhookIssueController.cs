@@ -2,9 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Hubbup.MikLabelModel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -31,15 +32,16 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             // process has been started > in logger and time
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetProduct(int id)
+        [HttpGet("{owner}/{repo}/{id}")]
+        public async Task<IActionResult> GetIssueOrPr(string owner, string repo, int id)
         {
-            string label = await Issuelabeler.JustPredictLabelAsync(id, Logger);
-            if (string.IsNullOrEmpty(label))
-            {
-                return NotFound("couldnt confidently predict label");
-            }
-            return Ok($"Label for issue {id} is {label}.");
+            Logger.LogInformation("Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
+            // todo: return top 3 predictions only for dotnet/runtime for now
+            if (!owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) ||
+                !repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))
+                return NotFound("returning top 3 predictions only for dotnet/runtime for now");
+            LabelSuggestion labelSuggestion = await Issuelabeler.JustPredictLabelAsync(id, Logger);
+            return Ok(labelSuggestion);
         }
 
         [HttpPost]

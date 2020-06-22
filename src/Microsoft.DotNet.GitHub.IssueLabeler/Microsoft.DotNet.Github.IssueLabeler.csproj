@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Hubbup.MikLabelModel\Hubbup.MikLabelModel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="$(CommandLineParserVersion)" />
     <PackageReference Include="Microsoft.AspNetCore.All" Version="$(MicrosoftAspNetCoreAllVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
