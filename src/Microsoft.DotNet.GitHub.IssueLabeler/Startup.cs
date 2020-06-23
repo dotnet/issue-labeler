@@ -2,9 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Hubbup.MikLabelModel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.DotNet.Github.IssueLabeler.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,16 +22,14 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public void ConfigureServices(IServiceCollection services)
         {
             var diffHelper = new DiffHelper();
-            var datasetHelper = new DatasetHelper(diffHelper);
             var labeler = new Labeler(
                     Configuration["GitHubRepoOwner"],
                     Configuration["GitHubRepoName"],
                     Configuration["SecretUri"],
-                    double.Parse(Configuration["Threshold"]), diffHelper, datasetHelper);
+                    double.Parse(Configuration["Threshold"]), diffHelper);
             services.AddMvc();
 
             services.AddSingleton(labeler)
-            .AddSingleton(datasetHelper)
             .AddSingleton(diffHelper);
         }
 

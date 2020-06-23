@@ -2,10 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Hubbup.MikLabelModel;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.Services.AppAuthentication;
-using Microsoft.DotNet.Github.IssueLabeler.Helpers;
 using Microsoft.Extensions.Logging;
 using Octokit;
 using System;
@@ -27,7 +27,6 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private readonly double _threshold;
         private readonly string _secretUri;
         private readonly DiffHelper _diffHelper;
-        private readonly DatasetHelper _datasetHelper;
         private readonly string MessageToAddDoc =
             "Note regarding the `new-api-needs-documentation` label:" + Environment.NewLine + Environment.NewLine +
             "This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.";
@@ -40,14 +39,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 @"https://github.com/dotnet/runtime/blob/master/docs/area-owners.md" +
             ")";
 
-        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper, DatasetHelper datasetHelper)
+        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper)
         {
             _repoOwner = repoOwner;
             _repoName = repoName;
             _threshold = threshold;
             _secretUri = secretUri;
             _diffHelper = diffHelper;
-            _datasetHelper = datasetHelper;
         }
 
         private async Task GitSetupAsync()
@@ -140,7 +138,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
         }
 
-        internal async Task<Hubbup.MikLabelModel.LabelSuggestion> JustPredictLabelAsync(int number, ILogger logger)
+        internal async Task<LabelSuggestion> JustPredictLabelAsync(int number, ILogger logger)
         {
             if (_client == null)
             {
@@ -154,7 +152,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             logger.LogInformation($"! Just checking for {iop} {number}.");
             bool isPr = iop.PullRequest != null;
             var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
-            Hubbup.MikLabelModel.LabelSuggestion labelSuggestion = null;
+            LabelSuggestion labelSuggestion = null;
             if (!isPr)
             {
                 IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
@@ -186,7 +184,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
 
             List<string> labels = new List<string>();
-            Hubbup.MikLabelModel.LabelSuggestion labelSuggestion = null;
+            LabelSuggestion labelSuggestion = null;
             if (issueOrPr == GithubObjectType.Issue)
             {
                 IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
@@ -259,11 +257,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 string[] filePaths = prFiles.Select(x => x.FileName).ToArray();
                 var segmentedDiff = _diffHelper.SegmentDiff(filePaths);
-                pr.Files = _datasetHelper.FlattenIntoColumn(segmentedDiff.fileDiffs);
-                pr.Filenames = _datasetHelper.FlattenIntoColumn(segmentedDiff.filenames);
-                pr.FileExtensions = _datasetHelper.FlattenIntoColumn(segmentedDiff.extensions);
-                pr.Folders = _datasetHelper.FlattenIntoColumn(segmentedDiff.folders);
-                pr.FolderNames = _datasetHelper.FlattenIntoColumn(segmentedDiff.folderNames);
+                pr.Files = string.Join(' ', segmentedDiff.FileDiffs);
+                pr.Filenames = string.Join(' ', segmentedDiff.Filenames);
+                pr.FileExtensions = string.Join(' ', segmentedDiff.Extensions);
+                pr.Folders = _diffHelper.FlattenWithWhitespace(segmentedDiff.Folders);
+                pr.FolderNames = _diffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames);
                 try
                 {
                     pr.ShouldAddDoc = await prAddsNewApi(pr.Number);
@@ -271,7 +269,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 catch (Exception ex)
                 {
                     logger.LogInformation("! problem with new approach: " + ex.Message);
-                    pr.ShouldAddDoc = segmentedDiff.addDocInfo;
+                    pr.ShouldAddDoc = segmentedDiff.AddDocInfo;
                 }
             }
             pr.FileCount = prFiles.Count;
