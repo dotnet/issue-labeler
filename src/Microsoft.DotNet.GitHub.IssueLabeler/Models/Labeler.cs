@@ -31,9 +31,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             "Note regarding the `new-api-needs-documentation` label:" + Environment.NewLine + Environment.NewLine +
             "This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.";
         private readonly string MessageToAddAreaLabelForPr =
-            "I couldn't figure out the best area label to add to this PR. Please help me learn by adding exactly one " + AreaLabelLinked + ".";
+            "I couldn't figure out the best area label to add to this PR. If you have write-permissions please help me learn by adding exactly one " + AreaLabelLinked + ".";
         private readonly string MessageToAddAreaLabelForIssue =
-            "I couldn't figure out the best area label to add to this issue. Please help me learn by adding exactly one " + AreaLabelLinked + ".";
+            "I couldn't figure out the best area label to add to this issue. If you have write-permissions please help me learn by adding exactly one " + AreaLabelLinked + ".";
         private static readonly string AreaLabelLinked =
             "[area label](" + 
                 @"https://github.com/dotnet/runtime/blob/master/docs/area-owners.md" +
