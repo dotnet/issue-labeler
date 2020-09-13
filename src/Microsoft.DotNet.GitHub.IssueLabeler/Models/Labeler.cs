@@ -6,6 +6,7 @@ using Hubbup.MikLabelModel;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.Services.AppAuthentication;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Octokit;
 using System;
@@ -26,45 +27,64 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private readonly string _repoName;
         private readonly double _threshold;
         private readonly string _secretUri;
+        private readonly bool _skipAzureKeyVault;
         private readonly DiffHelper _diffHelper;
         private readonly string MessageToAddDoc =
             "Note regarding the `new-api-needs-documentation` label:" + Environment.NewLine + Environment.NewLine +
             "This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.";
-        private readonly string MessageToAddAreaLabelForPr =
-            "I couldn't figure out the best area label to add to this PR. If you have write-permissions please help me learn by adding exactly one " + AreaLabelLinked + ".";
-        private readonly string MessageToAddAreaLabelForIssue =
-            "I couldn't figure out the best area label to add to this issue. If you have write-permissions please help me learn by adding exactly one " + AreaLabelLinked + ".";
-        private static readonly string AreaLabelLinked =
-            "[area label](" + 
+        private string _messageToAddAreaLabelForPr =>
+            "I couldn't figure out the best area label to add to this PR. If you have write-permissions please help me learn by adding exactly one " + _areaLabelLinked + ".";
+        private string _messageToAddAreaLabelForIssue =>
+            "I couldn't figure out the best area label to add to this issue. If you have write-permissions please help me learn by adding exactly one " + _areaLabelLinked + ".";
+        private string _areaLabelLinked =>
+            _repoName.Equals("runtime", StringComparison.OrdinalIgnoreCase) ? "[area label](" + 
                 @"https://github.com/dotnet/runtime/blob/master/docs/area-owners.md" +
-            ")";
+            ")" : "area label";
 
-        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper)
+        public string RepoOwner { get => _repoOwner; }
+        public string RepoName { get => _repoName; }
+
+        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper, bool skipAzureKeyVault)
         {
             _repoOwner = repoOwner;
             _repoName = repoName;
             _threshold = threshold;
             _secretUri = secretUri;
             _diffHelper = diffHelper;
+            _skipAzureKeyVault = skipAzureKeyVault;
         }
 
         private async Task GitSetupAsync()
         {
-            AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider();
-            KeyVaultClient keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
-            SecretBundle secretBundle = await keyVaultClient.GetSecretAsync(_secretUri).ConfigureAwait(false);
+            string gitHubAccessToken = null;
+            if (_skipAzureKeyVault)
+            {
+                const string UserSecretKey = "GitHubAccessToken";
+                var config = new ConfigurationBuilder()
+                    .AddUserSecrets("AspNetHello.App")
+                    .Build();
+
+                gitHubAccessToken = config[UserSecretKey];
+            }
+            else
+	        {
+                AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider();
+                KeyVaultClient keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
+                SecretBundle secretBundle = await keyVaultClient.GetSecretAsync(_secretUri).ConfigureAwait(false);
+                gitHubAccessToken = secretBundle.Value;
+            }
 
             var productInformation = new ProductHeaderValue("MLGitHubLabeler");
             _client = new GitHubClient(productInformation)
             {
-                Credentials = new Credentials(secretBundle.Value)
+                Credentials = new Credentials(gitHubAccessToken)
             };
 
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Clear();
             _httpClient.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AppName", "1.0"));
             _httpClient.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Token", secretBundle.Value);
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Token", gitHubAccessToken);
             _httpClient.BaseAddress = new Uri("https://github.com/");
             _httpClient.Timeout = new TimeSpan(0, 0, 30);
         }
@@ -129,11 +149,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 if (issueOrPr == GithubObjectType.Issue)
                 {
-                    await _client.Issue.Comment.Create(_repoOwner, _repoName, number, MessageToAddAreaLabelForIssue);
+                    await _client.Issue.Comment.Create(_repoOwner, _repoName, number, _messageToAddAreaLabelForIssue);
                 }
                 else
                 {
-                    await _client.Issue.Comment.Create(_repoOwner, _repoName, number, MessageToAddAreaLabelForPr);
+                    await _client.Issue.Comment.Create(_repoOwner, _repoName, number, _messageToAddAreaLabelForPr);
                 }
             }
         }
@@ -194,18 +214,21 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 PrModel pr = await CreatePullRequest(number, iop.Title, iop.Body, userMentions, iop.User.Login, logger);
                 labelSuggestion = Predictor.Predict(_repoOwner, _repoName, pr, logger, _threshold);
-                if (pr.ShouldAddDoc)
+                if (_repoOwner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repoName.Equals("runtime", StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
-                    if (canCommentOnIssue)
+                    if (pr.ShouldAddDoc)
                     {
-                        labels.Add("new-api-needs-documentation");
-                        await _client.Issue.Comment.Create(_repoOwner, _repoName, number, MessageToAddDoc);
+                        logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
+                        if (canCommentOnIssue)
+                        {
+                            labels.Add("new-api-needs-documentation");
+                            await _client.Issue.Comment.Create(_repoOwner, _repoName, number, MessageToAddDoc);
+                        }
                     }
-                }
-                if (iop.User.Login.Equals("monojenkins"))
-                {
-                    labels.Add("mono-mirror");
+                    if (iop.User.Login.Equals("monojenkins"))
+                    {
+                        labels.Add("mono-mirror");
+                    }
                 }
             }
 

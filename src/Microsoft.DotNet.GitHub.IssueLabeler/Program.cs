@@ -14,27 +14,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     {
         public static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0].Equals("Download", StringComparison.CurrentCultureIgnoreCase))
-            {
-                CommandLineOptions myOptions = null;
-                Parser.Default.ParseArguments<CommandLineOptions>(args).WithParsed(opts => myOptions = opts);
-
-                if (myOptions != null)
-                {
-                    GithubIssueDownloader githubIssueDownloader = new GithubIssueDownloader(myOptions.GithubToken,
-                                                                                            myOptions.Repository,
-                                                                                            myOptions.Owner,
-                                                                                            myOptions.StartIndex,
-                                                                                            myOptions.EndIndex,
-                                                                                            myOptions.Output);
-                    githubIssueDownloader.DownloadAndSaveAsync().Wait();
-                }
-                return;
-            }
-            else
-            {
-                BuildWebHost(args).Run();
-            }
+            BuildWebHost(args).Run();
         }
 
         public static IWebHost BuildWebHost(string[] args)

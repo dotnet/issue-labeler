@@ -21,6 +21,9 @@ namespace CreateMikLabelModel
                 ("dotnet", "extensions"),
             },
             new[] {
+                ("microsoft", "service-fabric")
+            },
+            new[] {
                 ("dotnet", "runtime"),      // first item is the target Repo
                 ("dotnet", "extensions"),   // the rest are archived repositories
                 ("dotnet", "corefx"),

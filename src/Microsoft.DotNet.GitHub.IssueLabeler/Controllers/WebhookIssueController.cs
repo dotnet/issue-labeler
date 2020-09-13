@@ -33,13 +33,14 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         }
 
         [HttpGet("{owner}/{repo}/{id}")]
+        [HttpGet("/{owner}/{repo}/{id}")]
         public async Task<IActionResult> GetIssueOrPr(string owner, string repo, int id)
         {
             Logger.LogInformation("Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
-            // todo: return top 3 predictions only for dotnet/runtime for now
-            if (!owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) ||
-                !repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))
-                return NotFound("returning top 3 predictions only for dotnet/runtime for now");
+            // todo: returns top 3 predictions only for one repo per app for now
+            if (!owner.Equals(Issuelabeler.RepoOwner, StringComparison.OrdinalIgnoreCase) ||
+                !repo.Equals(Issuelabeler.RepoName, StringComparison.OrdinalIgnoreCase))
+                return NotFound($"returning top 3 predictions only for {Issuelabeler.RepoOwner}/{Issuelabeler.RepoName} for now");
             LabelSuggestion labelSuggestion = await Issuelabeler.JustPredictLabelAsync(id, Logger);
             return Ok(labelSuggestion);
         }
