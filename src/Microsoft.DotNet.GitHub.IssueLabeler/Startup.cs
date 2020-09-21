@@ -29,7 +29,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 Configuration["SecretUri"],
                 double.Parse(Configuration["Threshold"]),
                 diffHelper,
-                !string.IsNullOrEmpty(Configuration["SkipAzureKeyVault"]) && bool.Parse(Configuration["SkipAzureKeyVault"])));
+                !string.IsNullOrEmpty(Configuration["SkipAzureKeyVault"]) && bool.Parse(Configuration["SkipAzureKeyVault"]));
             services.AddMvc();
 
             services.AddSingleton(labeler)
