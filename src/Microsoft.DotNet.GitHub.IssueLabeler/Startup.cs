@@ -22,14 +22,12 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public void ConfigureServices(IServiceCollection services)
         {
             var diffHelper = new DiffHelper();
-            bool.TryParse(Configuration["SkipAzureKeyVault"], out bool skipAzureKeyValue);
             var labeler = new Labeler(
                 Configuration["RepoOwner"],
                 Configuration["RepoName"],
                 Configuration["SecretUri"],
                 double.Parse(Configuration["Threshold"]),
-                diffHelper,
-                !string.IsNullOrEmpty(Configuration["SkipAzureKeyVault"]) && bool.Parse(Configuration["SkipAzureKeyVault"]));
+                diffHelper);
             services.AddMvc();
 
             services.AddSingleton(labeler)

@@ -42,7 +42,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public string RepoOwner { get; }
         public string RepoName { get; }
 
-        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper, bool skipAzureKeyVault)
+        public Labeler(string repoOwner, string repoName, string secretUri, double threshold, DiffHelper diffHelper, bool skipAzureKeyVault = false)
         {
             RepoOwner = repoOwner;
             RepoName = repoName;
