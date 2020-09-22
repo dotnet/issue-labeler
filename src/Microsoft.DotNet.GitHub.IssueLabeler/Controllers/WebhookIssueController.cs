@@ -33,7 +33,6 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         }
 
         [HttpGet("{owner}/{repo}/{id}")]
-        [HttpGet("/{owner}/{repo}/{id}")]
         public async Task<IActionResult> GetIssueOrPr(string owner, string repo, int id)
         {
             Logger.LogInformation("Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
