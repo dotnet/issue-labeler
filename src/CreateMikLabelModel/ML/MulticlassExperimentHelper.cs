@@ -139,14 +139,18 @@ namespace CreateMikLabelModel.ML
         public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.4)
         {
             var trainedModel = mlContext.Model.Load(files.FittedModelPath, out _);
-            IEnumerable<(string knownLabel, GitHubIssuePrediction predictedResult)> predictions = null;
+            IEnumerable<(string knownLabel, GitHubIssuePrediction predictedResult, string issueNumber)> predictions = null;
             if (forPrs)
             {
                 var testData = GetPullRequests(mlContext, files.TestPath);
                 Console.WriteLine($"count: {testData.Length}");
                 var prEngine = mlContext.Model.CreatePredictionEngine<GitHubPullRequest, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
-                   .Select(x => (knownLabel: x.Area, predictedResult: prEngine.Predict(x)));
+                   .Select(x => (
+                        knownLabel: x.Area, 
+                        predictedResult: prEngine.Predict(x),
+                        issueNumber: x.ID.ToString()
+                   ));
             }
             else
             {
@@ -154,7 +158,11 @@ namespace CreateMikLabelModel.ML
                 Console.WriteLine($"count: {testData.Length}");
                 var issueEngine = mlContext.Model.CreatePredictionEngine<GitHubIssue, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
-                   .Select(x => (knownLabel: x.Area, predictedResult: issueEngine.Predict(x)));
+                   .Select(x => (
+                        knownLabel: x.Area, 
+                        predictedResult: issueEngine.Predict(x),
+                        issueNumber: x.ID.ToString()
+                   ));
             }
 
             var analysis =
@@ -162,7 +170,8 @@ namespace CreateMikLabelModel.ML
                 (
                     knownLabel: x.knownLabel,
                     predictedArea: x.predictedResult.Area,
-                    confidentInPrediction: x.predictedResult.Score.Max() >= threshold
+                    confidentInPrediction: x.predictedResult.Score.Max() >= threshold,
+                    issueNumber: x.issueNumber
                 ));
 
             var countSuccess = analysis.Where(x =>
@@ -174,19 +183,22 @@ namespace CreateMikLabelModel.ML
 
             var mistakes = analysis
                 .Where(x => x.confidentInPrediction && !x.knownLabel.Equals(x.predictedArea, StringComparison.Ordinal))
-                .Select(x => $"Predicted: {x.predictedArea}, Actual:{x.knownLabel}")
-                .GroupBy(x => x)
+                .Select(x => new { Pair = $"Predicted: {x.predictedArea}, Actual:{x.knownLabel}", IssueNumbers = x.issueNumber })
+                .GroupBy(x => x.Pair)
                 .Select(x => new
                 {
                     Count = x.Count(),
-                    Name = x.Key
+                    PerdictedVsActual = x.Key,
+                    Items = x
                 })
                 .OrderByDescending(x => x.Count);
 
             Console.WriteLine($"countSuccess: {countSuccess}, missed: {missedOpportunity}");
             foreach (var mismatch in mistakes.AsEnumerable())
             {
-                Console.WriteLine($"{mismatch.Name}, NumFound:{mismatch.Count}");
+                Console.WriteLine($"{mismatch.PerdictedVsActual}, NumFound: {mismatch.Count}");
+                var sampleIssues = string.Join(", ", mismatch.Items.Select(x => x.IssueNumbers));
+                Console.WriteLine($" sampleIssues: {Environment.NewLine}{ sampleIssues }");
             }
         }
 

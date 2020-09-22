@@ -2,30 +2,35 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Hubbup.MikLabelModel;
 using Microsoft.Extensions.Logging;
 using Microsoft.ML;
+using Microsoft.ML.Data;
+using System;
+using System.IO;
 using System.Linq;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
     internal static class Predictor
     {
-        private static string PrModelPath => @"model\dotnet-runtime-GitHubPrLabelerModel.zip";
-        private static string IssueModelPath => @"model\dotnet-runtime-GitHubLabelerModel.zip";
+        private static string PrModelPath(string repoOwner, string repoName) => Path.Combine("model", repoOwner, repoName, "GitHubPrLabelerModel.zip");
+        private static string IssueModelPath(string repoOwner, string repoName) => Path.Combine("model", repoOwner, repoName, "GitHubLabelerModel.zip");
+
         private static PredictionEngine<IssueModel, GitHubIssuePrediction> issuePredEngine;
         private static PredictionEngine<PrModel, GitHubIssuePrediction> prPredEngine;
 
-        public static string Predict(IssueModel issue, ILogger logger, double threshold)
+        public static LabelSuggestion Predict(string repoOwner, string repoName, IssueModel issue, ILogger logger, double threshold)
         {
-            return Predict(issue, ref issuePredEngine, IssueModelPath, logger, threshold);
+            return Predict(issue, ref issuePredEngine, IssueModelPath(repoOwner, repoName), logger, threshold);
         }
 
-        public static string Predict(PrModel issue, ILogger logger, double threshold)
+        public static LabelSuggestion Predict(string repoOwner, string repoName, PrModel issue, ILogger logger, double threshold)
         {
-            return Predict(issue, ref prPredEngine, PrModelPath, logger, threshold);
+            return Predict(issue, ref prPredEngine, PrModelPath(repoOwner, repoName), logger, threshold);
         }
 
-        public static string Predict<T>(
+        public static LabelSuggestion Predict<T>(
             T issueOrPr,
             ref PredictionEngine<T, GitHubIssuePrediction> predEngine,
             string modelPath,
@@ -41,20 +46,19 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
 
             GitHubIssuePrediction prediction = predEngine.Predict(issueOrPr);
+
+            VBuffer<ReadOnlyMemory<char>> slotNames = default;
+            predEngine.OutputSchema[nameof(GitHubIssuePrediction.Score)].GetSlotNames(ref slotNames);
+
             float[] probabilities = prediction.Score;
+            var labelPredictions = MikLabelerPredictor.GetBestThreePredictions(probabilities, slotNames);
+
             float maxProbability = probabilities.Max();
             logger.LogInformation($"# {maxProbability} {prediction.Area} for #{issueOrPr.Number} {issueOrPr.Title}");
-            if (
-                (prediction.Area.Equals("area-Infrastructure") && !issueOrPr.Author.Equals("jaredpar"))
-                ||
-                prediction.Area.Equals("area-System.Runtime")
-                )
+            return new LabelSuggestion
             {
-                logger.LogInformation($"# skipped: TODO analyze if ever this was useful. {maxProbability} {prediction.Area} for #{issueOrPr.Number} {issueOrPr.Title}");
-                return null;
-            }
-
-            return maxProbability > threshold ? prediction.Area : null;
+                LabelScores = labelPredictions,
+            };
         }
     }
 }

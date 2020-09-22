@@ -75,6 +75,18 @@ namespace Hubbup.MikLabelModel
             };
         }
 
+        public static List<LabelAreaScore> GetBestThreePredictions(float[] scores, VBuffer<ReadOnlyMemory<char>> slotNames)
+        {
+            var topThreeScores = GetIndexesOfTopScores(scores, 3);
+
+            return new List<LabelAreaScore>
+                {
+                    new LabelAreaScore {LabelName=slotNames.GetItemOrDefault(topThreeScores[0]).ToString(), Score = scores[topThreeScores[0]] },
+                    new LabelAreaScore {LabelName=slotNames.GetItemOrDefault(topThreeScores[1]).ToString(), Score = scores[topThreeScores[1]] },
+                    new LabelAreaScore {LabelName=slotNames.GetItemOrDefault(topThreeScores[2]).ToString(), Score = scores[topThreeScores[2]] },
+                };
+        }
+
         private List<LabelAreaScore> GetBestThreePredictions(GitHubIssuePrediction prediction, bool forPrs)
         {
             var scores = prediction.Score;
@@ -99,7 +111,7 @@ namespace Hubbup.MikLabelModel
                 };
         }
 
-        private IReadOnlyList<int> GetIndexesOfTopScores(float[] scores, int n)
+        private static IReadOnlyList<int> GetIndexesOfTopScores(float[] scores, int n)
         {
             var indexedScores = scores
                 .Zip(Enumerable.Range(0, scores.Length), (score, index) => new IndexedScore(index, score));

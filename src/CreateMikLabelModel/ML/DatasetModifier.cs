@@ -32,14 +32,55 @@ namespace CreateMikLabelModel.ML
             public static readonly Func<string, string, string> RenameLabelForRuntimeRepo = (originalArea, fromRepo) =>
                 fromRepo switch
                 {
-                    "coreclr" => originalArea switch
-                    {
-                        "area-Build" => "area-Infrastructure-coreclr",
-                        _ => originalArea,
-                    },
+                    "coreclr" => RenameFromCoreClrToRuntime(originalArea),
                     "extensions" => RenameFromExtensionsToRuntime(originalArea),
                     _ => originalArea,
                 };
+
+            private static string RenameFromCoreClrToRuntime(string predictedLabel)
+            {
+                var ret = predictedLabel;
+                switch (predictedLabel)
+                {
+                    case "area-Build":
+                        ret = "area-Infrastructure-coreclr";
+                        break;
+                    case "area-Meta-corelib":
+                        ret = "area-Meta";
+                        break;
+                    case "area-System.AppContext":
+                    case "area-System.Runtime.Extensions":
+                        ret = "area-System.Runtime";
+                        break;
+                    case "area-System.IO.Packaging":
+                        ret = "area-System.IO.Compression";
+                        break;
+                    case "area-System.Security.Cryptography.Xml":
+                        ret = "area-System.Security";
+                        break;
+                    case "area-AssemblyLoader":
+                    case "area-CodeGen":
+                    case @"area-CrossGen/NGEN":
+                    case "area-crossgen2":
+                    case "area-Diagnostics":
+                    case "area-ExceptionHandling":
+                    case "area-GC":
+                    case "area-Interop":
+                    case "area-PAL":
+                    case "area-TieredCompilation":
+                    case "area-Tracing":
+                    case "area-TypeSystem":
+                    case "area-R2RDump":
+                    case "area-ReadyToRun":
+                    case "area-ILTools":
+                    case "area-VM":
+                        ret = predictedLabel + "-coreclr";
+                        break;
+                    default:
+                        break;
+                }
+                return ret;
+            }
 
             private static string RenameFromExtensionsToRuntime(string predictedLabel)
             {
