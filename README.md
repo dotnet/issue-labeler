@@ -50,16 +50,16 @@ The nice thing with [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/do
 
 ### Step-by-step example, how to add prediction ability for a new GitHub repo
 
-This [commit](https://github.com/maryamariyan/issue-labeler-2/commit/213a96cf88d31333295126e7815c4688c2e31b54) shows how to add prediction ability via issue-labeler for a github repository called microsoft/service-fabric. 
+This [commit](https://github.com/dotnet/issue-labeler/commit/77e4dbc45184f34e940c0f3cba57160e30c2c183) shows how to add prediction ability via issue-labeler for a github repository called dotnet/dotnet-api-docs. 
 
 Prerequisite:
 The repository needs to already have had issues/PRs with known area labels, so they can be used as training data for ML training. The area labels, start with "area-" and we only consider issue/PRs that have one and only one "area-" label assigned to them for training the ML models.
 
-As seen in [commit](https://github.com/maryamariyan/issue-labeler-2/commit/213a96cf88d31333295126e7815c4688c2e31b54), CreateMikLabelModel project uses settings in [ExperimentModifier](https://github.com/maryamariyan/issue-labeler-2/blob/213a96cf88d31333295126e7815c4688c2e31b54/src/CreateMikLabelModel/ML/ExperimentModifier.cs) to toggle around with how the models should be trained (what column information to use (e.g. issue Description), how to treat them (as Text, Categorical data, Numeric or Ignore), how long to let the experiment run, and which algorithms to let AutoML consider while training (FastTreeOva, LightGbm, etc.)).
+As seen in [commit](https://github.com/dotnet/issue-labeler/commit/77e4dbc45184f34e940c0f3cba57160e30c2c183), CreateMikLabelModel project uses settings in [ExperimentModifier](https://github.com/maryamariyan/issue-labeler-2/blob/213a96cf88d31333295126e7815c4688c2e31b54/src/CreateMikLabelModel/ML/ExperimentModifier.cs) to toggle around with how the models should be trained (what column information to use (e.g. issue Description), how to treat them (as Text, Categorical data, Numeric or Ignore), how long to let the experiment run, and which algorithms to let AutoML consider while training (FastTreeOva, LightGbm, etc.)).
 
-Then in [Program.cs](https://github.com/maryamariyan/issue-labeler-2/blob/213a96cf88d31333295126e7815c4688c2e31b54/src/CreateMikLabelModel/Program.cs) select only microsoft/service-fabric as the repository and let the application download issue/PRs, store them in proper tsv format, and allow it to run for as long as the training time takes.
+Then in [Program.cs](https://github.com/maryamariyan/issue-labeler-2/blob/77e4dbc45184f34e940c0f3cba57160e30c2c183/src/CreateMikLabelModel/Program.cs) select only dotnet/dotnet-api-docs as the repository and let the application download issue/PRs, store them in proper tsv format, and allow it to run for as long as the training time takes.
 
-Once the ML model is constructed, create the next version for Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package, in this example you see 1.12.12 was created and then used in [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project. Another thing to notice while doing local testing is that RepoName/RepoOwner is set wihin appsettings.Development.json and you make sure Labeler is set to allow user-secrets in local development.
+Once the ML model is constructed, create the next version for Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package, (e.g. 1.12.13) and then use in [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project. Another thing to notice while doing local testing is that RepoName/RepoOwner is set wihin appsettings.Development.json and you make sure Labeler is set to allow user-secrets in local development. For deployed apps make sure the RepoName/RepoOwner configuration values are set.
 
 ## Contributing
 
