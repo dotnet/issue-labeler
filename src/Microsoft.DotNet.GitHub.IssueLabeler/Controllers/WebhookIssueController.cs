@@ -65,7 +65,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 if (data.Label != null && !string.IsNullOrEmpty(data.Label.Name))
                 {
                     string labelName = data.Label.Name;
-                    if (labelName.StartsWith("area-"))
+                    if (labelName.StartsWith("area-", StringComparison.OrdinalIgnoreCase))
                     {
                         Logger.LogInformation($"! Area label {labelName} for {issueOrPr} {issueOrPullRequest.Number} got {data.Action}.");
                     }
