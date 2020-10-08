@@ -26,6 +26,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private readonly double _threshold;
         private readonly string _secretUri;
         private readonly bool _skipAzureKeyVault;
+        private readonly Regex _regexIssueMatch;
         private readonly DiffHelper _diffHelper;
         private readonly string MessageToAddDoc =
             "Note regarding the `new-api-needs-documentation` label:" + Environment.NewLine + Environment.NewLine +
@@ -50,6 +51,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             _secretUri = secretUri;
             _diffHelper = diffHelper;
             _skipAzureKeyVault = skipAzureKeyVault;
+            _regexIssueMatch = new Regex(@"[Ff]ix(?:ed|es|)( )+#(\d+)");
         }
 
         private async Task GitSetupAsync()
@@ -102,9 +104,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 var issueUpdate = new IssueUpdate();
                 foreach (var newLabel in newLabels)
                 {
-                    if (newLabel.StartsWith("area-"))
+                    if (newLabel.StartsWith("area-", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (!existingLabelNames.Where(x => x.StartsWith("area-")).Any())
+                        if (!existingLabelNames.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any())
                         {
                             issueUpdate.AddLabel(newLabel);
                         }
@@ -142,8 +144,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
 
             // if newlabels has no area-label and existing does not also. then comment
-            if (!newLabels.Where(x => x.StartsWith("area-")).Any() &&
-                !existingLabelNames.Where(x => x.StartsWith("area-")).Any())
+            if (!newLabels.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any() &&
+                !existingLabelNames.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any())
             {
                 if (issueOrPr == GithubObjectType.Issue)
                 {
@@ -183,6 +185,15 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 if (pr.ShouldAddDoc)
                 {
                     logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
+                }
+                Match match = _regexIssueMatch.Match(iop.Body);
+                if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
+                {
+                    string labelHint = await TryGetIssueLabelForPrAsync(issueNumber);
+                    if (!string.IsNullOrEmpty(labelHint))
+                    {
+                        logger.LogInformation($"! PR number {number} fixes issue number {issueNumber} with area label {labelHint}.");
+                    }
                 }
             }
             return labelSuggestion;
@@ -228,6 +239,17 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     {
                         labels.Add("mono-mirror");
                     }
+                }
+                Match match = _regexIssueMatch.Match(iop.Body);
+                if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
+                {
+                    string labelHint = await TryGetIssueLabelForPrAsync(issueNumber);
+                    if (!string.IsNullOrEmpty(labelHint))
+                    {
+                        logger.LogInformation($"! PR number {number} fixes issue number {issueNumber} with area label {labelHint}.");
+                        labels.Add(labelHint);
+                    }
+                    return labels;
                 }
             }
 
@@ -288,7 +310,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 pr.FolderNames = _diffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames);
                 try
                 {
-                    pr.ShouldAddDoc = await prAddsNewApi(pr.Number);
+                    pr.ShouldAddDoc = await DoesPrAddNewApiAsync(pr.Number);
                 }
                 catch (Exception ex)
                 {
@@ -300,7 +322,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return pr;
         }
 
-        internal async Task<bool> prAddsNewApi(int prNumber)
+        internal async Task<bool> DoesPrAddNewApiAsync(int prNumber)
         {
             if (_client == null)
             {
@@ -312,6 +334,19 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             return TakeDiffContentReturnMeaning(content.Split("\n"));
+        }
+
+        internal async Task<string> TryGetIssueLabelForPrAsync(int issueNumber)
+        {
+            if (_client == null)
+            {
+                await GitSetupAsync();
+            }
+            var issue = await _client.Issue.Get(RepoOwner, RepoName, issueNumber);
+            return issue?.Labels?
+                .Where(x => !string.IsNullOrEmpty(x.Name))
+                .Select(x => x.Name)
+                .Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
         }
 
         private enum DiffContentLineReadingStatus
