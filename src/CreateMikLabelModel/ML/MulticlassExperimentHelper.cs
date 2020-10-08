@@ -20,20 +20,20 @@ namespace CreateMikLabelModel.ML
             MulticlassExperimentProgressHandler progressHandler, IDataView dataView)
         {
             ConsoleHelper.ConsoleWriteHeader("=============== Running AutoML experiment ===============");
-            Console.WriteLine($"Running AutoML multiclass classification experiment for {experimentSettings.MaxExperimentTimeInSeconds} seconds...");
+            Trace.WriteLine($"Running AutoML multiclass classification experiment for {experimentSettings.MaxExperimentTimeInSeconds} seconds...");
             var experimentResult = mlContext.Auto()
                 .CreateMulticlassClassificationExperiment(experimentSettings)
                 .Execute(dataView, labelColumnName, progressHandler: progressHandler);
 
-            Console.WriteLine(Environment.NewLine);
-            Console.WriteLine($"num models created: {experimentResult.RunDetails.Count()}");
+            Trace.WriteLine(Environment.NewLine);
+            Trace.WriteLine($"num models created: {experimentResult.RunDetails.Count()}");
 
             // Get top few runs ranked by accuracy
             var topRuns = experimentResult.RunDetails
                 .Where(r => r.ValidationMetrics != null && !double.IsNaN(r.ValidationMetrics.MicroAccuracy))
                 .OrderByDescending(r => r.ValidationMetrics.MicroAccuracy).Take(3);
 
-            Console.WriteLine("Top models ranked by accuracy --");
+            Trace.WriteLine("Top models ranked by accuracy --");
             CreateRow($"{"",-4} {"Trainer",-35} {"MicroAccuracy",14} {"MacroAccuracy",14} {"Duration",9}", Width);
             for (var i = 0; i < topRuns.Count(); i++)
             {
@@ -95,7 +95,7 @@ namespace CreateMikLabelModel.ML
             // Save the re-fit model to a.ZIP file
             SaveModel(mlContext, refitModel, paths.FinalModelPath, textLoader.Load(paths.TestPath));
 
-            Console.WriteLine("The model is saved to {0}", paths.FinalModelPath);
+            Trace.WriteLine("The model is saved to {0}", paths.FinalModelPath);
             return refitModel;
         }
 
@@ -103,7 +103,7 @@ namespace CreateMikLabelModel.ML
 
         private static void CreateRow(string message, int width)
         {
-            Console.WriteLine("|" + message.PadRight(width - 2) + "|");
+            Trace.WriteLine("|" + message.PadRight(width - 2) + "|");
         }
 
         /// <summary>
@@ -111,20 +111,20 @@ namespace CreateMikLabelModel.ML
         /// </summary>
         private static void EvaluateTrainedModelAndPrintMetrics(MLContext mlContext, ITransformer model, string trainerName, IDataView dataView)
         {
-            Console.WriteLine("===== Evaluating model's accuracy with test data =====");
+            Trace.WriteLine("===== Evaluating model's accuracy with test data =====");
             var predictions = model.Transform(dataView);
             var metrics = mlContext.MulticlassClassification.Evaluate(predictions, labelColumnName: "Area", scoreColumnName: "Score");
 
-            Console.WriteLine($"************************************************************");
-            Console.WriteLine($"*    Metrics for {trainerName} multi-class classification model   ");
-            Console.WriteLine($"*-----------------------------------------------------------");
-            Console.WriteLine($"    MacroAccuracy = {metrics.MacroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
-            Console.WriteLine($"    MicroAccuracy = {metrics.MicroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
-            Console.WriteLine($"    LogLoss = {metrics.LogLoss:0.####}, the closer to 0, the better");
-            Console.WriteLine($"    LogLoss for class 1 = {metrics.PerClassLogLoss[0]:0.####}, the closer to 0, the better");
-            Console.WriteLine($"    LogLoss for class 2 = {metrics.PerClassLogLoss[1]:0.####}, the closer to 0, the better");
-            Console.WriteLine($"    LogLoss for class 3 = {metrics.PerClassLogLoss[2]:0.####}, the closer to 0, the better");
-            Console.WriteLine($"************************************************************");
+            Trace.WriteLine($"************************************************************");
+            Trace.WriteLine($"*    Metrics for {trainerName} multi-class classification model   ");
+            Trace.WriteLine($"*-----------------------------------------------------------");
+            Trace.WriteLine($"    MacroAccuracy = {metrics.MacroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
+            Trace.WriteLine($"    MicroAccuracy = {metrics.MicroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
+            Trace.WriteLine($"    LogLoss = {metrics.LogLoss:0.####}, the closer to 0, the better");
+            Trace.WriteLine($"    LogLoss for class 1 = {metrics.PerClassLogLoss[0]:0.####}, the closer to 0, the better");
+            Trace.WriteLine($"    LogLoss for class 2 = {metrics.PerClassLogLoss[1]:0.####}, the closer to 0, the better");
+            Trace.WriteLine($"    LogLoss for class 3 = {metrics.PerClassLogLoss[2]:0.####}, the closer to 0, the better");
+            Trace.WriteLine($"************************************************************");
         }
 
         private static void SaveModel(MLContext mlContext, ITransformer model, string modelPath, IDataView dataview)
@@ -133,17 +133,17 @@ namespace CreateMikLabelModel.ML
             ConsoleHelper.ConsoleWriteHeader("=============== Saving the model ===============");
             mlContext.Model.Save(model, dataview.Schema, modelPath);
             Trace.WriteLine("The model is saved to {0}", modelPath);
-            Console.WriteLine("The model is saved to {0}", modelPath);
+            Trace.WriteLine("The model is saved to {0}", modelPath);
         }
 
-        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.4)
+        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.14)
         {
             var trainedModel = mlContext.Model.Load(files.FittedModelPath, out _);
             IEnumerable<(string knownLabel, GitHubIssuePrediction predictedResult, string issueNumber)> predictions = null;
             if (forPrs)
             {
                 var testData = GetPullRequests(mlContext, files.TestPath);
-                Console.WriteLine($"count: {testData.Length}");
+                Trace.WriteLine($"count: {testData.Length}");
                 var prEngine = mlContext.Model.CreatePredictionEngine<GitHubPullRequest, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
@@ -155,7 +155,7 @@ namespace CreateMikLabelModel.ML
             else
             {
                 var testData = GetIssues(mlContext, files.TestPath);
-                Console.WriteLine($"count: {testData.Length}");
+                Trace.WriteLine($"count: {testData.Length}");
                 var issueEngine = mlContext.Model.CreatePredictionEngine<GitHubIssue, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
@@ -193,12 +193,12 @@ namespace CreateMikLabelModel.ML
                 })
                 .OrderByDescending(x => x.Count);
 
-            Console.WriteLine($"countSuccess: {countSuccess}, missed: {missedOpportunity}");
+            Trace.WriteLine($"countSuccess: {countSuccess}, missed: {missedOpportunity}");
             foreach (var mismatch in mistakes.AsEnumerable())
             {
-                Console.WriteLine($"{mismatch.PerdictedVsActual}, NumFound: {mismatch.Count}");
+                Trace.WriteLine($"{mismatch.PerdictedVsActual}, NumFound: {mismatch.Count}");
                 var sampleIssues = string.Join(", ", mismatch.Items.Select(x => x.IssueNumbers));
-                Console.WriteLine($" sampleIssues: {Environment.NewLine}{ sampleIssues }");
+                Trace.WriteLine($" sampleIssues: {Environment.NewLine}{ sampleIssues }");
             }
         }
 

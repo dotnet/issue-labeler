@@ -18,6 +18,8 @@ namespace CreateMikLabelModel.DL
 {
     public static class DownloadHelper
     {
+        public const int MaxRetryCount = 25;
+
         public static async Task<int> DownloadItemsAsync(string outputPath, (string owner, string repo)[] repoCombo)
         {
             var stopWatch = Stopwatch.StartNew();
@@ -29,12 +31,14 @@ namespace CreateMikLabelModel.DL
 
                 try
                 {
-                    foreach (var repo in repoCombo)
+                    foreach ((string owner, string repo) repo in repoCombo)
                     {
+                        Trace.WriteLine($"Downloading Issue records from {repo.owner}/{repo.repo}.");
                         if (!await ProcessGitHubIssueData(repo.owner, repo.repo, IssueType.Issue, outputLinesExcludingHeader, GetGitHubIssuePage<IssuesNode>))
                         {
                             return -1;
                         }
+                        Trace.WriteLine($"Downloading PR records from {repo.owner}/{repo.repo}.");
                         if (!await ProcessGitHubIssueData(repo.owner, repo.repo, IssueType.PullRequest, outputLinesExcludingHeader, GetGitHubIssuePage<PullRequestsNode>))
                         {
                             return -1;
@@ -52,7 +56,7 @@ namespace CreateMikLabelModel.DL
             }
 
             stopWatch.Stop();
-            Console.WriteLine($"Done writing TSV in {stopWatch.ElapsedMilliseconds}ms");
+            Trace.WriteLine($"Done writing TSV in {stopWatch.ElapsedMilliseconds}ms");
             return 1;
         }
 
@@ -78,8 +82,8 @@ namespace CreateMikLabelModel.DL
             string owner, string repo, IssueType issueType, List<string> outputLines,
             Func<GraphQLHttpClient, string, string, IssueType, string, Task<GitHubListPage<T>>> getPage) where T : IssuesNode
         {
-            Console.WriteLine($"Getting all '{issueType}' items for {owner}/{repo}...");
-            var limitBackToBackFailure = 10;
+            Trace.WriteLine($"Getting all '{issueType}' items for {owner}/{repo}...");
+            int backToBackFailureCount = 0;
             using (var ghGraphQL = CreateGraphQLClient())
             {
                 var hasNextPage = true;
@@ -93,7 +97,7 @@ namespace CreateMikLabelModel.DL
 
                         if (issuePage.IsError)
                         {
-                            Console.WriteLine("Error encountered in GraphQL query. Stopping.");
+                            Trace.WriteLine("Error encountered in GraphQL query. Stopping.");
                             return false;
                         }
 
@@ -114,7 +118,7 @@ namespace CreateMikLabelModel.DL
                             // labels is an 'area-' label and we don't know about it. So we warn.
                             foreach (var issue in uninterestingIssuesWithTooManyLabels)
                             {
-                                Console.WriteLine(
+                                Trace.WriteLine(
                                     $"\tWARNING: Issue {owner}/{repo}#{issue.Number} has more than 10 labels " +
                                     $"and the first 10 aren't 'area-' labels so it is ignored.");
                             }
@@ -133,7 +137,7 @@ namespace CreateMikLabelModel.DL
                                 // then it's possible that we don't know about it. So we warn.
                                 foreach (var issue in prsWithTooManyFileChanges)
                                 {
-                                    Console.WriteLine(
+                                    Trace.WriteLine(
                                         $"\tWARNING: PR {owner}/{repo}#{issue.Number} has more than {MaxFileChangesPerPR} files changed, ({issue.Files.TotalCount} total)" +
                                         $"and the first {MaxFileChangesPerPR} are only used for training its area.");
                                 }
@@ -141,7 +145,7 @@ namespace CreateMikLabelModel.DL
                         }
 
                         totalProcessed += issuePage.Issues.Repository.Issues.Nodes.Count;
-                        Console.WriteLine(
+                        Trace.WriteLine(
                             $"Processing {totalProcessed}/{issuePage.Issues.Repository.Issues.TotalCount}. " +
                             $"Writing {issuesOfInterest.Count} items of interest to output TSV file...");
 
@@ -151,20 +155,20 @@ namespace CreateMikLabelModel.DL
                         }
                         hasNextPage = issuePage.Issues.Repository.Issues.PageInfo.HasNextPage;
                         afterID = issuePage.Issues.Repository.Issues.PageInfo.EndCursor;
-                        limitBackToBackFailure = 0;
+                        backToBackFailureCount = 0; // reset for next round
                     }
                     catch (Exception cx)
                     {
-                        Console.WriteLine(cx.Message);
-                        Console.WriteLine(string.Join(Environment.NewLine, cx.StackTrace));
-                        if (limitBackToBackFailure < 10)
+                        Trace.WriteLine(cx.Message);
+                        Trace.WriteLine(string.Join(Environment.NewLine, cx.StackTrace));
+                        if (backToBackFailureCount < MaxRetryCount)
                         {
-                            limitBackToBackFailure++;
+                            backToBackFailureCount++;
                             await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                         }
                         else
                         {
-                            Console.WriteLine("Retried 10 consecutive times, skip and move on");
+                            Trace.WriteLine($"Retried {MaxRetryCount} consecutive times, skip and move on");
                             hasNextPage = false;
                             // TODO later: investigate different reasons for which this might happen
                         }
@@ -289,10 +293,10 @@ namespace CreateMikLabelModel.DL
             var result = await ghGraphQL.SendQueryAsync<Data<T>>(issueRequest);
             if (result.Errors?.Any() ?? false)
             {
-                Console.WriteLine($"GraphQL errors! ({result.Errors.Length})");
+                Trace.WriteLine($"GraphQL errors! ({result.Errors.Length})");
                 foreach (var error in result.Errors)
                 {
-                    Console.WriteLine($"\t{error.Message}");
+                    Trace.WriteLine($"\t{error.Message}");
                 }
                 return new GitHubListPage<T> { IsError = true, };
             }

@@ -30,7 +30,7 @@ namespace CreateMikLabelModel.ML
             Train(st);
 
             stopWatch.Stop();
-            Console.WriteLine($"Done creating model in {stopWatch.ElapsedMilliseconds}ms");
+            Trace.WriteLine($"Done creating model in {stopWatch.ElapsedMilliseconds}ms");
         }
 
         private void Train(ExperimentModifier settings)
@@ -59,7 +59,7 @@ namespace CreateMikLabelModel.ML
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                Trace.WriteLine(ex);
             }
         }
     }

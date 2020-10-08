@@ -6,6 +6,7 @@ using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -22,7 +23,7 @@ namespace CreateMikLabelModel.ML
 
         internal static void PrintIterationException(Exception ex)
         {
-            Console.WriteLine($"Exception during AutoML iteration: {ex}");
+            Trace.WriteLine($"Exception during AutoML iteration: {ex}");
         }
 
         internal static void PrintMulticlassClassificationMetricsHeader()
@@ -32,20 +33,20 @@ namespace CreateMikLabelModel.ML
 
         private static void CreateRow(string message, int width)
         {
-            Console.WriteLine("|" + message.PadRight(width - 2) + "|");
+            Trace.WriteLine("|" + message.PadRight(width - 2) + "|");
         }
 
         public static void ConsoleWriteHeader(params string[] lines)
         {
             var defaultColor = Console.ForegroundColor;
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(" ");
+            Trace.WriteLine(" ");
             foreach (var line in lines)
             {
-                Console.WriteLine(line);
+                Trace.WriteLine(line);
             }
             var maxLength = lines.Select(x => x.Length).Max();
-            Console.WriteLine(new string('#', maxLength));
+            Trace.WriteLine(new string('#', maxLength));
             Console.ForegroundColor = defaultColor;
         }
 
@@ -140,7 +141,7 @@ namespace CreateMikLabelModel.ML
                 AppendTableRows(tableRows, info.TextColumnNames, "Text");
                 AppendTableRows(tableRows, info.IgnoredColumnNames, "Ignored");
 
-                Console.WriteLine(ConsoleHelper.BuildStringTable(tableRows));
+                Trace.WriteLine(ConsoleHelper.BuildStringTable(tableRows));
             }
 
             private void AppendTableRow(ICollection<string[]> tableRows,
