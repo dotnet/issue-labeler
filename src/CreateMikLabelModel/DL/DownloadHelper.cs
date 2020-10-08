@@ -18,6 +18,8 @@ namespace CreateMikLabelModel.DL
 {
     public static class DownloadHelper
     {
+        public const int MaxRetryCount = 25;
+
         public static async Task<int> DownloadItemsAsync(string outputPath, (string owner, string repo)[] repoCombo)
         {
             var stopWatch = Stopwatch.StartNew();
@@ -29,12 +31,14 @@ namespace CreateMikLabelModel.DL
 
                 try
                 {
-                    foreach (var repo in repoCombo)
+                    foreach ((string owner, string repo) repo in repoCombo)
                     {
+                        Trace.WriteLine($"Downloading Issue records from {repo.owner}/{repo.repo}.");
                         if (!await ProcessGitHubIssueData(repo.owner, repo.repo, IssueType.Issue, outputLinesExcludingHeader, GetGitHubIssuePage<IssuesNode>))
                         {
-                           return -1;
+                            return -1;
                         }
+                        Trace.WriteLine($"Downloading PR records from {repo.owner}/{repo.repo}.");
                         if (!await ProcessGitHubIssueData(repo.owner, repo.repo, IssueType.PullRequest, outputLinesExcludingHeader, GetGitHubIssuePage<PullRequestsNode>))
                         {
                             return -1;
@@ -79,7 +83,7 @@ namespace CreateMikLabelModel.DL
             Func<GraphQLHttpClient, string, string, IssueType, string, Task<GitHubListPage<T>>> getPage) where T : IssuesNode
         {
             Trace.WriteLine($"Getting all '{issueType}' items for {owner}/{repo}...");
-            var limitBackToBackFailure = 10;
+            int backToBackFailureCount = 0;
             using (var ghGraphQL = CreateGraphQLClient())
             {
                 var hasNextPage = true;
@@ -151,20 +155,20 @@ namespace CreateMikLabelModel.DL
                         }
                         hasNextPage = issuePage.Issues.Repository.Issues.PageInfo.HasNextPage;
                         afterID = issuePage.Issues.Repository.Issues.PageInfo.EndCursor;
-                        limitBackToBackFailure = 0;
+                        backToBackFailureCount = 0; // reset for next round
                     }
                     catch (Exception cx)
                     {
                         Trace.WriteLine(cx.Message);
                         Trace.WriteLine(string.Join(Environment.NewLine, cx.StackTrace));
-                        if (limitBackToBackFailure < 100)
+                        if (backToBackFailureCount < MaxRetryCount)
                         {
-                            limitBackToBackFailure++;
+                            backToBackFailureCount++;
                             await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                         }
                         else
                         {
-                            Trace.WriteLine("Retried 10 consecutive times, skip and move on");
+                            Trace.WriteLine($"Retried {MaxRetryCount} consecutive times, skip and move on");
                             hasNextPage = false;
                             // TODO later: investigate different reasons for which this might happen
                         }
