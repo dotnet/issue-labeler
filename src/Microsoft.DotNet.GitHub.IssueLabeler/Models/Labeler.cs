@@ -158,6 +158,16 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
         }
 
+        private async Task<(string label, int number)> GetAnyLinkedIssueLabel(Issue iop, ILogger logger, int number)
+        {
+            Match match = _regexIssueMatch.Match(iop.Body);
+            if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
+            {
+                return (await TryGetIssueLabelForPrAsync(issueNumber), issueNumber);
+            }
+            return await Task.FromResult<(string, int)>(default);
+        }
+
         internal async Task<LabelSuggestion> JustPredictLabelAsync(int number, ILogger logger)
         {
             if (_client == null)
@@ -186,14 +196,10 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 {
                     logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
                 }
-                Match match = _regexIssueMatch.Match(iop.Body);
-                if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
+                (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(iop, logger, number);
+                if (!string.IsNullOrEmpty(linkedIssue.label))
                 {
-                    string labelHint = await TryGetIssueLabelForPrAsync(issueNumber);
-                    if (!string.IsNullOrEmpty(labelHint))
-                    {
-                        logger.LogInformation($"! PR number {number} fixes issue number {issueNumber} with area label {labelHint}.");
-                    }
+                    logger.LogInformation($"! PR number {number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
                 }
             }
             return labelSuggestion;
@@ -240,17 +246,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         labels.Add("mono-mirror");
                     }
                 }
-                Match match = _regexIssueMatch.Match(iop.Body);
-                if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
+                (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(iop, logger, number);
+                if (!string.IsNullOrEmpty(linkedIssue.label))
                 {
-                    string labelHint = await TryGetIssueLabelForPrAsync(issueNumber);
-                    if (!string.IsNullOrEmpty(labelHint))
-                    {
-                        logger.LogInformation($"! PR number {number} fixes issue number {issueNumber} with area label {labelHint}.");
-                        labels.Add(labelHint);
-                    }
-                    return labels;
+                    logger.LogInformation($"! PR number {number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
+                    labels.Add(linkedIssue.label);
                 }
+                return labels;
             }
 
             var topChoice = labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
