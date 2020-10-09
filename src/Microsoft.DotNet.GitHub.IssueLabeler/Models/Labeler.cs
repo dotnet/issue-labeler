@@ -168,44 +168,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return await Task.FromResult<(string, int)>(default);
         }
 
-        internal async Task<LabelSuggestion> JustPredictLabelAsync(int number, ILogger logger)
-        {
-            if (_client == null)
-            {
-                await GitSetupAsync();
-            }
-            if (_regex == null)
-            {
-                _regex = new Regex(@"@[a-zA-Z0-9_//-]+");
-            }
-            var iop = await _client.Issue.Get(RepoOwner, RepoName, number);
-            logger.LogInformation($"! Just checking for {iop} {number}.");
-            bool isPr = iop.PullRequest != null;
-            var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
-            LabelSuggestion labelSuggestion = null;
-            if (!isPr)
-            {
-                IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
-                labelSuggestion = Predictor.Predict(RepoOwner, RepoName, issue, logger, _threshold);
-            }
-            else
-            {
-                PrModel pr = await CreatePullRequest(number, iop.Title, iop.Body, userMentions, iop.User.Login, logger);
-                labelSuggestion = Predictor.Predict(RepoOwner, RepoName, pr, logger, _threshold);
-                if (pr.ShouldAddDoc)
-                {
-                    logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
-                }
-                (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(iop, logger, number);
-                if (!string.IsNullOrEmpty(linkedIssue.label))
-                {
-                    logger.LogInformation($"! PR number {number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
-                }
-            }
-            return labelSuggestion;
-        }
+        private bool HasNoPrModel => RepoOwner.Equals("microsoft", StringComparison.OrdinalIgnoreCase) && RepoName.Equals("service-fabric", StringComparison.OrdinalIgnoreCase);
 
-        internal async Task<List<string>> PredictLabelAsync(int number, GithubObjectType issueOrPr, ILogger logger, bool canCommentOnIssue = false)
+        internal async Task<(List<string> labels, LabelSuggestion labelSuggestion, bool usedLinkedIssue)> GetRecommendedLabelsAsync(int number, ILogger logger, bool canCommentOnIssue)
         {
             if (_client == null)
             {
@@ -216,12 +181,12 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 _regex = new Regex(@"@[a-zA-Z0-9_//-]+");
             }
             var iop = await _client.Issue.Get(RepoOwner, RepoName, number);
+            bool useIssuePrediction = iop.PullRequest == null || HasNoPrModel;
             var userMentions = _regex.Matches(iop.Body).Select(x => x.Value).ToArray();
 
             List<string> labels = new List<string>();
             LabelSuggestion labelSuggestion = null;
-            if (issueOrPr == GithubObjectType.Issue ||
-                RepoOwner.Equals("microsoft", StringComparison.OrdinalIgnoreCase) && RepoName.Equals("service-fabric", StringComparison.OrdinalIgnoreCase))
+            if (useIssuePrediction)
             {
                 IssueModel issue = CreateIssue(number, iop.Title, iop.Body, userMentions, iop.User.Login);
                 labelSuggestion = Predictor.Predict(RepoOwner, RepoName, issue, logger, _threshold);
@@ -230,14 +195,15 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 PrModel pr = await CreatePullRequest(number, iop.Title, iop.Body, userMentions, iop.User.Login, logger);
                 labelSuggestion = Predictor.Predict(RepoOwner, RepoName, pr, logger, _threshold);
-                if (RepoOwner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && RepoName.Equals("runtime", StringComparison.OrdinalIgnoreCase))
+                if (RepoOwner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && 
+                    RepoName.Equals("runtime", StringComparison.OrdinalIgnoreCase))
                 {
                     if (pr.ShouldAddDoc)
                     {
                         logger.LogInformation($"! PR number {number} should be a documentation PR as it adds lines to a ref *cs file.");
+                        labels.Add("new-api-needs-documentation");
                         if (canCommentOnIssue)
                         {
-                            labels.Add("new-api-needs-documentation");
                             await _client.Issue.Comment.Create(RepoOwner, RepoName, number, MessageToAddDoc);
                         }
                     }
@@ -246,18 +212,34 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         labels.Add("mono-mirror");
                     }
                 }
+            }
+            if (iop.PullRequest != null)
+            {
+                // Will do this after taking predictions above so as to help keep all results in logs.
                 (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(iop, logger, number);
                 if (!string.IsNullOrEmpty(linkedIssue.label))
                 {
                     logger.LogInformation($"! PR number {number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
                     labels.Add(linkedIssue.label);
                 }
-                return labels;
+                return (labels, labelSuggestion, usedLinkedIssue: true);
+            }
+            return (labels, labelSuggestion, usedLinkedIssue: false);
+        }
+
+        internal async Task<List<string>> PredictLabelsAsync(int number, GithubObjectType issueOrPr, ILogger logger, bool canCommentOnIssue = false)
+        {
+            var recommendedLabels = await GetRecommendedLabelsAsync(number, logger, canCommentOnIssue);
+            if (recommendedLabels.usedLinkedIssue)
+            {
+                return recommendedLabels.labels;
             }
 
-            var topChoice = labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
-            if (RepoOwner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && RepoName.Equals("runtime", StringComparison.OrdinalIgnoreCase) &&
-                    (topChoice.LabelName.Equals("area-Infrastructure") || topChoice.LabelName.Equals("area-System.Runtime")))
+            var topChoice = recommendedLabels.labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
+            List<string> labels = recommendedLabels.labels;
+            if (RepoOwner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && 
+                RepoName.Equals("runtime", StringComparison.OrdinalIgnoreCase) &&
+                (topChoice.LabelName.Equals("area-Infrastructure") || topChoice.LabelName.Equals("area-System.Runtime")))
             {
                 logger.LogInformation($"# skipped: prefer manual prediction instead.");
                 return labels;
