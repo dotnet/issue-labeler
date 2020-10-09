@@ -40,7 +40,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             if (!owner.Equals(Issuelabeler.RepoOwner, StringComparison.OrdinalIgnoreCase) ||
                 !repo.Equals(Issuelabeler.RepoName, StringComparison.OrdinalIgnoreCase))
                 return NotFound($"returning top 3 predictions only for {Issuelabeler.RepoOwner}/{Issuelabeler.RepoName} for now");
-            var recommendedLabels = await Issuelabeler.GetRecommendedLabelsAsync(id, Logger, canCommentOnIssue: false);
+            (List<string> labels, LabelSuggestion labelSuggestion, bool usedLinkedIssue) recommendedLabels = await Issuelabeler.GetRecommendedLabelsAsync(id, Logger, canCommentOnIssue: false);
             return Ok(recommendedLabels.labelSuggestion);
         }
 
@@ -57,7 +57,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 {
                     labels.Add("untriaged");
                 }
-                var predictedLabels = await Issuelabeler.PredictLabelsAsync(number, issueOrPr, Logger, canCommentOnIssue: true);
+                List<string> predictedLabels = await Issuelabeler.PredictLabelsAsync(number, issueOrPr, Logger, canCommentOnIssue: true);
                 labels.AddRange(predictedLabels);
             }
             else if (data.Action == "unlabeled" || data.Action == "labeled")
