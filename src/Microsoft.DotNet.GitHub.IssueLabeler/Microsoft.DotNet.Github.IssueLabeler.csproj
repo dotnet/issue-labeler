@@ -2,7 +2,7 @@
 
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <SignAssembly>false</SignAssembly>
     <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
@@ -14,14 +14,14 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="$(CommandLineParserVersion)" />
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="$(MicrosoftAspNetCoreAllVersion)" />
+    <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
+    <PackageReference Include="Microsoft.DotNet.GitHubIssueLabeler.Assets" Version="$(MicrosoftDotNetGitHubIssueLabelerAssetsVersion)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="$(MicrosoftVisualStudioWebCodeGenerationDesignVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
-    <PackageReference Include="Microsoft.DotNet.GitHubIssueLabeler.Assets" Version="$(MicrosoftDotNetGitHubIssueLabelerAssetsVersion)" />
   </ItemGroup>
 </Project>
