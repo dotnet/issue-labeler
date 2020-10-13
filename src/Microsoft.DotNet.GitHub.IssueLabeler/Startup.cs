@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
@@ -14,9 +15,12 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     {
         public IConfiguration Configuration { get; }
 
-        public Startup(IConfiguration configuration)
+        public IWebHostEnvironment HostEnvironment { get; }
+
+        public Startup(IConfiguration configuration, IWebHostEnvironment env)
         {
             Configuration = configuration;
+            HostEnvironment = env;
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -28,20 +32,38 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 Configuration["SecretUri"],
                 double.Parse(Configuration["Threshold"]),
                 diffHelper);
-            services.AddMvc();
+            services.AddControllersWithViews();
 
             services.AddSingleton(labeler)
             .AddSingleton(diffHelper);
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app)
         {
-            if (env.IsDevelopment())
+            if (HostEnvironment.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
+            else
+            {
+                app.UseExceptionHandler("/Home/Error");
+                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+                app.UseHsts();
+            }
+            app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
-            app.UseMvc();
+            app.UseRouting();
+
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
+            });
         }
+
     }
 }
