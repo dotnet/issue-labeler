@@ -1,13 +1,15 @@
-# Issue Labeler Project
+# .NET Issue Labeler
 
-issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on github issues and pull requests. We consider labels with names starting with "area-" as the label of interest, even though that could be easily configured to be anything else. This repository shows how we could use existing issue and pull requests on a github repository to train ML models that can in turn be used for predicting area labels of incoming issues on any given trained repository automatically upon creation.
+This repository contains the source code to train ML models for making label predictions, as well as the code for automatically applying issue labels onto issue/pull requests on GitHub repositories. GitHub repositories already using this .NET issue labeler are:
+
+- [dotnet/runtime](https://github.com/dotnet/runtime)
+- [dotnet/extensions](https://github.com/dotnet/extensions)
+- [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
+- [dotnet/roslyn](https://github.com/dotnet/roslyn)
+
+This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on github issues and pull requests. We consider labels with names starting with "area-" as the label of interest, even though that could be easily configured to be anything else. This repository shows how we could use existing issue and pull requests on a github repository to train ML models that can in turn be used for predicting area labels of incoming issues on any given trained repository automatically upon creation.
 
 You can learn more about the project from the project [Documentation](Documentation).
-
-## More about the projects in dotnet/issue-labeler
-
-### Which GitHub repositories already use issue-labeler?
-[dotnet/runtime](https://github.com/dotnet/runtime) and [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) already use [ML.NET](https://dotnet.microsoft.com/apps/machinelearning-ai/ml-dotnet) via [issue-labeler](https://github.com/dotnet/issue-labeler) to get prediction on the area label for any incoming issue or pull request they receive. Issue labeling is trained on all existing issue and PRs which have a label starting with "area-". 
 
 ### How it works
 [ML.NET](https://github.com/dotnet/machinelearning) trained models are consumed through a nuget package Microsoft.DotNet.GitHubIssueLabeler.Assets. For dotnet/runtime repository this model has been trained on over 30,000 issues, and 5,000 PRs already labeled in the runtime repo.
