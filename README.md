@@ -1,6 +1,6 @@
 # dotnet/issue-labeler
 
-This repo contains the code to build the botnet issue labeler.
+This repo contains the code to build the dotnet issue labeler.
 
 To better manage incoming issues into a github repository, the issue labeler learns from past `area-` labels in order to predict a proper `area-` label for its incoming issue or pull requests.
 
