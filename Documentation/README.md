@@ -8,12 +8,11 @@ This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to h
 
 ## Table of Contents
 
-- Getting Started
-  - Download/Train ML models
-  - Pack ML models into nuget
-  - Application setup: a step-by-step example
-    - Get top-N label predictions
-    - Enable automatic label assignments
+- Download/Train ML models
+- Pack ML models into nuget
+- Application setup: a step-by-step example
+  - Get top-N label predictions
+  - Enable automatic label assignments
 
 ## Download/Train ML models
 
