@@ -1,87 +1,52 @@
-# .NET Issue Labeler
+# dotnet/issue-labeler
 
-This repository contains the source code to train ML models for making label predictions, as well as the code for automatically applying issue labels onto issue/pull requests on GitHub repositories. GitHub repositories already using this .NET issue labeler are:
+This repo contains the code to build the botnet issue labeler.
 
-- [dotnet/runtime](https://github.com/dotnet/runtime)
-- [dotnet/extensions](https://github.com/dotnet/extensions)
-- [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
-- [dotnet/roslyn](https://github.com/dotnet/roslyn)
+To better manage incoming issues into a github repository, the issue labeler learns from past `area-` labels in order to predict a proper `area-` label for its incoming issue or pull requests.
 
-This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on github issues and pull requests. We consider labels with names starting with "area-" as the label of interest, even though that could be easily configured to be anything else. This repository shows how we could use existing issue and pull requests on a github repository to train ML models that can in turn be used for predicting area labels of incoming issues on any given trained repository automatically upon creation.
+## Which github repositories use this issue labeler today?
 
-You can learn more about the project from the project [Documentation](Documentation).
+The dotnet organization contains repositories with many incoming issues and pull requests. In order to help with the triage process, we categorize issues into subcategories called areas. We mark issues related to each area, with a specific `area-` label, and therefore over time we could employ an issue labeler which learns from these assignments to assign future labels. 
 
-### How it works
-[ML.NET](https://github.com/dotnet/machinelearning) trained models are consumed through a nuget package Microsoft.DotNet.GitHubIssueLabeler.Assets. For dotnet/runtime repository this model has been trained on over 30,000 issues, and 5,000 PRs already labeled in the runtime repo.
+The following repositories triage their incoming issues by manually setting labels based on top 3 predictions returned from dotnet/issue-labeler:
 
-Whenever an issue is opened in the repo, the web api receives the payload (using webhooks) containing all the information about the issue like title, body, milestone, issue number etc. It then supplies this information to already loaded pretrained model and the model predicts a probability distribution over the all possible labels. We then take the label with maximum probability and compare it with a threshold. if the predicted probability is greater than threshold then we apply the label otherwise we do nothing. We use a separate model for predicting label for pull requests, since PRs contain extra information through their file diffs. 
+* [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
+* [dotnet/extensions](https://github.com/dotnet/extensions)
 
-### About CreateMikLabel project
-The [CreateMikLabelModel](https://github.com/dotnet/issue-labeler/tree/master/src/CreateMikLabelModel) project is responsible for:
+The following repositories use dotnet/issue-labeler to automatically set `area-` labels for incoming issues and pull requests:
 
-1. Downloading Github issues and pull requests
-2. Specifying which data to download (title, description, labels, author, mentions, PR file names, optionally PR diff etc.)
-3. Segmenting issue or PR records into train (first 80%), validate (second 10%), and test (last 10%) data.
-4. Customizing ML training settings: ML models to skip/consider (e.g. FastTreeOva), time to train, information to consider while training (e.g. number of file changes).
-5. Optionally testing the ML generated Models to help understand which area labels may be getting more missed predictions or lower confidence compared to others.
+* [dotnet/runtime](https://github.com/dotnet/runtime)
+* [dotnet/roslyn](https://github.com/dotnet/roslyn)
+* [dotnet/dotnet-api-docs](https://github.com/dotnet/dotnet-api-docs)
+* [dotnet/corefx](https://github.com/dotnet/corefx) (archived)
 
-### About Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package
-Once we have ML models generated using [CreateMikLabelModel](https://github.com/dotnet/issue-labeler/tree/master/src/CreateMikLabelModel), they get packed in a nuget package called Microsoft.DotNet.GitHub.IssueLabeler in the [dotnet-eng](https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json) nuget source. This nuget package contains PR and issue labeler models for all github repositories trained via CreateMikLabelerModel project. The tree structure where ML models get placed in the nuget package is as follows:
-```
- > model
-    > dotnet
-       > aspnetcore
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-       > runtime
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-       > extensions
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-    > microsoft
-       > service-fabric
-          - GitHubLabelerModel.zip
-```
-### About Microsoft.DotNet.GitHub.IssueLabeler project
-The [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project is the web application that uses ML models created using CreateMikLabelModel via a nuget package called `Microsoft.DotNet.GitHubIssueLabeler.Assets`.
-Given repository owner/name/number combination, the IssueLabeler app provides an API returning top three predictions along with their confidence score. This information is computed using the ML models in the Microsoft.DotNet.GitHub.IssueLabeler nuget package we produced in CreateMikLabelerModel project.
-Since dotnet/runtime has a big set of area owners and contributors, we decided to use an automatic assignemnt for issues and PRs. In order to achieve automatic label assignments, the IssueLabeler app, listens to all issue and PR creations via a webhook setting and finds top three predictions and only when the top prediction score has above 40% confidence, then this labeler app is allowed to automatically add that area label name to the newly created issue or PR. For dotnet/aspnetcore however, this webhook is not active and instead, the aspnetcore repository uses the hubbup web app to allow for manual area label assignment. Rather than doing automatic assignments, the hubbup app provides a nice UI for the prediction results it receives from [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler).
+Of course with automatic labeling there is always a margin of error. But the good thing is the issue-labeler learns from mistakes so long as wrong label assignments have been updated with a correct label manually.
 
-The nice thing with [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) is that we can publish multiple apps using the same source code, where each app is responsible for giving predictions for a single github repository. This would be possible if the Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package used by the IssueLabeler app contains ML models for that repository and RepoName/RepoOwner Configuration values are properly setup for that app in azure app service portal.
+## How to use this issue labeler today?
 
-### Step-by-step example, how to add prediction ability for a new GitHub repo
+To get the most out of this issue labeler, the repository needs to get to a point where it has been pre-populated with issues with `area-` labels on them. 
 
-This [commit](https://github.com/dotnet/issue-labeler/commit/77e4dbc45184f34e940c0f3cba57160e30c2c183) shows how to add prediction ability via issue-labeler for a github repository called dotnet/dotnet-api-docs. 
+It is possible to still get usage out of this issue labeler, even if you decided to continue doing manual label assignments, e.g. to get top-N predictions recommendations only.
 
-Prerequisite:
-The repository needs to already have had issues/PRs with known area labels, so they can be used as training data for ML training. The area labels, start with "area-" and we only consider issue/PRs that have one and only one "area-" label assigned to them for training the ML models.
+But once the issue labeling is automated, we need to make sure:
 
-As seen in [commit](https://github.com/dotnet/issue-labeler/commit/77e4dbc45184f34e940c0f3cba57160e30c2c183), CreateMikLabelModel project uses settings in [ExperimentModifier](https://github.com/maryamariyan/issue-labeler-2/blob/213a96cf88d31333295126e7815c4688c2e31b54/src/CreateMikLabelModel/ML/ExperimentModifier.cs) to toggle around with how the models should be trained (what column information to use (e.g. issue Description), how to treat them (as Text, Categorical data, Numeric or Ignore), how long to let the experiment run, and which algorithms to let AutoML consider while training (FastTreeOva, LightGbm, etc.)).
+- Contributors have a habit of manually applying `area-` labels even when the labeler was not confident enough to select one.
+- Contributors have a habit of manually correcting prediction mistakes done.
 
-Then in [Program.cs](https://github.com/maryamariyan/issue-labeler-2/blob/77e4dbc45184f34e940c0f3cba57160e30c2c183/src/CreateMikLabelModel/Program.cs) select only dotnet/dotnet-api-docs as the repository and let the application download issue/PRs, store them in proper tsv format, and allow it to run for as long as the training time takes.
+These two habits helps the issue labeler learn better over time.
 
-Once the ML model is constructed, create the next version for Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package, (e.g. 1.12.13) and then use in [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project. Another thing to notice while doing local testing is that RepoName/RepoOwner is set wihin appsettings.Development.json and you make sure Labeler is set to allow user-secrets in local development. For deployed apps make sure the RepoName/RepoOwner configuration values are set.
+Also note, the labeler does not learn in real-time, but instead ML trainings need to be redone every once in a while.
 
-## Contributing
+## How to get started?
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for information on contributing to this project.
+The [docs](Documentation/) page explains in more detail steps to take in order for setting up issue labeler on github repositories.
 
-This project has adopted the code of conduct defined by the [Contributor Covenant](http://contributor-covenant.org/) 
-to clarify expected behavior in our community. For more information, see the [.NET Foundation Code of Conduct](http://www.dotnetfoundation.org/code-of-conduct).
+## Useful Links
+
+* [ML.NET](ML.NET) 
+* [.NET home repo](https://github.com/Microsoft/dotnet) - links to 100s of .NET projects, from Microsoft and the community.
+* [ASP.NET Core home](https://docs.microsoft.com/aspnet/core/?view=aspnetcore-3.1) - the best place to start learning about ASP.NET Core.
 
 ## License
 
-This project is licensed with the [MIT license](LICENSE).
-
-## .NET Foundation
-
-issue-labeler is a [.NET Foundation project](https://dotnetfoundation.org/projects).
-
-## Related Projects
-
-You should take a look at these related projects:
-
-- [dotnet/machinelearning](https://github.com/dotnet/machinelearning)
-- [dotnet/runtime](https://github.com/dotnet/runtime)
-- [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
+.NET (including the runtime repo) is licensed under the [MIT](LICENSE.TXT) license.
