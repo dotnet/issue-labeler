@@ -37,7 +37,7 @@ Also note, the labeler does not learn in real-time, but instead ML trainings nee
 
 ## How to get started?
 
-The [docs](Documentation/) page explains in more detail steps to take in order for setting up issue labeler on github repositories.
+The [docs](Documentation/) page explains in more detail steps involved in setting up an issue labeler for a github repository.
 
 ## Useful Links
 
