@@ -16,7 +16,7 @@ This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to h
 
 ## Download/Train ML models
 
-We use [Octokit](https://www.nuget.org/packages/Octokit/) to download issues from GitHub and then train models using [ML.NET](ML.NET). e.g. dotnet/runtime repository has been trained on over 30,000 issues, and 5,000 PRs which have been labeled in the past, either manually or automatically.
+We use GraphQL and [Octokit](https://www.nuget.org/packages/Octokit/) to download issues from GitHub and then train models using [ML.NET](ML.NET). e.g. dotnet/runtime repository has been trained on over 30,000 issues, and 5,000 PRs which have been labeled in the past, either manually or automatically.
 
 #### About CreateMikLabel project
 
