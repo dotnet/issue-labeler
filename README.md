@@ -4,21 +4,23 @@ This repo contains the code to build the dotnet issue labeler.
 
 ## Which github repositories use this issue labeler today?
 
-The dotnet organization contains repositories with many incoming issues and pull requests. In order to help with the triage process, we categorize issues into subcategories called areas. We mark issues related to each area, with a specific `area-` label, and therefore over time we are able to employ an issue labeler which learns from these assignments. 
+The dotnet organization contains repositories with many incoming issues and pull requests. In order to help with the triage process, issues get categorized with area labels. The issues related to each area get labeled with a specific `area-` label, and then these label assignments get treated as learning data for an issue labeler to be built. 
 
-The following repositories triage their incoming issues by manually setting labels based on top 3 predictions returned from dotnet/issue-labeler:
+The following repositories currently triage their incoming issues semi-automatically, by manually selecting one of top 3 predictions received from a dotnet/issue-labeler:
 
 * [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
 * [dotnet/extensions](https://github.com/dotnet/extensions)
 
-The following repositories use dotnet/issue-labeler to automatically set `area-` labels for incoming issues and pull requests:
+The following repositories allow dotnet/issue-labeler to automatically set `area-` labels for incoming issues and pull requests:
 
 * [dotnet/runtime](https://github.com/dotnet/runtime)
 * [dotnet/roslyn](https://github.com/dotnet/roslyn)
 * [dotnet/dotnet-api-docs](https://github.com/dotnet/dotnet-api-docs)
 * [dotnet/corefx](https://github.com/dotnet/corefx) (archived)
 
-Of course with automatic labeling there is always a margin of error. But the good thing is the issue-labeler learns from mistakes so long as wrong label assignments have been updated with a correct label manually.
+Of course with automatic labeling there is always a margin of error. But the good thing is that the labeler can learns from mistakes so long as wrong label assignments get corrected manually.
+
+To help with this process, any new issue that gets created also takes an `untriaged` label which then is expected to get removed by area owner for the assigned area label as they go through their triage process. Once being reviewed by the area owner, if they deem the automatic label as incorrect they may remove incorrect label and allow for correct one to get added manually.
 
 ## How to use this issue labeler today?
 
