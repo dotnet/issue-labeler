@@ -14,9 +14,13 @@ The following repositories currently triage their incoming issues semi-automatic
 The following repositories allow dotnet/issue-labeler to automatically set `area-` labels for incoming issues and pull requests:
 
 * [dotnet/runtime](https://github.com/dotnet/runtime)
+* [dotnet/corefx](https://github.com/dotnet/corefx) (archived)
 * [dotnet/roslyn](https://github.com/dotnet/roslyn)
 * [dotnet/dotnet-api-docs](https://github.com/dotnet/dotnet-api-docs)
-* [dotnet/corefx](https://github.com/dotnet/corefx) (archived)
+* [dotnet/docker-tools](https://github.com/dotnet/docker-tools)
+* [dotnet/dotnet-docker](https://github.com/dotnet/dotnet-docker)
+* [dotnet/dotnet-buildtools-prereqs-docker](https://github.com/dotnet/dotnet-buildtools-prereqs-docker)
+* [microsoft/dotnet-framework-docker](https://github.com/microsoft/dotnet-framework-docker)
 
 Of course with automatic labeling there is always a margin of error. But the good thing is that the labeler can learns from mistakes so long as wrong label assignments get corrected manually.
 
