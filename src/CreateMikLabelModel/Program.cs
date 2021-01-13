@@ -16,17 +16,31 @@ namespace CreateMikLabelModel
         private static readonly (string owner, string repo)[][] Repos = new[]
         {
             new[] {
-                ("dotnet", "aspnetcore"),   // first item is the target Repo
+              ("dotnet", "aspnetcore"),   // first item is the target Repo
             },
             new[] {
-                ("dotnet", "extensions"),
+             ("dotnet", "dotnet-docker"),   // first item is the target Repo
+             ("microsoft", "dotnet-framework-docker"),
+             ("dotnet", "dotnet-buildtools-prereqs-docker"),
             },
             new[] {
-                ("dotnet", "runtime"),      // first item is the target Repo
-                ("dotnet", "extensions"),   // the rest are archived repositories
-                ("dotnet", "corefx"),
-                ("dotnet", "coreclr"),
-                ("dotnet", "core-setup"),
+              ("dotnet", "docker-tools"),
+            },
+            new[] {
+              ("dotnet", "extensions"),
+            },
+            new[] {
+               ("dotnet", "runtime"),      // first item is the target Repo
+                ("dotnet", "corefx"),   // the rest are archived repositories
+            },
+            new[] {
+             ("dotnet", "iot")
+            },
+            new[] {
+             ("dotnet", "roslyn")
+            },
+            new[] {
+             ("dotnet", "dotnet-api-docs"),
             }
         };
 
@@ -44,8 +58,8 @@ namespace CreateMikLabelModel
                 foreach (var repoCombo in Repos)
                 {
                     var customFilenamePrefix = $"{repoCombo[0].owner}-{repoCombo[0].repo}-";
-                    var issueFiles = new DataFilePaths(folder, customFilenamePrefix, forPrs: false);
-                    var prFiles = new DataFilePaths(folder, customFilenamePrefix, forPrs: true);
+                    var issueFiles = new DataFilePaths(folder, customFilenamePrefix, forPrs: false, skip: false);
+                    var prFiles = new DataFilePaths(folder, customFilenamePrefix, forPrs: true, skip: false);
 
                     // 1. Download and save GitHub issues and PRs into a single tab delimited compact tsv file (one record per line)
                     if (await DownloadHelper.DownloadItemsAsync(issueFiles.InputPath, repoCombo) == -1)

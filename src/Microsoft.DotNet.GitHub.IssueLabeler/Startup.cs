@@ -5,6 +5,10 @@
 using Hubbup.MikLabelModel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.DotNet.Github.IssueLabeler;
+using Microsoft.DotNet.Github.IssueLabeler.Models;
+using Microsoft.DotNet.GitHub.IssueLabeler.Data;
+using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -25,17 +29,19 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
         public void ConfigureServices(IServiceCollection services)
         {
-            var diffHelper = new DiffHelper();
-            var labeler = new Labeler(
-                Configuration["RepoOwner"],
-                Configuration["RepoName"],
-                Configuration["SecretUri"],
-                double.Parse(Configuration["Threshold"]),
-                diffHelper);
             services.AddControllersWithViews();
-
-            services.AddSingleton(labeler)
-            .AddSingleton(diffHelper);
+            services.AddHostedService<QueuedHostedService>();
+            services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+            services.AddSingleton<GitHubClientFactory>();
+            services.AddHttpClient();
+            services.AddSingleton<IQueueHelper, QueueHelper>();
+            services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
+            services.AddSingleton<IDiffHelper, DiffHelper>();
+            services.AddSingleton<ILabeler, Labeler>();
+            services.AddAzureClients(
+                builder => {
+                    builder.AddBlobServiceClient(Configuration["QConnectionString"]);
+                });
         }
 
         public void Configure(IApplicationBuilder app)

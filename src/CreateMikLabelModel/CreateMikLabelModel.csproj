@@ -13,10 +13,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
+    <PackageReference Include="Octokit.GraphQL" Version="$(OctokitGraphQLVersion)" />
     <PackageReference Include="GraphQL.Client" Version="3.1.2" />
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="3.1.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
+    <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
   </ItemGroup>
 
 </Project>

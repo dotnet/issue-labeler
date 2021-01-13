@@ -2,11 +2,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Hubbup.MikLabelModel;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
@@ -14,13 +15,19 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     [Route("api/WebhookIssue")]
     public class WebhookIssueController : Controller
     {
-        private Labeler Issuelabeler { get; set; }
-        private ILogger Logger { get; set; }
+        private ILabeler _labeler { get; set; }
 
-        public WebhookIssueController(Labeler labeler, ILogger<WebhookIssueController> logger)
+        private ILogger<WebhookIssueController> Logger { get; set; }
+        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+
+        public WebhookIssueController(
+            ILabeler labeler,
+            ILogger<WebhookIssueController> logger,
+            IBackgroundTaskQueue backgroundTaskQueue)
         {
-            Issuelabeler = labeler;
+            _labeler = labeler;
             Logger = logger;
+            _backgroundTaskQueue = backgroundTaskQueue;
         }
 
         [HttpGet("")]
@@ -32,33 +39,28 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             // process has been started > in logger and time
         }
 
-        [HttpGet("{owner}/{repo}/{id}")]
-        public async Task<IActionResult> GetIssueOrPr(string owner, string repo, int id)
+        [HttpGet("test/{owner}/{repo}/{id}")]
+        public IActionResult GetPredictionTest(string owner, string repo, int id)
         {
-            Logger.LogInformation("Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
-            // todo: returns top 3 predictions only for one repo per app for now
-            if (!owner.Equals(Issuelabeler.RepoOwner, StringComparison.OrdinalIgnoreCase) ||
-                !repo.Equals(Issuelabeler.RepoName, StringComparison.OrdinalIgnoreCase))
-                return NotFound($"returning top 3 predictions only for {Issuelabeler.RepoOwner}/{Issuelabeler.RepoName} for now");
-            (List<string> labels, LabelSuggestion labelSuggestion, bool usedLinkedIssue) recommendedLabels = await Issuelabeler.GetRecommendedLabelsAsync(id, Logger, canCommentOnIssue: false);
-            return Ok(recommendedLabels.labelSuggestion);
+            Logger.LogInformation("! test workflow for dispatch label: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
+
+            _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _labeler.DispatchLabelsAsync(owner, repo, id));
+            
+            return Ok();
         }
 
         [HttpPost]
-        public async Task PostAsync([FromBody]IssueEventPayload data)
+        public IActionResult PostAsync([FromBody]IssueEventPayload data)
         {
             IssueModel issueOrPullRequest = data.Issue ?? data.Pull_Request;
             GithubObjectType issueOrPr = data.Issue == null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
-            var labels = new List<string>();
-            int number = issueOrPullRequest.Number;
             if (data.Action == "opened")
             {
-                if (issueOrPr == GithubObjectType.Issue)
-                {
-                    labels.Add("untriaged");
-                }
-                List<string> predictedLabels = await Issuelabeler.PredictLabelsAsync(number, issueOrPr, Logger, canCommentOnIssue: true);
-                labels.AddRange(predictedLabels);
+                string owner = data.Repository.Full_Name.Split("/")[0];
+                string repo = data.Repository.Full_Name.Split("/")[1];
+                Logger.LogInformation("! Webhook call for: {Owner}/{Repo}#{IssueNumber}", owner, repo, issueOrPullRequest.Number);
+
+                _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _labeler.DispatchLabelsAsync(owner, repo, issueOrPullRequest.Number));
             }
             else if (data.Action == "unlabeled" || data.Action == "labeled")
             {
@@ -75,11 +77,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 Logger.LogInformation($"! The {issueOrPr} {issueOrPullRequest.Number} was {data.Action}.");
             }
-
-            if (data.Action == "opened")
-            {
-                await Issuelabeler.UpdateAreaLabelAsync(number, issueOrPr, Logger, labels);
-            }
+            return Ok();
         }
     }
 }

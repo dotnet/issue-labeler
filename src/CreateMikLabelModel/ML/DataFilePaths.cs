@@ -8,9 +8,10 @@ namespace CreateMikLabelModel.ML
 {
     public readonly struct DataFilePaths
     {
-        public DataFilePaths(string folder, string customPrefix, bool forPrs)
+        public DataFilePaths(string folder, string customPrefix, bool forPrs, bool skip)
         {
             Folder = folder;
+            SkipProcessing = skip;
             InputPath = Path.Combine(Folder, customPrefix + "issueAndPrData.tsv");
             var prefix = forPrs ? "only-prs" : "only-issues";
 
@@ -23,6 +24,7 @@ namespace CreateMikLabelModel.ML
         }
 
         public string Folder { get; }
+        public bool SkipProcessing { get; } 
         public readonly string TrainPath;
         public readonly string ValidatePath;
         public readonly string TestPath;

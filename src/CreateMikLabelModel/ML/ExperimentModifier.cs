@@ -24,9 +24,9 @@ namespace CreateMikLabelModel.ML
                 // NOTE: depending on how the data changes over time this might need to get updated too.
                 columnInformation.TextColumnNames.Add("Title");
                 columnInformation.TextColumnNames.Add("Description");
-                columnInformation.IgnoredColumnNames.Add("IssueAuthor");
+                columnInformation.CategoricalColumnNames.Add("IssueAuthor");
                 columnInformation.IgnoredColumnNames.Add("IsPR");
-                columnInformation.IgnoredColumnNames.Add("NumMentions");
+                columnInformation.CategoricalColumnNames.Add("NumMentions");
                 columnInformation.IgnoredColumnNames.Add("UserMentions");
 
                 if (forPrs)
@@ -44,9 +44,16 @@ namespace CreateMikLabelModel.ML
             {
                 trainers.Clear();
                 if (forPrs)
-                    trainers.Add(MulticlassClassificationTrainer.FastTreeOva);
-                else
+                {
                     trainers.Add(MulticlassClassificationTrainer.SdcaMaximumEntropy);
+                    trainers.Add(MulticlassClassificationTrainer.FastTreeOva);
+                }
+                else
+                {
+                    trainers.Add(MulticlassClassificationTrainer.SdcaMaximumEntropy);
+                    // trainers.Add(MulticlassClassificationTrainer.LinearSupportVectorMachinesOva);
+                    //trainers.Add(MulticlassClassificationTrainer.LightGbm);
+                }
             };
 
             ExperimentTime = 300;

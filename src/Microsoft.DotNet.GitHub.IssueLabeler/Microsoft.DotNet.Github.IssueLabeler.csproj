@@ -13,15 +13,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="$(CommandLineParserVersion)" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.8.0-beta.1" />
+    <PackageReference Include="Azure.Storage.Queues" Version="12.6.0-beta.1" />
+    <PackageReference Include="GitHubJwt" Version="0.0.4" />
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
     <PackageReference Include="Microsoft.DotNet.GitHubIssueLabeler.Assets" Version="$(MicrosoftDotNetGitHubIssueLabelerAssetsVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Azure" Version="1.1.0-beta.1" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
-    <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="$(MicrosoftVisualStudioWebCodeGenerationDesignVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
   </ItemGroup>
 </Project>

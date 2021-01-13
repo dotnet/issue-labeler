@@ -22,7 +22,7 @@ namespace Hubbup.MikLabelModel
         public bool PossiblyExtensionsLabel { get; set; }
     }
 
-    public class DiffHelper
+    public class DiffHelper : IDiffHelper
     {
         /// <summary>
         /// name of files taken from fileDiffs

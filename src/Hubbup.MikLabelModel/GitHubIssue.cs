@@ -5,9 +5,64 @@
 #pragma warning disable 649 // We don't care about unsused fields here, because they are mapped with the input file.
 
 using Microsoft.ML.Data;
+using Octokit;
+using System.Collections.Generic;
 
 namespace Hubbup.MikLabelModel
 {
+
+    public class RepoIssueResult
+    {
+        public string Repo { get; set; }
+        public string Owner { get; set; }
+        public IReadOnlyList<Issue> Issues { get; set; }
+        public int TotalCount { get; set; }
+        public List<Label> AreaLabels { get; set; }
+    }
+
+    public sealed class RemoteLabelPrediction
+    {
+        // Meant to deserialize a JSON response like this:
+        //{
+        //    "labelScores":
+        //    [
+        //        {
+        //            "labelName": "area-infrastructure",
+        //            "score": 0.988357544
+        //        },
+        //        {
+        //            "labelName": "area-mvc",
+        //            "score": 0.008182112
+        //        },
+        //        {
+        //            "labelName": "area-servers",
+        //            "score": 0.002301987
+        //        }
+        //    ]
+        //}
+        public List<RemoteLabelPredictionScore> LabelScores { get; set; }
+
+    }
+
+    public sealed class RemoteLabelPredictionScore
+    {
+        public string LabelName { get; set; }
+        public float Score { get; set; }
+    }
+    public class LabelSuggestionViewModel
+    {
+        public Issue Issue { get; set; }
+        public List<LabelScore> LabelScores { get; set; }
+        public string RepoOwner { get; set; }
+        public string RepoName { get; set; }
+
+        public string ErrorMessage { get; set; }
+    }
+    public class LabelScore
+    {
+        public LabelAreaScore LabelAreaScore { get; set; }
+        public Label Label { get; set; }
+    }
     public class GitHubPullRequest : GitHubIssue
     {
         [LoadColumn(9)]
