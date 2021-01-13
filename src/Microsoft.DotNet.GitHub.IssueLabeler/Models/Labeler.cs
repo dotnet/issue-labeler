@@ -3,20 +3,15 @@
 // See the LICENSE file in the project root for more information.
 
 using Hubbup.MikLabelModel;
-using Microsoft.DotNet.Github.IssueLabeler;
 using Microsoft.DotNet.Github.IssueLabeler.Models;
-using Microsoft.DotNet.GitHub.IssueLabeler.Data;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Octokit;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -24,306 +19,65 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
     public class Labeler : ILabeler
     {
-        private IQueueHelper _queueHelper;
         private Regex _regex;
-        private readonly Regex _regexIssueMatch;
         private readonly IDiffHelper _diffHelper;
+        private readonly bool _useIssueLabelerForPrsToo;
+        private readonly IModelHolder _modelHolder;
+        private readonly IPredictor _predictor;
         private readonly ILogger<Labeler> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
         private readonly IGitHubClientWrapper _gitHubClientWrapper;
-        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         public Labeler(
-            IQueueHelper queueHelper,
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
             ILogger<Labeler> logger,
-            IBackgroundTaskQueue backgroundTaskQueue,
+            IModelHolder modelHolder,
             IGitHubClientWrapper gitHubClientWrapper,
+            IPredictor predictor,
             IDiffHelper diffHelper)
         {
-            _queueHelper = queueHelper;
-            _backgroundTaskQueue = backgroundTaskQueue;
-            _gitHubClientWrapper = gitHubClientWrapper;
-            _diffHelper = diffHelper;
-            _regexIssueMatch = new Regex(@"[Ff]ix(?:ed|es|)( )+#(\d+)");
-            _httpClientFactory = httpClientFactory;
             _logger = logger;
-            _configuration = configuration;
+            _httpClientFactory = httpClientFactory;
+            _gitHubClientWrapper = gitHubClientWrapper;
+            _predictor = predictor;
+            _diffHelper = diffHelper;
+            _modelHolder = modelHolder;
+            _useIssueLabelerForPrsToo = configuration.GetSection(("UseIssueLabelerForPrsToo")).Get<bool>();
         }
 
-        public Task DispatchLabelsAsync(string owner, string repo, int number)
-        {
-            var tasks = new List<Task>();
-            tasks.Add(InnerTask(owner, repo, number));
-            return tasks.First();
-        }
-
-        private readonly ConcurrentDictionary<(string, string), LabelerOptions> _options =
-            new ConcurrentDictionary<(string, string), LabelerOptions>();
-
-        private LabelerOptions GetOptionsFor(string owner, string repo)
-        {
-            try
-            {
-                return _options.TryGetValue((owner, repo), out LabelerOptions options) ?
-                    options :
-                    _options.GetOrAdd((owner, repo), new LabelerOptions()
-                    {
-                        LabelRetriever = new LabelRetriever(owner, repo),
-                        PredictionUrl = string.Format(
-                            CultureInfo.InvariantCulture,
-                            "{0}/api/WebhookIssue/{1}/{2}/", _configuration[$"{owner}:{repo}:prediction_url"],
-                            owner, repo),
-                        Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
-                        CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>()
-                    });
-            }
-            catch (Exception ex)
-            {
-                // the repo is not configured, return null to skip
-                _logger.LogError($"{owner}/{repo} is not yet configured.");
-                return null;
-            }
-        }
-
-        private class LabelerOptions
-        {
-            public ILabelRetriever LabelRetriever { get; set; }
-            public string PredictionUrl { get; set; }
-            public double Threshold { get; set; }
-            public bool CanCommentOnIssue { get; set; }
-            public bool CanUpdateIssue { get; set; }
-        }
-
-        private async Task InnerTask(string owner, string repo, int number)
-        {
-            var options = GetOptionsFor(owner, repo);
-            if (options == null)
-            {
-                return;
-            }
-            var labelRetriever = options.LabelRetriever;
-            string msg = $"! dispatcher app - started query for {owner}/{repo}#{number}";
-            _logger.LogInformation(msg);
-
-            var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
-
-            var labels = new HashSet<string>();
-            GithubObjectType issueOrPr = iop.PullRequest != null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
-
-            if (labelRetriever.ShouldSkipUpdatingLabels(iop.User.Login))
-            {
-                _logger.LogInformation($"! dispatcher app - skipped for racing for {issueOrPr} {number}.");
-                return;
-            }
-
-            // get non area labels
-            labels = await GetNonAreaLabelsAsync(labelRetriever, owner, repo, iop);
-
-            bool foundArea = false;
-            string theFoundLabel = default;
-            if (!labelRetriever.SkipPrediction)
-            {
-                // find shortcut to get label
-                if (iop.PullRequest != null)
-                {
-                    string body = iop.Body ?? string.Empty;
-                    if (labelRetriever.AllowTakingLinkedIssueLabel)
-                    {
-                        (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(owner, repo, body);
-                        if (!string.IsNullOrEmpty(linkedIssue.label))
-                        {
-                            _logger.LogInformation($"! dispatcher app - PR number {iop.Number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
-                            foundArea = true;
-                            theFoundLabel = linkedIssue.label;
-                        }
-                    }
-                }
-
-                // then try ML prediction
-                if (!foundArea)
-                {
-                    var labelSuggestion = await GetLabelSuggestion(options.PredictionUrl, owner, repo, number);
-                    if (labelSuggestion == null)
-                    {
-                        _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _queueHelper.InsertMessageTask($"TODO - Dispatch labels for: /{owner}/{repo}#{number}"));
-                        return;
-                    }
-                    var topChoice = labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
-                    if (labelRetriever.PreferManualLabelingFor(topChoice.LabelName))
-                    {
-                        _logger.LogInformation($"#  dispatcher app - skipped: prefer manual prediction instead.");
-                    }
-                    else if (topChoice.Score >= options.Threshold || labelRetriever.OkToIgnoreThresholdFor(topChoice.LabelName))
-                    {
-                        foundArea = true;
-                        theFoundLabel = topChoice.LabelName;
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"! dispatcher app - The Model was not able to assign the label to the {issueOrPr} {number} confidently.");
-                    }
-                }
-            }
-            await UpdateTask(options, owner, repo, number, foundArea, labels, theFoundLabel, issueOrPr, labelRetriever);
-        }
-
-        private async Task UpdateTask(
-            LabelerOptions options,
-            string owner, string repo,
-            int number,
-            bool foundArea,
-            HashSet<string> labels,
-            string theFoundLabel,
-            GithubObjectType issueOrPr,
-            ILabelRetriever labelRetriever)
-        {
-
-            if (labelRetriever.AddDelayBeforeUpdatingLabels)
-            {
-                // to avoid race with dotnet-bot
-                await Task.Delay(TimeSpan.FromSeconds(10));
-            }
-
-            // get iop again
-            var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
-
-            var existingLabelList = iop?.Labels?.Where(x => !string.IsNullOrEmpty(x.Name)).Select(x => x.Name).ToList();
-            bool issueMissingAreaLabel = !existingLabelList.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any();
-
-            // update section
-            if (labels.Count > 0 || (foundArea && issueMissingAreaLabel))
-            {
-                //var issueUpdate = iop.ToUpdate();
-                var issueUpdate = new IssueUpdate();
-
-                if (foundArea && issueMissingAreaLabel)
-                {
-                    // no area label yet
-                    issueUpdate.AddLabel(theFoundLabel);
-                }
-
-                var existingLabelNames = existingLabelList.ToHashSet();
-                foreach (var newLabel in labels)
-                {
-                    if (!existingLabelNames.Contains(newLabel))
-                    {
-                        issueUpdate.AddLabel(newLabel);
-                    }
-                }
-
-                if (options.CanUpdateIssue && issueUpdate.Labels != null && issueUpdate.Labels.Count > 0)
-                {
-                    issueUpdate.Milestone = iop.Milestone?.Number; // The number of milestone associated with the issue.
-                    foreach (var existingLabel in existingLabelNames)
-                    {
-                        issueUpdate.AddLabel(existingLabel);
-                    }
-                    await _gitHubClientWrapper.UpdateIssue(owner, repo, number, issueUpdate);
-                }
-                else if (!options.CanUpdateIssue && issueUpdate.Labels != null && issueUpdate.Labels.Count > 0)
-                {
-                    _logger.LogInformation($"! skipped updating labels for {issueOrPr} {number}. would have become: {string.Join(",", issueUpdate.Labels)}");
-                }
-                else
-                {
-                    _logger.LogInformation($"! dispatcher app - No update made to labels for {issueOrPr} {number}.");
-                }
-            }
-
-            // comment section
-            if (options.CanCommentOnIssue)
-            {
-                foreach (var labelFound in labels)
-                {
-                    if (!string.IsNullOrEmpty(labelRetriever.CommentFor(labelFound)))
-                    {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.CommentFor(labelFound));
-                    }
-                }
-
-                // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && labelRetriever.CommentWhenMissingAreaLabel)
-                {
-                    if (issueOrPr == GithubObjectType.Issue)
-                    {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForIssue);
-                    }
-                    else
-                    {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForPr);
-                    }
-                }
-            }
-            else
-            {
-                _logger.LogInformation($"! dispatcher app - No comment made to labels for {issueOrPr} {number}.");
-            }
-        }
-
-        private async Task<LabelSuggestion> GetLabelSuggestion(string partUrl, string owner, string repo, int number)
-        {
-            var predictionUrl = @$"{partUrl}{number}";
-            var request = new HttpRequestMessage(HttpMethod.Get, predictionUrl);
-            var client = _httpClientFactory.CreateClient();
-            var response = await client.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                using var responseStream = await response.Content.ReadAsStreamAsync();
-                var remotePrediction = await JsonSerializer.DeserializeAsync<RemoteLabelPrediction>(responseStream, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                var predictionList = remotePrediction.LabelScores.Select(ls => new LabelScore()
-                {
-                    LabelAreaScore = new LabelAreaScore { LabelName = ls.LabelName, Score = ls.Score },
-                    Label = default
-                }).Select(x => x.LabelAreaScore).ToList();
-
-                _logger.LogInformation("! received prediction: {0}", string.Join(",", predictionList.Select(x => x.LabelName)));
-
-                return new LabelSuggestion()
-                {
-                    LabelScores = predictionList,
-                };
-            }
-            else
-            {
-                // queue task again until the suggestion comes back safe
-                _logger.LogError($"Could not retrieve label predictions for this issue. Remote HTTP prediction status code {response.StatusCode} from URL '{predictionUrl}'.");
-                return null;
-            }
-        }
-
-        private async Task<(string label, int number)> GetAnyLinkedIssueLabel(string owner, string repo, string body)
-        {
-            Match match = _regexIssueMatch.Match(body);
-            if (match.Success && int.TryParse(match.Groups[2].Value, out int issueNumber))
-            {
-                return (await TryGetIssueLabelForPrAsync(owner, repo, issueNumber), issueNumber);
-            }
-            return await Task.FromResult<(string, int)>(default);
-        }
-
-        private async Task<HashSet<string>> GetNonAreaLabelsAsync(ILabelRetriever labelRetriever, string owner, string repo, Octokit.Issue iop)
+        public async Task<LabelSuggestion> PredictUsingModelsFromStorageQueue(string owner, string repo, int number)
         {
             if (_regex == null)
             {
                 _regex = new Regex(@"@[a-zA-Z0-9_//-]+");
             }
+            if (!_modelHolder.IsIssueEngineLoaded || !_modelHolder.IsPrEngineLoaded)
+            {
+                throw new InvalidOperationException("load engine before calling predict");
+            }
+
+            var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
+            bool isPr = iop.PullRequest != null;
+
+
             string body = iop.Body ?? string.Empty;
             var userMentions = _regex.Matches(body).Select(x => x.Value).ToArray();
-            IssueModel iopModel = null;
-            if (iop.PullRequest != null)
+            LabelSuggestion labelSuggestion = null;
+
+            if (isPr && !_useIssueLabelerForPrsToo)
             {
-                iopModel = await CreatePullRequest(owner, repo, iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
+                var prModel = await CreatePullRequest(owner, repo, iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
+                labelSuggestion = _predictor.Predict(prModel, _logger);
+                _logger.LogInformation("predicted with pr model the new way");
+                _logger.LogInformation(string.Join(",", labelSuggestion.LabelScores.Select(x => x.LabelName)));
+                return labelSuggestion;
             }
-            else
-            {
-                iopModel = CreateIssue(iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
-            }
-            return labelRetriever.GetNonAreaLabelsForIssueAsync(iopModel);
+            var issueModel = CreateIssue(iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
+            labelSuggestion = _predictor.Predict(issueModel, _logger);
+            _logger.LogInformation("predicted with issue model the new way");
+            _logger.LogInformation(string.Join(",", labelSuggestion.LabelScores.Select(x => x.LabelName)));
+            return labelSuggestion;
         }
 
         private static IssueModel CreateIssue(int number, string title, string body, string[] userMentions, string author)
@@ -381,20 +135,10 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var pr = await _gitHubClientWrapper.GetPullRequest(owner, repo, prNumber);
             var diff = new Uri(pr.DiffUrl);
             var httpclient = _httpClientFactory.CreateClient();
-            // TODO: fix failure here seen in logs.
             var response = await httpclient.GetAsync(diff.LocalPath);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             return TakeDiffContentReturnMeaning(content.Split("\n"));
-        }
-
-        private async Task<string> TryGetIssueLabelForPrAsync(string owner, string repo, int issueNumber)
-        {
-            var issue = await _gitHubClientWrapper.GetIssue(owner, repo, issueNumber);
-            return issue?.Labels?
-                .Where(x => !string.IsNullOrEmpty(x.Name))
-                .Select(x => x.Name)
-                .Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
         }
 
         private enum DiffContentLineReadingStatus
@@ -521,131 +265,5 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return false; // diff --git a/src/libraries/(.*)/ref/(.*).cs b/src/libraries/(.*)/ref/(.*).cs
         }
 
-    }
-
-    public interface IGitHubClientWrapper
-    {
-        Task<Octokit.Issue> GetIssue(string owner, string repo, int number);
-        Task<Octokit.PullRequest> GetPullRequest(string owner, string repo, int number);
-        Task<IReadOnlyList<PullRequestFile>> GetPullRequestFiles(string owner, string repo, int number);
-        Task UpdateIssue(string owner, string repo, int number, IssueUpdate issueUpdate);
-        Task CommentOn(string owner, string repo, int number, string comment);
-    }
-    public class GitHubClientWrapper : IGitHubClientWrapper
-    {
-        private readonly  ILogger<GitHubClientWrapper> _logger;
-        private GitHubClient _client;
-        private readonly GitHubClientFactory _gitHubClientFactory;
-        private readonly bool _skipAzureKeyVault;
-
-        public GitHubClientWrapper(
-            ILogger<GitHubClientWrapper> logger,
-            IConfiguration configuration,
-            GitHubClientFactory gitHubClientFactory)
-        {
-            _logger = logger;
-            _skipAzureKeyVault = configuration.GetSection("SkipAzureKeyVault").Get<bool>(); // TODO locally true
-            _gitHubClientFactory = gitHubClientFactory;
-
-        }
-
-        public async Task<Octokit.Issue> GetIssue(string owner, string repo, int number)
-        {
-            if (_client == null)
-            {
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-            }
-            Octokit.Issue iop = null;
-            try
-            {
-                iop = await _client.Issue.Get(owner, repo, number);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                iop = await _client.Issue.Get(owner, repo, number);
-            }
-            return iop;
-        }
-
-        public async Task<Octokit.PullRequest> GetPullRequest(string owner, string repo, int number)
-        {
-            if (_client == null)
-            {
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-            }
-            Octokit.PullRequest iop = null;
-            try
-            {
-                iop = await _client.PullRequest.Get(owner, repo, number);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                iop = await _client.PullRequest.Get(owner, repo, number);
-            }
-            return iop;
-        }
-
-        public async Task<IReadOnlyList<PullRequestFile>> GetPullRequestFiles(string owner, string repo, int number)
-        {
-            if (_client == null)
-            {
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-            }
-            IReadOnlyList<PullRequestFile> prFiles = null;
-            try
-            {
-                prFiles = await _client.PullRequest.Files(owner, repo, number);
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                prFiles = await _client.PullRequest.Files(owner, repo, number);
-            }
-            return prFiles;
-        }
-
-        public async Task UpdateIssue(string owner, string repo, int number, IssueUpdate issueUpdate)
-        {
-            if (_client == null)
-            {
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-            }
-            try
-            {
-                await _client.Issue.Update(owner, repo, number, issueUpdate);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                await _client.Issue.Update(owner, repo, number, issueUpdate);
-            }
-        }
-
-        // lambda -> call and pass a lambda calls create, and if fails remake and call it again.
-
-        public async Task CommentOn(string owner, string repo, int number, string comment)
-        {
-            if (_client == null)
-            {
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-            }
-            try
-            {
-                await _client.Issue.Comment.Create(owner, repo, number, comment);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
-                _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                await _client.Issue.Comment.Create(owner, repo, number, comment);
-            }
-        }
     }
 }

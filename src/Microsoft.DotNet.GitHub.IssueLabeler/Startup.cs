@@ -34,8 +34,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
             services.AddSingleton<GitHubClientFactory>();
             services.AddHttpClient();
-            services.AddSingleton<IQueueHelper, QueueHelper>();
+            services.AddSingleton<IPredictor, Predictor>();
             services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
+            services.AddSingleton<IModelHolder, ModelHolder>();
             services.AddSingleton<IDiffHelper, DiffHelper>();
             services.AddSingleton<ILabeler, Labeler>();
             services.AddAzureClients(

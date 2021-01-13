@@ -1,12 +1,14 @@
-﻿using GitHubJwt;
+﻿using System;
+using System.IO;
+using System.Threading.Tasks;
+
+using GitHubJwt;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.KeyVault.Models;
 using Microsoft.Azure.Services.AppAuthentication;
 using Microsoft.Extensions.Configuration;
+
 using Octokit;
-using System;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler.Data
 {

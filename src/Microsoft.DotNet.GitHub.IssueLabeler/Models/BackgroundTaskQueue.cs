@@ -1,4 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+﻿
+using Microsoft.DotNet.Github.IssueLabeler.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -17,14 +20,18 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     public class BackgroundTaskQueue : IBackgroundTaskQueue
     {
         private readonly ILogger<BackgroundTaskQueue> _logger;
+        private readonly IModelHolder _modelHolder;
         private ConcurrentQueue<Func<CancellationToken, Task>> _workItems =
             new ConcurrentQueue<Func<CancellationToken, Task>>();
         private SemaphoreSlim _signal = new SemaphoreSlim(0);
 
         public BackgroundTaskQueue(
+            IModelHolder modelHolder,
+            IConfiguration configuration,
             ILogger<BackgroundTaskQueue> logger)
         {
             _logger = logger;
+            _modelHolder = modelHolder;
         }
 
         public void QueueBackgroundWorkItem(
@@ -33,6 +40,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             if (workItem == null)
             {
                 throw new ArgumentNullException(nameof(workItem));
+            }
+
+            if (!_modelHolder.LoadRequested)
+            {
+                // TODO perhaps restrict to only try once per application lifetime in the future 
+                _workItems.Enqueue((ct) => _modelHolder.LoadEnginesAsync());
+                _signal.Release();
             }
 
             _workItems.Enqueue(workItem);

@@ -4,10 +4,12 @@
 
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.DotNet.Github.IssueLabeler.Models;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
@@ -18,16 +20,24 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private ILabeler _labeler { get; set; }
 
         private ILogger<WebhookIssueController> Logger { get; set; }
+        private readonly IModelHolder _modelHolder;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+        private string _repo;
+        private string _owner;
 
         public WebhookIssueController(
             ILabeler labeler,
             ILogger<WebhookIssueController> logger,
+            IConfiguration configuration,
+            IModelHolder modelHolder,
             IBackgroundTaskQueue backgroundTaskQueue)
         {
+            _modelHolder = modelHolder;
             _labeler = labeler;
             Logger = logger;
             _backgroundTaskQueue = backgroundTaskQueue;
+            _owner = configuration["RepoOwner"];
+            _repo = configuration["RepoName"];
         }
 
         [HttpGet("")]
@@ -36,48 +46,42 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         public IActionResult Index()
         {
             return Content($"Check the logs, or predict labels.");
-            // process has been started > in logger and time
         }
 
-        [HttpGet("test/{owner}/{repo}/{id}")]
-        public IActionResult GetPredictionTest(string owner, string repo, int id)
+        [HttpGet("load")]
+        public IActionResult ManuallyRequestEnginesLoaded()
         {
-            Logger.LogInformation("! test workflow for dispatch label: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
-
-            _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _labeler.DispatchLabelsAsync(owner, repo, id));
-            
-            return Ok();
+            if (_modelHolder.IsPrEngineLoaded && _modelHolder.IsIssueEngineLoaded)
+            {
+                // queued hosted serrvice: task to only download and load models
+                Logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, _repo);
+                return Ok("Loaded");
+            }
+            // only do this once for per application lifetime for now
+            _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _modelHolder.LoadEnginesAsync());
+            return Ok($"Loading prediction engines.");
         }
 
-        [HttpPost]
-        public IActionResult PostAsync([FromBody]IssueEventPayload data)
+        [HttpGet("{owner}/{repo}/{id}")]
+        public async Task<IActionResult> GetPrediction(string owner, string repo, int id)
         {
-            IssueModel issueOrPullRequest = data.Issue ?? data.Pull_Request;
-            GithubObjectType issueOrPr = data.Issue == null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
-            if (data.Action == "opened")
+            // TODO support loading multiple prediction engines in one app
+            if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase) ||
+                !repo.Equals(_repo, StringComparison.OrdinalIgnoreCase))
             {
-                string owner = data.Repository.Full_Name.Split("/")[0];
-                string repo = data.Repository.Full_Name.Split("/")[1];
-                Logger.LogInformation("! Webhook call for: {Owner}/{Repo}#{IssueNumber}", owner, repo, issueOrPullRequest.Number);
+                return BadRequest($"Only predictions for {_owner}/{_repo} are supported");
+            }
 
-                _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _labeler.DispatchLabelsAsync(owner, repo, issueOrPullRequest.Number));
-            }
-            else if (data.Action == "unlabeled" || data.Action == "labeled")
+            if (_modelHolder.IsIssueEngineLoaded && _modelHolder.IsPrEngineLoaded)
             {
-                if (data.Label != null && !string.IsNullOrEmpty(data.Label.Name))
-                {
-                    string labelName = data.Label.Name;
-                    if (labelName.StartsWith("area-", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Logger.LogInformation($"! Area label {labelName} for {issueOrPr} {issueOrPullRequest.Number} got {data.Action}.");
-                    }
-                }
+                // queued hosted serrvice: task to only download and load models
+                Logger.LogInformation("! Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
+                var labelSuggestion = await _labeler.PredictUsingModelsFromStorageQueue(owner, repo, id);
+                return Ok(labelSuggestion);
             }
-            else
-            {
-                Logger.LogInformation($"! The {issueOrPr} {issueOrPullRequest.Number} was {data.Action}.");
-            }
-            return Ok();
+
+            // TODO test this
+            return BadRequest("Models need to load before requesting for predictions. Wait until the models are loaded");
         }
     }
 }
