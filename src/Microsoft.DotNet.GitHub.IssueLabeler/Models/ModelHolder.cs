@@ -9,63 +9,92 @@ using Microsoft.DotNet.GitHub.IssueLabeler;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using System.Collections.Concurrent;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
     public interface IModelHolder
     {
-        bool IsPrModelPathDownloaded { get; }
-        bool IsIssueModelPathDownloaded { get; }
         bool IsPrEngineLoaded { get; }
         bool LoadRequested { get; }
         bool IsIssueEngineLoaded { get; }
         PredictionEngine<IssueModel, GitHubIssuePrediction> IssuePredEngine { get; }
         PredictionEngine<PrModel, GitHubIssuePrediction> PrPredEngine { get; }
-        string PrPath { get; }
-        string IssuePath { get; }
         Task LoadEnginesAsync();
+        bool UseIssuesForPrsToo { get; }
     }
 
     // make singleton => bg service and the controller can access.....
     // IModelHolder.... holds the prediction engin.... -> is it loaded yet? then if so return suggestion
     public class ModelHolder : IModelHolder
     {
-        private readonly ILogger<ModelHolder> _logger;
-        public ModelHolder(ILogger<ModelHolder> logger, IConfiguration configuration)
+        private readonly ILogger<ModelHolderFactory> _logger;
+        public ModelHolder(ILogger<ModelHolderFactory> logger, IConfiguration configuration, string repo)
         {
             // TODO: imagine there is an array of model holders, prefixes itself with owner/repo info.
 
             _logger = logger;
             _connectionString = configuration["QConnectionString"];
-            _blobContainerName = configuration["BlobContainerNameForMlModels"];
+            _blobContainerName = configuration["BlobContainer"];
 
             // the following four configuration values are per repo values.
-            // if the ctor received owner/repo we could query the right config values here
+            string configSection = $"IssueModel:{repo}:PathPrefix";
+            if (string.IsNullOrEmpty(configuration[configSection]))
+            {
+                throw new ArgumentNullException($"repo: {repo}, missing config.");
+            }
+            IssuePath = Path.Combine(Directory.GetCurrentDirectory(), $"{configuration[configSection]}.zip");
 
-            _prModelBlobName = configuration["PrModelBlobName"];
-            _issueModelBlobName = configuration["IssueModelBlobName"];
+            configSection = $"IssueModel:{repo}:BlobName";
+            if (string.IsNullOrEmpty(configuration[configSection]))
+            {
+                throw new ArgumentNullException($"repo: {repo}, missing config..");
+            }
+            _issueModelBlobName = configuration[configSection];
 
-            IssuePath = Path.Combine(Directory.GetCurrentDirectory(), $"{configuration["IssueModelPathPrefix"]}.zip");
-            PrPath = Path.Combine(Directory.GetCurrentDirectory(), $"{configuration["PrModelPathPrefix"]}.zip");
+            configSection = $"PrModel:{repo}:PathPrefix";
+            if (!string.IsNullOrEmpty(configuration[configSection]))
+            {
+                PrPath = Path.Combine(Directory.GetCurrentDirectory(), $"{configuration[configSection]}.zip");
 
+                // has both pr and issue config - allowed
+                configSection = $"PrModel:{repo}:BlobName";
+                if (string.IsNullOrEmpty(configuration[configSection]))
+                {
+                    throw new ArgumentNullException($"repo: {repo}, missing config...");
+                }
+                _prModelBlobName = configuration[configSection];
+            }
+            else
+            {
+                // has issue config only - allowed
+                UseIssuesForPrsToo = true;
+
+                configSection = $"PrModel:{repo}:BlobName";
+
+                if (!string.IsNullOrEmpty(configuration[configSection]))
+                {
+                    throw new ArgumentNullException($"repo: {repo}, missing config....");
+                }
+            }
             _loadRequested = 0;
         }
         private int _loadRequested;
+        private bool IsPrModelPathDownloaded => (UseIssuesForPrsToo && IsIssueModelPathDownloaded) || File.Exists(PrPath);
+        private bool IsIssueModelPathDownloaded => File.Exists(IssuePath);
+        private string PrPath;
+        private string IssuePath;
+
         public bool LoadRequested => _loadRequested != 0;
-        public string PrPath { get; private set; }
-        public string IssuePath { get; private set; }
-        public bool IsPrModelPathDownloaded => File.Exists(PrPath);
-        public bool IsIssueModelPathDownloaded => File.Exists(IssuePath);
         public bool IsPrEngineLoaded => (PrPredEngine != null);
         public bool IsIssueEngineLoaded => (IssuePredEngine != null);
+        public bool UseIssuesForPrsToo { get; private set; }
         public PredictionEngine<IssueModel, GitHubIssuePrediction> IssuePredEngine { get; private set; } = null;
         public PredictionEngine<PrModel, GitHubIssuePrediction> PrPredEngine { get; private set; } = null;
         public async Task LoadEnginesAsync()
         {
             _logger.LogInformation($"! {nameof(LoadEnginesAsync)} called.");
             Interlocked.Increment(ref _loadRequested);
-            if (IsIssueEngineLoaded && IsPrEngineLoaded)
+            if (IsIssueEngineLoaded && (UseIssuesForPrsToo || IsPrEngineLoaded))
             {
                 _logger.LogInformation($"! engines were already loaded.");
                 return;
@@ -79,7 +108,7 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
                 IssuePredEngine = mlContext.Model.CreatePredictionEngine<IssueModel, GitHubIssuePrediction>(mlModel);
                 _logger.LogInformation($"! {nameof(IssuePredEngine)} loaded.");
             }
-            if (!IsPrEngineLoaded)
+            if (!UseIssuesForPrsToo && !IsPrEngineLoaded)
             {
                 _logger.LogInformation($"! loading {nameof(PrPredEngine)}.");
                 MLContext mlContext = new MLContext();
@@ -91,7 +120,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 
         private int timesIssueDownloaded = 0;
         private int timesPrDownloaded = 0;
-        private int timesBlobContainerClientInstantiated = 0;
 
         private async Task EnsureModelPathsAvailableAsync()
         {
@@ -104,8 +132,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
             _logger.LogInformation($"! calling {nameof(BlobContainerClient)}.");
             BlobContainerClient container = new BlobContainerClient(_connectionString, _blobContainerName);
             container.CreateIfNotExists(PublicAccessType.Blob);
-            Interlocked.Increment(ref timesBlobContainerClientInstantiated);
-            _logger.LogInformation($"! {nameof(timesBlobContainerClientInstantiated)}: {timesBlobContainerClientInstantiated}");
 
             try
             {

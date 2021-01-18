@@ -20,24 +20,22 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private ILabeler _labeler { get; set; }
 
         private ILogger<WebhookIssueController> Logger { get; set; }
-        private readonly IModelHolder _modelHolder;
+        private readonly IModelHolderFactory _modelHolderFactory;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
-        private string _repo;
         private string _owner;
 
         public WebhookIssueController(
             ILabeler labeler,
             ILogger<WebhookIssueController> logger,
             IConfiguration configuration,
-            IModelHolder modelHolder,
+            IModelHolderFactory modelHolderFactory,
             IBackgroundTaskQueue backgroundTaskQueue)
         {
-            _modelHolder = modelHolder;
+            _modelHolderFactory = modelHolderFactory;
             _labeler = labeler;
             Logger = logger;
             _backgroundTaskQueue = backgroundTaskQueue;
             _owner = configuration["RepoOwner"];
-            _repo = configuration["RepoName"];
         }
 
         [HttpGet("")]
@@ -48,31 +46,46 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return Content($"Check the logs, or predict labels.");
         }
 
-        [HttpGet("load")]
-        public IActionResult ManuallyRequestEnginesLoaded()
+        [HttpGet("load/{owner}/{repo}")]
+        public IActionResult ManuallyRequestEnginesLoaded(string owner, string repo)
         {
-            if (_modelHolder.IsPrEngineLoaded && _modelHolder.IsIssueEngineLoaded)
+            // TODO: Add a threshold for how many repo engine loads are allowed
+            if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest($"Only predictions for {_owner} are supported");
+            }
+
+            var modelHolder = _modelHolderFactory.CreateModelHolder(owner, repo);
+            if (modelHolder == null)
+            {
+                return BadRequest($"Repo {_owner}/{repo} is not yet configured for label prediction.");
+            }
+
+            if (modelHolder.IsIssueEngineLoaded && (modelHolder.UseIssuesForPrsToo || modelHolder.IsPrEngineLoaded))
             {
                 // queued hosted serrvice: task to only download and load models
-                Logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, _repo);
-                return Ok("Loaded");
+                Logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, repo);
+                return Ok($"Loaded {owner}/{repo}");
             }
-            // only do this once for per application lifetime for now
-            _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => _modelHolder.LoadEnginesAsync());
-            return Ok($"Loading prediction engines.");
+            return Ok($"Prediction engines for {owner}/{repo} are still loading.");
         }
 
         [HttpGet("{owner}/{repo}/{id}")]
         public async Task<IActionResult> GetPrediction(string owner, string repo, int id)
         {
-            // TODO support loading multiple prediction engines in one app
-            if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase) ||
-                !repo.Equals(_repo, StringComparison.OrdinalIgnoreCase))
+            // TODO: Add a threshold for how many repo engine loads are allowed
+            if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase))
             {
-                return BadRequest($"Only predictions for {_owner}/{_repo} are supported");
+                return BadRequest($"Only predictions for {_owner} are supported");
             }
 
-            if (_modelHolder.IsIssueEngineLoaded && _modelHolder.IsPrEngineLoaded)
+            var modelHolder = _modelHolderFactory.CreateModelHolder(owner, repo);
+            if (modelHolder == null)
+            {
+                return BadRequest($"Repo {_owner}/{repo} is not yet configured for label prediction.");
+            }
+
+            if (modelHolder.IsIssueEngineLoaded && (modelHolder.UseIssuesForPrsToo || modelHolder.IsPrEngineLoaded))
             {
                 // queued hosted serrvice: task to only download and load models
                 Logger.LogInformation("! Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);

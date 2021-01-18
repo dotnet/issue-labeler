@@ -4,6 +4,7 @@
 
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
@@ -19,6 +20,12 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         {
             return WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.AddAzureWebAppDiagnostics();
+                })
                 .Build();
         }
     }

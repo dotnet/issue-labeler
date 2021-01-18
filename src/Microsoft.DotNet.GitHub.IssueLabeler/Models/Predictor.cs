@@ -13,29 +13,20 @@ using System.Linq;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
-    public interface IPredictor
+    public static class Predictor
     {
-        LabelSuggestion Predict(IssueModel issue, ILogger logger);
-
-        LabelSuggestion Predict(PrModel issue, ILogger logger);
-    }
-
-    public class Predictor: IPredictor
-    {
-        private readonly IModelHolder _modelHolder;
-        public Predictor(IModelHolder modelHolder)
+        public static LabelSuggestion Predict(IssueModel issue, ILogger logger, IModelHolder modelHolder)
         {
-            _modelHolder = modelHolder;
+            return Predict(issue, modelHolder.IssuePredEngine, logger);
         }
 
-        public LabelSuggestion Predict(IssueModel issue, ILogger logger)
+        public static LabelSuggestion Predict(PrModel issue, ILogger logger, IModelHolder modelHolder)
         {
-            return Predict(issue, _modelHolder.IssuePredEngine, logger);
-        }
-
-        public LabelSuggestion Predict(PrModel issue, ILogger logger)
-        {
-            return Predict(issue, _modelHolder.PrPredEngine, logger);
+            if (modelHolder.UseIssuesForPrsToo)
+            {
+                return Predict(issue, modelHolder.IssuePredEngine, logger);
+            }
+            return Predict(issue, modelHolder.PrPredEngine, logger);
         }
 
         private static LabelSuggestion Predict<T>(

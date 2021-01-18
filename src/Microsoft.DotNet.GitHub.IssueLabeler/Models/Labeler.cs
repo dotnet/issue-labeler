@@ -22,8 +22,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private Regex _regex;
         private readonly IDiffHelper _diffHelper;
         private readonly bool _useIssueLabelerForPrsToo;
-        private readonly IModelHolder _modelHolder;
-        private readonly IPredictor _predictor;
+        private readonly IModelHolderFactory _modelHolderFactory;
         private readonly ILogger<Labeler> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IGitHubClientWrapper _gitHubClientWrapper;
@@ -32,17 +31,15 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
             ILogger<Labeler> logger,
-            IModelHolder modelHolder,
+            IModelHolderFactory modelHolderFactory,
             IGitHubClientWrapper gitHubClientWrapper,
-            IPredictor predictor,
             IDiffHelper diffHelper)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _gitHubClientWrapper = gitHubClientWrapper;
-            _predictor = predictor;
             _diffHelper = diffHelper;
-            _modelHolder = modelHolder;
+            _modelHolderFactory = modelHolderFactory;
             _useIssueLabelerForPrsToo = configuration.GetSection(("UseIssueLabelerForPrsToo")).Get<bool>();
         }
 
@@ -52,7 +49,12 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 _regex = new Regex(@"@[a-zA-Z0-9_//-]+");
             }
-            if (!_modelHolder.IsIssueEngineLoaded || !_modelHolder.IsPrEngineLoaded)
+            var modelHolder = _modelHolderFactory.CreateModelHolder(owner, repo);
+            if (modelHolder == null)
+            {
+                throw new InvalidOperationException($"Repo {owner}/{repo} is not yet configured for label prediction.");
+            }
+            if (!modelHolder.IsIssueEngineLoaded || (!modelHolder.UseIssuesForPrsToo && !modelHolder.IsPrEngineLoaded))
             {
                 throw new InvalidOperationException("load engine before calling predict");
             }
@@ -68,13 +70,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             if (isPr && !_useIssueLabelerForPrsToo)
             {
                 var prModel = await CreatePullRequest(owner, repo, iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
-                labelSuggestion = _predictor.Predict(prModel, _logger);
+                labelSuggestion = Predictor.Predict(prModel, _logger, modelHolder);
                 _logger.LogInformation("predicted with pr model the new way");
                 _logger.LogInformation(string.Join(",", labelSuggestion.LabelScores.Select(x => x.LabelName)));
                 return labelSuggestion;
             }
             var issueModel = CreateIssue(iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
-            labelSuggestion = _predictor.Predict(issueModel, _logger);
+            labelSuggestion = Predictor.Predict(issueModel, _logger, modelHolder);
             _logger.LogInformation("predicted with issue model the new way");
             _logger.LogInformation(string.Join(",", labelSuggestion.LabelScores.Select(x => x.LabelName)));
             return labelSuggestion;
