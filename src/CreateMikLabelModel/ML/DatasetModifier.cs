@@ -32,10 +32,25 @@ namespace CreateMikLabelModel.ML
             public static readonly Func<string, string, string> RenameLabelForRuntimeRepo = (originalArea, fromRepo) =>
                 fromRepo switch
                 {
+                    "corefx" => RenameFromCoreFxToRuntime(originalArea),
                     "coreclr" => RenameFromCoreClrToRuntime(originalArea),
                     "extensions" => RenameFromExtensionsToRuntime(originalArea),
                     _ => originalArea,
                 };
+
+            private static string RenameFromCoreFxToRuntime(string predictedLabel)
+            {
+                var ret = predictedLabel;
+                switch (predictedLabel)
+                {
+                    case "area-System.Reflection":
+                        ret = predictedLabel + "-coreclr";
+                        break;
+                    default:
+                        break;
+                }
+                return ret;
+            }
 
             private static string RenameFromCoreClrToRuntime(string predictedLabel)
             {
@@ -74,6 +89,7 @@ namespace CreateMikLabelModel.ML
                     case "area-ReadyToRun":
                     case "area-ILTools":
                     case "area-VM":
+                    case "area-System.Reflection":
                         ret = predictedLabel + "-coreclr";
                         break;
                     default:

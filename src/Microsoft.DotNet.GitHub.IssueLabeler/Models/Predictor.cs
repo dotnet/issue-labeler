@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using Hubbup.MikLabelModel;
+using Microsoft.DotNet.Github.IssueLabeler.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.ML;
 using Microsoft.ML.Data;
@@ -12,37 +13,31 @@ using System.Linq;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
-    internal static class Predictor
+    public static class Predictor
     {
-        private static string PrModelPath(string repoOwner, string repoName) => Path.Combine("model", repoOwner, repoName, "GitHubPrLabelerModel.zip");
-        private static string IssueModelPath(string repoOwner, string repoName) => Path.Combine("model", repoOwner, repoName, "GitHubLabelerModel.zip");
-
-        private static PredictionEngine<IssueModel, GitHubIssuePrediction> issuePredEngine;
-        private static PredictionEngine<PrModel, GitHubIssuePrediction> prPredEngine;
-
-        public static LabelSuggestion Predict(string repoOwner, string repoName, IssueModel issue, ILogger logger, double threshold)
+        public static LabelSuggestion Predict(IssueModel issue, ILogger logger, IModelHolder modelHolder)
         {
-            return Predict(issue, ref issuePredEngine, IssueModelPath(repoOwner, repoName), logger, threshold);
+            return Predict(issue, modelHolder.IssuePredEngine, logger);
         }
 
-        public static LabelSuggestion Predict(string repoOwner, string repoName, PrModel issue, ILogger logger, double threshold)
+        public static LabelSuggestion Predict(PrModel issue, ILogger logger, IModelHolder modelHolder)
         {
-            return Predict(issue, ref prPredEngine, PrModelPath(repoOwner, repoName), logger, threshold);
+            if (modelHolder.UseIssuesForPrsToo)
+            {
+                return Predict(issue, modelHolder.IssuePredEngine, logger);
+            }
+            return Predict(issue, modelHolder.PrPredEngine, logger);
         }
 
-        public static LabelSuggestion Predict<T>(
+        private static LabelSuggestion Predict<T>(
             T issueOrPr,
-            ref PredictionEngine<T, GitHubIssuePrediction> predEngine,
-            string modelPath,
-            ILogger logger,
-            double threshold)
+            PredictionEngine<T, GitHubIssuePrediction> predEngine,
+            ILogger logger)
             where T : IssueModel
         {
             if (predEngine == null)
             {
-                MLContext mlContext = new MLContext();
-                ITransformer mlModel = mlContext.Model.Load(modelPath, out DataViewSchema _);
-                predEngine = mlContext.Model.CreatePredictionEngine<T, GitHubIssuePrediction>(mlModel);
+                throw new InvalidOperationException("expected prediction engine loaded.");
             }
 
             GitHubIssuePrediction prediction = predEngine.Predict(issueOrPr);

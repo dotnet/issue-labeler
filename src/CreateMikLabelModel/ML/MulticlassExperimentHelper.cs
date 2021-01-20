@@ -136,14 +136,17 @@ namespace CreateMikLabelModel.ML
             Trace.WriteLine("The model is saved to {0}", modelPath);
         }
 
-        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.14)
+        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.6)
         {
             var trainedModel = mlContext.Model.Load(files.FittedModelPath, out _);
             IEnumerable<(string knownLabel, GitHubIssuePrediction predictedResult, string issueNumber)> predictions = null;
+            string Legend1 = $"(includes not labeling issues with confidence lower than threshold. (here {threshold * 100.0f:#,0.00}%))";
+            const string Legend2 = "(includes items that could be labeled if threshold was lower.)";
+            const string Legend3 = "(those incorrectly labeled)";
             if (forPrs)
             {
                 var testData = GetPullRequests(mlContext, files.TestPath);
-                Trace.WriteLine($"count: {testData.Length}");
+                Trace.WriteLine($"{Environment.NewLine}Number of PRs tested: {testData.Length}");
                 var prEngine = mlContext.Model.CreatePredictionEngine<GitHubPullRequest, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
@@ -155,7 +158,7 @@ namespace CreateMikLabelModel.ML
             else
             {
                 var testData = GetIssues(mlContext, files.TestPath);
-                Trace.WriteLine($"count: {testData.Length}");
+                Trace.WriteLine($"{Environment.NewLine}\tNumber of issues tested: {testData.Length}");
                 var issueEngine = mlContext.Model.CreatePredictionEngine<GitHubIssue, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
@@ -170,6 +173,7 @@ namespace CreateMikLabelModel.ML
                 (
                     knownLabel: x.knownLabel,
                     predictedArea: x.predictedResult.Area,
+                    maxScore: x.predictedResult.Score.Max(),
                     confidentInPrediction: x.predictedResult.Score.Max() >= threshold,
                     issueNumber: x.issueNumber
                 ));
@@ -183,22 +187,25 @@ namespace CreateMikLabelModel.ML
 
             var mistakes = analysis
                 .Where(x => x.confidentInPrediction && !x.knownLabel.Equals(x.predictedArea, StringComparison.Ordinal))
-                .Select(x => new { Pair = $"Predicted: {x.predictedArea}, Actual:{x.knownLabel}", IssueNumbers = x.issueNumber })
+                .Select(x => new { Pair = $"\tPredicted: {x.predictedArea}, Actual:{x.knownLabel}", IssueNumbers = x.issueNumber, MaxConfidencePercentage = x.maxScore * 100.0f })
                 .GroupBy(x => x.Pair)
                 .Select(x => new
                 {
                     Count = x.Count(),
                     PerdictedVsActual = x.Key,
-                    Items = x
+                    Items = x,
                 })
                 .OrderByDescending(x => x.Count);
+            int remaining = predictions.Count() - countSuccess - missedOpportunity;
 
-            Trace.WriteLine($"countSuccess: {countSuccess}, missed: {missedOpportunity}");
+            Trace.WriteLine($"{Environment.NewLine}\thandled correctly: {countSuccess}{Environment.NewLine}\t{Legend1}{Environment.NewLine}");
+            Trace.WriteLine($"{Environment.NewLine}\tmissed: {missedOpportunity}{Environment.NewLine}\t{Legend2}{Environment.NewLine}");
+            Trace.WriteLine($"{Environment.NewLine}\tremaining: {remaining}{Environment.NewLine}\t{Legend3}{Environment.NewLine}");
             foreach (var mismatch in mistakes.AsEnumerable())
             {
                 Trace.WriteLine($"{mismatch.PerdictedVsActual}, NumFound: {mismatch.Count}");
-                var sampleIssues = string.Join(", ", mismatch.Items.Select(x => x.IssueNumbers));
-                Trace.WriteLine($" sampleIssues: {Environment.NewLine}{ sampleIssues }");
+                var sampleIssues = string.Join(Environment.NewLine, mismatch.Items.Select(x => $"\t\tFor #{x.IssueNumbers} was {x.MaxConfidencePercentage:#,0.00}% confident"));
+                Trace.WriteLine($"{Environment.NewLine}{ sampleIssues }{Environment.NewLine}");
             }
         }
 
