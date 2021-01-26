@@ -135,9 +135,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         private async Task<bool> DoesPrAddNewApiAsync(string owner, string repo, int prNumber)
         {
             var pr = await _gitHubClientWrapper.GetPullRequest(owner, repo, prNumber);
-            var diff = new Uri(pr.DiffUrl);
             var httpclient = _httpClientFactory.CreateClient();
-            var response = await httpclient.GetAsync(diff.LocalPath);
+            var response = await httpclient.GetAsync(pr.DiffUrl);
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
             return TakeDiffContentReturnMeaning(content.Split("\n"));
