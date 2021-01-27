@@ -23,7 +23,7 @@ namespace CreateMikLabelModel.DL
     {
         public static async Task<int> DownloadItemsAsync(string outputPath, (string owner, string repo)[] repoCombo)
         {
-            bool fastDownload = false;
+            bool fastDownload = true;
             var stopWatch = Stopwatch.StartNew();
 
             using (var outputWriter = new StreamWriter(outputPath))
