@@ -22,21 +22,25 @@ namespace CreateMikLabelModel.ML
                 columnInformation.TextColumnNames.Clear();
 
                 // NOTE: depending on how the data changes over time this might need to get updated too.
-                columnInformation.TextColumnNames.Add("Title");
-                columnInformation.TextColumnNames.Add("Description");
-                columnInformation.CategoricalColumnNames.Add("IssueAuthor");
+                // Only the Title and Description are needed, but since we are PreFeaturizing them we can
+                // ignore them here.
+                columnInformation.IgnoredColumnNames.Add("Title");
+                columnInformation.IgnoredColumnNames.Add("Description");
+                columnInformation.IgnoredColumnNames.Add("Author");
                 columnInformation.IgnoredColumnNames.Add("IsPR");
-                columnInformation.CategoricalColumnNames.Add("NumMentions");
+                columnInformation.IgnoredColumnNames.Add("NumMentions");
                 columnInformation.IgnoredColumnNames.Add("UserMentions");
+                columnInformation.IgnoredColumnNames.Add("ID");
+                columnInformation.IgnoredColumnNames.Add("CombinedID");
 
                 if (forPrs)
                 {
                     columnInformation.NumericColumnNames.Add("FileCount");
-                    columnInformation.CategoricalColumnNames.Add("Files");
-                    columnInformation.CategoricalColumnNames.Add("FolderNames");
-                    columnInformation.CategoricalColumnNames.Add("Folders");
+                    columnInformation.IgnoredColumnNames.Add("Files");
+                    columnInformation.TextColumnNames.Add("FolderNames");
+                    columnInformation.IgnoredColumnNames.Add("Folders");
                     columnInformation.IgnoredColumnNames.Add("FileExtensions");
-                    columnInformation.IgnoredColumnNames.Add("Filenames");
+                    columnInformation.TextColumnNames.Add("Filenames");
                 }
             };
 

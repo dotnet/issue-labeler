@@ -45,7 +45,7 @@ namespace CreateMikLabelModel.ML
 
                 // train once:
                 var experimentResult = MulticlassExperimentHelper.Train(
-                    _mLContext, settings.LabelColumnName, setup.experimentSettings, new MulticlassExperimentProgressHandler(), paths, textLoader);
+                    _mLContext, setup.experimentSettings, new MulticlassExperimentProgressHandler(), paths, textLoader, setup.columnInference);
 
                 // train twice
                 var refitModel = MulticlassExperimentHelper.Retrain(experimentResult,
