@@ -41,7 +41,10 @@ namespace CreateMikLabelModel
             },
             new[] {
              ("dotnet", "dotnet-api-docs"),
-            }
+            },
+            new[] {
+             ("dotnet", "maui"),
+            },
         };
 
         private static string GetPrettyName(string file) => $"\"{Path.GetFileName(file)}\"";

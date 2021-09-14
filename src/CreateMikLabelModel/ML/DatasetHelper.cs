@@ -63,8 +63,13 @@ namespace CreateMikLabelModel.ML
             {
                 var totalCount = lines.Length;
 
+                const int MinIdealElementCount = 1_000;
                 // have at least 1000 elements
-                Debug.Assert(totalCount > 1000);
+                if (totalCount < MinIdealElementCount)
+                {
+                    Trace.WriteLine($"Need at least 1000 elements for dataset validation test, but have only {totalCount}.");
+                }
+
                 var numInTrain = (int)(lines.Length * 0.8);
                 var numInValidate = (int)(lines.Length * 0.1);
 

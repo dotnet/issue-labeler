@@ -81,23 +81,6 @@ namespace CreateMikLabelModel.DL
             }
         }
 
-        public static async Task<IEnumerable<string>> GetAreaLabels(string owner, string repo)
-        {
-            var repository = await _client.Repository.Get(owner, repo);
-            var request = new SearchLabelsRequest("area-", repository.Id);
-            request.Page = 0;
-            var labels = Enumerable.Empty<Label>();
-            SearchLabelsResult areasFound = null;
-            do
-            {
-                request.Page += 1;
-                areasFound = await _client.Search.SearchLabels(request);
-                labels = areasFound.Items.Union(labels);
-            } while (labels.Count() < areasFound.TotalCount);
-
-            return labels.Select(x => x.Name);
-        }
-
         internal static async Task<HashSet<(DateTimeOffset, int, string)>> FindIssueOrPrsWithAreaLabels(string owner, string name)
         {
             var rir = new RepositoryIssueRequest()
@@ -105,7 +88,7 @@ namespace CreateMikLabelModel.DL
                 State = ItemStateFilter.All
             };
             var issues = await _client.Issue.GetAllForRepository(owner, name, rir);
-            var labeledIssues = issues.Where(issue => issue.Labels.Where(x => x.Name.StartsWith("area-")).Any());
+            var labeledIssues = issues.Where(issue => issue.Labels.Where(x => LabelHelper.IsAreaLabel(x.Name)).Any());
             var oddItems = labeledIssues.Where(x => !x.HtmlUrl.Contains(name, StringComparison.OrdinalIgnoreCase));
             if (oddItems.Any())
             {
@@ -241,7 +224,7 @@ namespace CreateMikLabelModel.DL
                 try
                 {
                     issueOrPr = await _client.Issue.Get(repoCombo.owner, repoCombo.repo, i).ConfigureAwait(false);
-                    var areaLabelPerhaps = issueOrPr.Labels.Where(x => x.Name.StartsWith("area-", StringComparison.OrdinalIgnoreCase));
+                    var areaLabelPerhaps = issueOrPr.Labels.Where(x => LabelHelper.IsAreaLabel(x.Name));
                     if (!areaLabelPerhaps.Any())
                         continue; // don't care about unlabeled iops
                     areaLabel = areaLabelPerhaps.Select(x => x.Name).First();

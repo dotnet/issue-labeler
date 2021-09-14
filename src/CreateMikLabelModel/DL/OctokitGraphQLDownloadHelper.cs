@@ -336,7 +336,7 @@ namespace CreateMikLabelModel.DL.GraphQL
                    }).Compile();
 
             var result = await _connection.Run(query);
-            var areaLabels = result.Labels.Where(x => x.Key.StartsWith("area-", StringComparison.OrdinalIgnoreCase));
+            var areaLabels = result.Labels.Where(x => LabelHelper.IsAreaLabel(x.Key));
             return areaLabels.ToDictionary(
                 x => x.Key,
                 x => ((int)x.Value.TotalIssueCount, (int)x.Value.TotalPrCount));

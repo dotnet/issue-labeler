@@ -168,7 +168,7 @@ namespace CreateMikLabelModel.DL
         /// <returns></returns>
         private static bool IsIssueOfInterest(IssuesNode issue)
         {
-            return issue.Labels.Nodes.Any(l => l.Name.StartsWith("area-", StringComparison.OrdinalIgnoreCase));
+            return issue.Labels.Nodes.Any(l => LabelHelper.IsAreaLabel(l.Name));
         }
 
         private static void WriteCsvIssue(Dictionary<(DateTimeOffset, long, string), string> outputLines, IssuesNode issue, IssueType issueType
@@ -176,7 +176,7 @@ namespace CreateMikLabelModel.DL
             , string repo)
         {
             var author = issue.Author != null ? issue.Author.Login : DeletedUser;
-            var area = issue.Labels.Nodes.First(l => l.Name.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Name;
+            var area = issue.Labels.Nodes.First(l => LabelHelper.IsAreaLabel(l.Name)).Name;
             var body = issue.BodyText.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
             var createdAt = issue.CreatedAt.UtcDateTime.ToFileTimeUtc();
             if (issueType == IssueType.Issue)
