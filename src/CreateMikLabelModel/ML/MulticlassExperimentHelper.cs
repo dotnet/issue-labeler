@@ -6,6 +6,7 @@ using Hubbup.MikLabelModel;
 using Microsoft.ML;
 using Microsoft.ML.AutoML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Transforms.Text;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,14 +17,23 @@ namespace CreateMikLabelModel.ML
     public static class MulticlassExperimentHelper
     {
         public static ExperimentResult<MulticlassClassificationMetrics> RunAutoMLExperiment(
-            MLContext mlContext, string labelColumnName, MulticlassExperimentSettings experimentSettings,
-            MulticlassExperimentProgressHandler progressHandler, IDataView dataView)
+            MLContext mlContext, MulticlassExperimentSettings experimentSettings,
+            MulticlassExperimentProgressHandler progressHandler, IDataView dataView, ColumnInferenceResults columnInference)
         {
             ConsoleHelper.ConsoleWriteHeader("=============== Running AutoML experiment ===============");
             Trace.WriteLine($"Running AutoML multiclass classification experiment for {experimentSettings.MaxExperimentTimeInSeconds} seconds...");
+
+            // Pre-featurize the title and description, and remove features that have less then 2.
+            IEstimator<ITransformer> preFeaturizer =
+                preFeaturizer = mlContext.Transforms.Text.FeaturizeText("TextFeatures",
+                  new TextFeaturizingEstimator.Options(),
+                  new[] { "Title", "Description" })
+                  .Append(mlContext.Transforms.FeatureSelection.SelectFeaturesBasedOnCount("TextFeatures", "TextFeatures", 2))
+                  .AppendCacheCheckpoint(mlContext);
+
             var experimentResult = mlContext.Auto()
                 .CreateMulticlassClassificationExperiment(experimentSettings)
-                .Execute(dataView, labelColumnName, progressHandler: progressHandler);
+                .Execute(dataView, columnInference.ColumnInformation, progressHandler: progressHandler, preFeaturizer: preFeaturizer);
 
             Trace.WriteLine(Environment.NewLine);
             Trace.WriteLine($"num models created: {experimentResult.RunDetails.Count()}");
@@ -44,14 +54,14 @@ namespace CreateMikLabelModel.ML
         }
 
         public static ExperimentResult<MulticlassClassificationMetrics> Train(
-            MLContext mlContext, string labelColumnName, MulticlassExperimentSettings experimentSettings,
-            MulticlassExperimentProgressHandler progressHandler, DataFilePaths paths, TextLoader textLoader)
+            MLContext mlContext, MulticlassExperimentSettings experimentSettings,
+            MulticlassExperimentProgressHandler progressHandler, DataFilePaths paths, TextLoader textLoader, ColumnInferenceResults columnInference)
         {
-            var trainData = textLoader.Load(paths.TrainPath);
-            var validateData = textLoader.Load(paths.ValidatePath);
-            var experimentResult = RunAutoMLExperiment(mlContext, labelColumnName, experimentSettings, progressHandler, trainData);
-            EvaluateTrainedModelAndPrintMetrics(mlContext, experimentResult.BestRun.Model, experimentResult.BestRun.TrainerName, validateData);
-            SaveModel(mlContext, experimentResult.BestRun.Model, paths.ModelPath, trainData);
+            var data = mlContext.Data.TrainTestSplit(textLoader.Load(paths.TrainPath, paths.ValidatePath), seed: 0);
+
+            var experimentResult = RunAutoMLExperiment(mlContext, experimentSettings, progressHandler, data.TrainSet, columnInference);
+            EvaluateTrainedModelAndPrintMetrics(mlContext, experimentResult.BestRun.Model, experimentResult.BestRun.TrainerName, data.TestSet);
+            SaveModel(mlContext, experimentResult.BestRun.Model, paths.ModelPath, data.TrainSet);
             return experimentResult;
         }
 
@@ -81,10 +91,10 @@ namespace CreateMikLabelModel.ML
             if (fixedBug)
             {
                 // TODO: retry: below gave error but I thought it would work:
-                //refitModel = MulticlassExperiment.Retrain(experimentResult, 
-                //    "final model", 
-                //    new MultiFileSource(paths.TrainPath, paths.ValidatePath, paths.FittedPath), 
-                //    paths.TestPath, 
+                //refitModel = MulticlassExperiment.Retrain(experimentResult,
+                //    "final model",
+                //    new MultiFileSource(paths.TrainPath, paths.ValidatePath, paths.FittedPath),
+                //    paths.TestPath,
                 //    paths.FinalPath, textLoader, mlContext);
                 // but if failed before fixing this maybe the problem was in *EvaluateTrainedModelAndPrintMetrics*
 
@@ -135,7 +145,7 @@ namespace CreateMikLabelModel.ML
             Trace.WriteLine($"The model is saved to {modelPath}");
         }
 
-        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.6)
+        public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.4)
         {
             var trainedModel = mlContext.Model.Load(files.FittedModelPath, out _);
             IEnumerable<(string knownLabel, GitHubIssuePrediction predictedResult, string issueNumber)> predictions = null;
@@ -149,7 +159,7 @@ namespace CreateMikLabelModel.ML
                 var prEngine = mlContext.Model.CreatePredictionEngine<GitHubPullRequest, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
-                        knownLabel: x.Area, 
+                        knownLabel: x.Area,
                         predictedResult: prEngine.Predict(x),
                         issueNumber: x.ID.ToString()
                    ));
@@ -161,7 +171,7 @@ namespace CreateMikLabelModel.ML
                 var issueEngine = mlContext.Model.CreatePredictionEngine<GitHubIssue, GitHubIssuePrediction>(trainedModel);
                 predictions = testData
                    .Select(x => (
-                        knownLabel: x.Area, 
+                        knownLabel: x.Area,
                         predictedResult: issueEngine.Predict(x),
                         issueNumber: x.ID.ToString()
                    ));
