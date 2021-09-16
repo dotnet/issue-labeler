@@ -95,7 +95,7 @@ namespace CreateMikLabelModel.ML
             // Save the re-fit model to a.ZIP file
             SaveModel(mlContext, refitModel, paths.FinalModelPath, textLoader.Load(paths.TestPath));
 
-            Trace.WriteLine("The model is saved to {0}", paths.FinalModelPath);
+            Trace.WriteLine($"The model is saved to {paths.FinalModelPath}");
             return refitModel;
         }
 
@@ -132,8 +132,7 @@ namespace CreateMikLabelModel.ML
             // Save the re-fit model to a.ZIP file
             ConsoleHelper.ConsoleWriteHeader("=============== Saving the model ===============");
             mlContext.Model.Save(model, dataview.Schema, modelPath);
-            Trace.WriteLine("The model is saved to {0}", modelPath);
-            Trace.WriteLine("The model is saved to {0}", modelPath);
+            Trace.WriteLine($"The model is saved to {modelPath}");
         }
 
         public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.6)
