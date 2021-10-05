@@ -1,0 +1,37 @@
+{
+  "repos": [
+    // Each array of repo entries is considered a "set" that will be scanned together to generate one model.
+    // If an array has more than one repo, the first item is the target repo containing the labels.
+    // Typically, the repos after the first are archived or ancillary repos that contain useful material for generating models.
+    [
+      "dotnet/aspnetcore"
+    ],
+    [
+      "dotnet/dotnet-docker",
+      "microsoft/dotnet-framework-docker",
+      "dotnet/dotnet-buildtools-prereqs-docker"
+    ],
+    [
+      "dotnet/docker-tools"
+    ],
+    [
+      "dotnet/extensions"
+    ],
+    [
+      "dotnet/runtime",
+      "dotnet/corefx"
+    ],
+    [
+      "dotnet/iot"
+    ],
+    [
+      "dotnet/roslyn"
+    ],
+    [
+      "dotnet/dotnet-api-docs"
+    ],
+    [
+      "dotnet/maui"
+    ]
+  ]
+}
