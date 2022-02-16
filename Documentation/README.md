@@ -67,7 +67,15 @@ The nice thing with [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/do
 
 ## Application setup: a step-by-step example
 
-* To properly run the CreateMikLabelModel project you need to use the dotnet user-secrets tool to add a token called GitHubAccessToken.
+### Prerequisites
+
+* Create a [GitHub Personal Access Token](https://github.com/settings/tokens) that includes the `repo:public_repo` scope (to access public repositories)
+* Register that token on your machine with the command: `dotnet user-secrets set GitHubAccessToken "{{ghp_token_value}}"`
+
+### Execution
+
+* Run the CreateMikLabelModel application using `dotnet run` from the `src\CreateMikLabelModel` folder
+* Specify the repo to be modeled as a command line argument: `dotnet run -- [repo]`
 
 You can configure the web application to either give you the top 3 recommended labels or automatically assign the top choice. 
 
