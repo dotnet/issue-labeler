@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace CreateMikLabelModel.DL
@@ -137,6 +138,11 @@ namespace CreateMikLabelModel.DL
                     hasNextPage = issuePage.Issues.Repository.Issues.PageInfo.HasNextPage;
                     afterID = issuePage.Issues.Repository.Issues.PageInfo.EndCursor;
                     backToBackFailureCount = 0; // reset for next round
+                }
+                catch (GraphQLHttpRequestException gqlHttpEx) when (gqlHttpEx?.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Trace.WriteLine($"Error encountered in GraphQL query due to HTTP status code {HttpStatusCode.Unauthorized}. Check that the provided auth token is still valid and not expired.");
+                    return false;
                 }
                 catch (Exception cx)
                 {
