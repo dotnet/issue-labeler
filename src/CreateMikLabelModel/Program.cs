@@ -115,7 +115,7 @@ namespace CreateMikLabelModel
             Trace.WriteLine($"Elapsed time: {deltaTime}");
 
             Trace.WriteLine(new string('-', 80));
-            Trace.WriteLine($"Please remember to copy the final ZIP files {GetPrettyName(prFiles.FinalModelPath)} and {GetPrettyName(prFiles.FinalModelPath)} to Issue Prediction service's blob storage");
+            Trace.WriteLine($"Please remember to copy the final ZIP files {GetPrettyName(issueFiles.FinalModelPath)} and {GetPrettyName(prFiles.FinalModelPath)} to Issue Prediction service's blob storage");
             Trace.WriteLine("");
 
             Trace.WriteLine($"Exiting application.");
