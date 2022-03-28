@@ -10,6 +10,7 @@ namespace CreateMikLabelModel.DL
     {
         public static bool IsAreaLabel(string labelName) =>
             labelName.StartsWith("area-", StringComparison.OrdinalIgnoreCase) ||
-            labelName.StartsWith("area/", StringComparison.OrdinalIgnoreCase);
+            labelName.StartsWith("area/", StringComparison.OrdinalIgnoreCase) ||
+            labelName.StartsWith("area:", StringComparison.OrdinalIgnoreCase);
     }
 }
