@@ -62,7 +62,7 @@ namespace CreateMikLabelModel
             }
 
             var repoSetArg = args[0];
-            var selectedRepoSet = repoArrays.SingleOrDefault(rs => rs[0] == repoSetArg);
+            var selectedRepoSet = repoArrays.SingleOrDefault(rs => string.Equals(rs[0], repoSetArg, StringComparison.OrdinalIgnoreCase));
             if (selectedRepoSet == null)
             {
                 Trace.TraceError($"The repo '{repoSetArg}' was not found in {repoJsonFileName}");
