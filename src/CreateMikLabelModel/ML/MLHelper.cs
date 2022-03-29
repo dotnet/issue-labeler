@@ -19,18 +19,35 @@ namespace CreateMikLabelModel.ML
 
         public void Test(DataFilePaths files, bool forPrs)
         {
-            MulticlassExperimentHelper.TestPrediction(_mLContext, files, forPrs: forPrs);
+            try
+            {
+                MulticlassExperimentHelper.TestPrediction(_mLContext, files, forPrs: forPrs);
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"ERROR: Failed to test model. Skipping.");
+                Trace.WriteLine(ex.ToString());
+            }
         }
 
         public void Train(DataFilePaths files, bool forPrs)
         {
             var stopWatch = Stopwatch.StartNew();
 
-            var st = new ExperimentModifier(files, forPrs);
-            Train(st);
+            try
+            {
+                var st = new ExperimentModifier(files, forPrs);
+                Train(st);
 
-            stopWatch.Stop();
-            Trace.WriteLine($"Done creating model in {stopWatch.ElapsedMilliseconds}ms");
+                stopWatch.Stop();
+                Trace.WriteLine($"Done creating model in {stopWatch.ElapsedMilliseconds}ms");
+            }
+            catch (Exception ex)
+            {
+                stopWatch.Stop();
+                Trace.WriteLine($"ERROR: Failed to create model after {stopWatch.ElapsedMilliseconds}ms. Skipping.");
+                Trace.WriteLine(ex.ToString());
+            }
         }
 
         private void Train(ExperimentModifier settings)
