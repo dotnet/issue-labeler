@@ -12,21 +12,23 @@ using Octokit;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler.Data
 {
-    public sealed class GitHubClientFactory
+    public sealed class AzureKeyVaultGitHubClientFactory : IGitHubClientFactory
     {
         private readonly IConfiguration _configuration;
 
-        public GitHubClientFactory(IConfiguration configuration)
+        public AzureKeyVaultGitHubClientFactory(IConfiguration configuration)
         {
             _configuration = configuration;
         }
 
-        public async Task<GitHubClient> CreateAsync(bool localDev)
+        public async Task<GitHubClient> CreateAsync()
         {
             // See: https://octokitnet.readthedocs.io/en/latest/github-apps/ for details.
 
             var appId = Convert.ToInt32(_configuration["GitHubAppId"]);
             string privateKey = null;
+            var localDev = _configuration.GetSection("SkipAzureKeyVault").Get<bool>(); // TODO locally true
+
             if (localDev)
             {
                 privateKey = File.ReadAllText(_configuration["PemFilePath"]);

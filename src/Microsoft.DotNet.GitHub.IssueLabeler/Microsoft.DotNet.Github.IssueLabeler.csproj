@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
@@ -6,10 +6,11 @@
     <SignAssembly>false</SignAssembly>
     <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+    <UserSecretsId>GitHubIssueLabeler.App</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Hubbup.MikLabelModel\Hubbup.MikLabelModel.csproj" />
+    <ProjectReference Include="..\LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,10 +21,7 @@
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.1.0-beta.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="5.0.2" />
-    <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
-    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
-    <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
   </ItemGroup>
 </Project>

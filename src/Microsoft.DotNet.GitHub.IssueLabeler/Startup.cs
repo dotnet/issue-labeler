@@ -5,7 +5,6 @@
 using Hubbup.MikLabelModel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.DotNet.Github.IssueLabeler;
 using Microsoft.DotNet.Github.IssueLabeler.Models;
 using Microsoft.DotNet.GitHub.IssueLabeler.Data;
 using Microsoft.Extensions.Azure;
@@ -32,10 +31,17 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             services.AddControllersWithViews();
             services.AddHostedService<QueuedHostedService>();
             services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-            services.AddSingleton<GitHubClientFactory>();
             services.AddHttpClient();
             services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
-            services.AddSingleton<IModelHolderFactory, ModelHolderFactory>();
+
+            // For production: use Azure KeyVault and Blob configuration
+            services.AddSingleton<IGitHubClientFactory, AzureKeyVaultGitHubClientFactory>();
+            services.AddSingleton<IModelHolderFactory, AzureBlobModelHolderFactory>();
+
+            // For local dev: use local user secrets and files on disk
+            //services.AddSingleton<IGitHubClientFactory, OAuthGitHubClientFactory>();
+            //services.AddSingleton<IModelHolderFactory, LocalFileModelHolderFactory>();
+
             services.AddSingleton<IDiffHelper, DiffHelper>();
             services.AddSingleton<ILabeler, Labeler>();
             services.AddAzureClients(
@@ -70,6 +76,5 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
         }
-
     }
 }

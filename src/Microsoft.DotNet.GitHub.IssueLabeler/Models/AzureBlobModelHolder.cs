@@ -1,34 +1,24 @@
-﻿using System;
-using Azure.Storage;
+﻿using Azure.Storage;
 using Azure.Storage.Blobs;
-using Microsoft.ML;
 using Azure.Storage.Blobs.Models;
+using Microsoft.DotNet.GitHub.IssueLabeler;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.ML;
+using System;
 using System.IO;
 using System.Threading;
-using Microsoft.DotNet.GitHub.IssueLabeler;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
-    public interface IModelHolder
-    {
-        bool IsPrEngineLoaded { get; }
-        bool LoadRequested { get; }
-        bool IsIssueEngineLoaded { get; }
-        PredictionEngine<IssueModel, GitHubIssuePrediction> IssuePredEngine { get; }
-        PredictionEngine<PrModel, GitHubIssuePrediction> PrPredEngine { get; }
-        Task LoadEnginesAsync();
-        bool UseIssuesForPrsToo { get; }
-    }
-
     // make singleton => bg service and the controller can access.....
     // IModelHolder.... holds the prediction engin.... -> is it loaded yet? then if so return suggestion
-    public class ModelHolder : IModelHolder
+    public class AzureBlobModelHolder : IModelHolder
     {
-        private readonly ILogger<ModelHolderFactory> _logger;
-        public ModelHolder(ILogger<ModelHolderFactory> logger, IConfiguration configuration, string repo)
+        private readonly ILogger<AzureBlobModelHolderFactory> _logger;
+
+        public AzureBlobModelHolder(ILogger<AzureBlobModelHolderFactory> logger, IConfiguration configuration, string repo)
         {
             // TODO: imagine there is an array of model holders, prefixes itself with owner/repo info.
 
