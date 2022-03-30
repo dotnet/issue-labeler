@@ -9,7 +9,7 @@
     <OctokitVersion>0.48.0</OctokitVersion>
     <OctokitGraphQLVersion>0.1.7-beta</OctokitGraphQLVersion>
     <MicrosoftAzureKeyVaultVersion>3.0.5</MicrosoftAzureKeyVaultVersion>
-    <MicrosoftExtensionsVersion>5.0.0</MicrosoftExtensionsVersion>
+    <MicrosoftExtensionsVersion>6.0.0</MicrosoftExtensionsVersion>
     <MicrosoftDotNetGitHubIssueLabelerAssetsVersion>1.12.19</MicrosoftDotNetGitHubIssueLabelerAssetsVersion>
     <MicrosoftAutoMLVersion>0.17.2</MicrosoftAutoMLVersion>
     <MicrosoftMLVersion>1.5.2</MicrosoftMLVersion>
