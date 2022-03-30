@@ -2,22 +2,18 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using System.IO;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
-    public interface IModelHolderFactory
-    {
-        IModelHolder CreateModelHolder(string owner, string repo);
-    }
-    public class ModelHolderFactory : IModelHolderFactory
+    public class AzureBlobModelHolderFactory : IModelHolderFactory
     {
         private readonly ConcurrentDictionary<(string, string), IModelHolder> _models = new ConcurrentDictionary<(string, string), IModelHolder>();
-        private readonly ILogger<ModelHolderFactory> _logger;
-        private IConfiguration _configuration;
+        private readonly ILogger<AzureBlobModelHolderFactory> _logger;
+        private readonly IConfiguration _configuration;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
-        public ModelHolderFactory(
-            ILogger<ModelHolderFactory> logger,
+
+        public AzureBlobModelHolderFactory(
+            ILogger<AzureBlobModelHolderFactory> logger,
             IConfiguration configuration,
             IBackgroundTaskQueue backgroundTaskQueue)
         {
@@ -64,7 +60,7 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 
         private IModelHolder InitFor(string repo)
         {
-            var mh = new ModelHolder(_logger, _configuration, repo);
+            var mh = new AzureBlobModelHolder(_logger, _configuration, repo);
             if (!mh.LoadRequested)
             {
                 _backgroundTaskQueue.QueueBackgroundWorkItem((ct) => mh.LoadEnginesAsync());

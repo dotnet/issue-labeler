@@ -21,20 +21,17 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
         private ILogger<WebhookIssueController> Logger { get; set; }
         private readonly IModelHolderFactory _modelHolderFactory;
-        private readonly IBackgroundTaskQueue _backgroundTaskQueue;
         private string _owner;
 
         public WebhookIssueController(
             ILabeler labeler,
             ILogger<WebhookIssueController> logger,
             IConfiguration configuration,
-            IModelHolderFactory modelHolderFactory,
-            IBackgroundTaskQueue backgroundTaskQueue)
+            IModelHolderFactory modelHolderFactory)
         {
             _modelHolderFactory = modelHolderFactory;
             _labeler = labeler;
             Logger = logger;
-            _backgroundTaskQueue = backgroundTaskQueue;
             _owner = configuration["RepoOwner"];
         }
 

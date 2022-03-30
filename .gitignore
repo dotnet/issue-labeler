@@ -288,3 +288,7 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# ML prediction files
+*.zip
+*.tsv
