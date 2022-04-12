@@ -34,36 +34,20 @@ As seen in [commit](https://github.com/dotnet/issue-labeler/commit/77e4dbc45184f
 
 ## Pack ML models into nuget
 
-The resulting models get packed into a nuget package to be easily consumable within a web application. 
-
-#### About Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package
-
-Once we have ML models generated using [CreateMikLabelModel](https://github.com/dotnet/issue-labeler/tree/master/src/CreateMikLabelModel), they get packed in a nuget package called Microsoft.DotNet.GitHub.IssueLabeler in the [dotnet-eng](https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json) nuget source. This nuget package contains PR and issue labeler models for all github repositories trained via CreateMikLabelerModel project. The tree structure where ML models get placed in the nuget package is as follows:
-
-```
- > model
-    > dotnet
-       > aspnetcore
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-       > runtime
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-       > extensions
-          - GitHubLabelerModel.zip
-          - GitHubPrLabelerModel.zip
-    > microsoft
-       > service-fabric
-          - GitHubLabelerModel.zip
-```
+In the past we used to pack the resulting models into a nuget package called `Microsoft.DotNet.GitHubIssueLabeler.Assets` to be easily consumable within a web application. But now we have retired the nuget package and instead use Azure Blob Storage to upload the models for use in the application.
 
 #### About Microsoft.DotNet.GitHub.IssueLabeler project
 
-The [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project is the web application that uses ML models created using CreateMikLabelModel via a nuget package called `Microsoft.DotNet.GitHubIssueLabeler.Assets`.
-Given repository owner/name/number combination, the IssueLabeler app provides an API returning top three predictions along with their confidence score. This information is computed using the ML models in the Microsoft.DotNet.GitHub.IssueLabeler nuget package we produced in CreateMikLabelerModel project.
+The [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) project is the web application that uses ML models created using CreateMikLabelModel to predict area labels. Given repository owner/name/number combination, the IssueLabeler app provides an API returning top three predictions along with their confidence score. This information is computed using the ML models loaded in memory uploaded from Azure Blob Storage, which we produced in CreateMikLabelerModel project.
 Since dotnet/runtime has a big set of area owners and contributors, we decided to use an automatic assignemnt for issues and PRs. In order to achieve automatic label assignments, the IssueLabeler app, listens to all issue and PR creations via a webhook setting and finds top three predictions and only when the top prediction score has above 40% confidence, then this labeler app is allowed to automatically add that area label name to the newly created issue or PR. For dotnet/aspnetcore however, this webhook is not active and instead, the aspnetcore repository uses the hubbup web app to allow for manual area label assignment. Rather than doing automatic assignments, the hubbup app provides a nice UI for the prediction results it receives from [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler).
 
-The nice thing with [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/dotnet/issue-labeler/tree/master/src/Microsoft.DotNet.GitHub.IssueLabeler) is that we can publish multiple apps using the same source code, where each app is responsible for giving predictions for a single github repository. This would be possible if the Microsoft.DotNet.GitHubIssueLabeler.Assets nuget package used by the IssueLabeler app contains ML models for that repository and RepoName/RepoOwner Configuration values are properly setup for that app in azure app service portal.
+#### About the public-dispatcher branch
+
+The public-dispatcher branch is the code base for the github app that gets installed per github organization. We would have one app instance per org (one for Microsoft and one for dotnet) based off the public-dispatcher branch. The github app would be able to query top three predictions in a distributed way from other app(s) based off of the main branch which are configured for one or more repository to provide prediction scores.
+
+![image](https://user-images.githubusercontent.com/5897654/154319795-35975683-c4ae-477d-8a7c-74ad3079f1ed.png)
+
+Based on the above diagram we can publish multiple apps using the same source code from main branch, where each app is responsible for giving predictions for one or more github repositories. But there would be only a single github app per github organization (e.g. dotnet) which has the webhook setup to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.
 
 ## Application setup: a step-by-step example
 
@@ -77,6 +61,4 @@ The nice thing with [Microsoft.DotNet.GitHub.IssueLabeler](https://github.com/do
 * Run the CreateMikLabelModel application using `dotnet run` from the `src\CreateMikLabelModel` folder
 * Specify the repo to be modeled as a command line argument: `dotnet run -- [repo]`
 
-You can configure the web application to either give you the top 3 recommended labels or automatically assign the top choice. 
-
-- [ ] *TODO:* complete doc here: (1) testing locally, (2) repo name/owner configuration, (3) recommendation vs. Auto-assignment.
+You can configure the web application to either give you the top 3 recommended labels or automatically assign the top choice.
