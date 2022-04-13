@@ -10,6 +10,7 @@ The following repositories currently triage their incoming issues semi-automatic
 
 * [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore)
 * [dotnet/extensions](https://github.com/dotnet/extensions)
+* [dotnet/maui](https://github.com/dotnet/maui)
 
 The following repositories allow dotnet/issue-labeler to automatically set `area-` labels for incoming issues and pull requests:
 
@@ -20,6 +21,8 @@ The following repositories allow dotnet/issue-labeler to automatically set `area
 * [dotnet/docker-tools](https://github.com/dotnet/docker-tools)
 * [dotnet/dotnet-docker](https://github.com/dotnet/dotnet-docker)
 * [dotnet/dotnet-buildtools-prereqs-docker](https://github.com/dotnet/dotnet-buildtools-prereqs-docker)
+* [dotnet/sdk](https://github.com/dotnet/sdk)
+* [dotnet/source-build](https://github.com/dotnet/source-build)
 * [microsoft/dotnet-framework-docker](https://github.com/microsoft/dotnet-framework-docker)
 
 Of course with automatic labeling there is always a margin of error. But the good thing is that the labeler can learns from mistakes so long as wrong label assignments get corrected manually.
