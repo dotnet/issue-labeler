@@ -15,17 +15,18 @@ using System.Threading.Tasks;
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
     [Route("api/WebhookIssue")]
-    public class WebhookIssueController : Controller
+    [Route("api/PredictionEngine")]
+    public class PredictionEngineController : Controller
     {
         private ILabeler _labeler { get; set; }
 
-        private ILogger<WebhookIssueController> Logger { get; set; }
+        private ILogger<PredictionEngineController> Logger { get; set; }
         private readonly IModelHolderFactory _modelHolderFactory;
         private string _owner;
 
-        public WebhookIssueController(
+        public PredictionEngineController(
             ILabeler labeler,
-            ILogger<WebhookIssueController> logger,
+            ILogger<PredictionEngineController> logger,
             IConfiguration configuration,
             IModelHolderFactory modelHolderFactory)
         {
