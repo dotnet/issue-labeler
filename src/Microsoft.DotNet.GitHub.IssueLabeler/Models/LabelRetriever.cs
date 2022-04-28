@@ -7,7 +7,11 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
     public class LabelRetriever : ILabelRetriever
     {
         public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
-        public bool OkToAddUntriagedLabel { get => !_repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
+
+        public bool OkToAddUntriagedLabel { get =>
+                !_repo.Equals("runtime", StringComparison.OrdinalIgnoreCase) &&
+                !_repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
+
         public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
         public bool SkipPrediction { get => 
                 _repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
