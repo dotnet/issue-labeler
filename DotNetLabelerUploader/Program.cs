@@ -79,7 +79,8 @@ static async Task UploadZipToBlob(string sourceZip, string zipType, string owner
     var fileInfo = new FileInfo(sourceZip);
     Console.WriteLine($"\tUploading blob ({fileInfo.Length.ToString("N0", CultureInfo.InvariantCulture)} bytes)...");
     using var zipStream = File.OpenRead(sourceZip);
-    await container.UploadBlobAsync(nextFilename, zipStream);
+    var uploadResponse = await container.UploadBlobAsync(nextFilename, zipStream);
+    Console.WriteLine($"\tDone! (HTTP status: {uploadResponse.GetRawResponse().Status})");
 }
 
 static string GetNextNumericSuffix(List<string> fileNames)
