@@ -39,7 +39,7 @@ if (string.IsNullOrEmpty(azureStorageConnectionString))
         $"If you don't have a key, go to the Azure Portal, go to the Storage account, select Access keys, and copy the Key value for key1 or key2.");
     return 1;
 }
-var container = new BlobContainerClient(azureStorageConnectionString, "areamodels");
+var container = new BlobContainerClient(azureStorageConnectionString, blobContainerName: "areamodels");
 
 var candidateIssueBlobZips = new List<string>();
 var candidatePRBlobZips = new List<string>();
@@ -88,7 +88,7 @@ static async Task UploadZipToBlob(string sourceZip, string zipType, string owner
     var fileInfo = new FileInfo(sourceZip);
     Console.WriteLine($"\tUploading blob ({fileInfo.Length.ToString("N0", CultureInfo.InvariantCulture)} bytes)...");
     using var zipStream = File.OpenRead(sourceZip);
-    var uploadResponse = await container.UploadBlobAsync(nextFilename, zipStream);
+    var uploadResponse = await container.UploadBlobAsync(blobName: nextFilename, zipStream);
     Console.WriteLine($"\tDone! (HTTP status: {uploadResponse.GetRawResponse().Status})");
 }
 
