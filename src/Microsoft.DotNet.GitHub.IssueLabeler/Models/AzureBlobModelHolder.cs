@@ -121,7 +121,7 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 
             _logger.LogInformation($"! calling {nameof(BlobContainerClient)}.");
             BlobContainerClient container = new BlobContainerClient(_connectionString, _blobContainerName);
-            container.CreateIfNotExists(PublicAccessType.Blob);
+            container.CreateIfNotExists(PublicAccessType.None);
 
             try
             {
