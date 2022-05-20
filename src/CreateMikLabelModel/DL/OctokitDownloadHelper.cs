@@ -77,7 +77,7 @@ namespace CreateMikLabelModel.DL
             catch (Exception rex)
             {
                 Trace.WriteLine(rex.Message);
-                throw rex;
+                throw;
             }
         }
 
