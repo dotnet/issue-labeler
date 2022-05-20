@@ -34,6 +34,9 @@
       "dotnet/maui"
     ],
     [
+      "dotnet/msbuild"
+    ],
+    [
       "NuGet/Home"
     ]
   ]
