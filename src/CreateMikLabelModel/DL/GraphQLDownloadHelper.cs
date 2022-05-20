@@ -184,12 +184,13 @@ namespace CreateMikLabelModel.DL
             var author = issue.Author != null ? issue.Author.Login : DeletedUser;
             var area = issue.Labels.Nodes.First(l => LabelHelper.IsAreaLabel(l.Name)).Name;
             var body = issue.BodyText.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
+            var title = issue.Title.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
             var createdAt = issue.CreatedAt.UtcDateTime.ToFileTimeUtc();
             if (issueType == IssueType.Issue)
             {
                 outputLines.Add(
                     (issue.CreatedAt, issue.Number, repo),
-                    $"{createdAt},{repo},{issue.Number}\t{issue.Number}\t{area}\t{issue.Title}\t{body}\t{author}\t0\t");
+                    $"{createdAt},{repo},{issue.Number}\t{issue.Number}\t{area}\t{title}\t{body}\t{author}\t0\t");
             }
             else if (issueType == IssueType.PullRequest && issue is PullRequestsNode pullRequest)
             {
@@ -201,7 +202,7 @@ namespace CreateMikLabelModel.DL
 
                 outputLines.Add(
                     (issue.CreatedAt, issue.Number, repo),
-                    $"{createdAt},{repo},{issue.Number}\t{pullRequest.Number}\t{area}\t{pullRequest.Title}\t{body}\t{author}\t1\t{filePaths}");
+                    $"{createdAt},{repo},{issue.Number}\t{pullRequest.Number}\t{area}\t{title}\t{body}\t{author}\t1\t{filePaths}");
             }
             else
             {
