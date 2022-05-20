@@ -127,6 +127,11 @@ static async Task<string> UploadZipToBlob(string sourceZip, string zipType, stri
 
 static string GetNextNumericSuffix(List<string> fileNames)
 {
+    if (!fileNames.Any())
+    {
+        // If there are no existing files, use a default suffix
+        return "00";
+    }
     var numericStringSuffixes = fileNames.Select(f => GetNumericPathPart(f)).ToList();
     var maxSuffixValue = numericStringSuffixes.Max(f => int.Parse(f));
 
