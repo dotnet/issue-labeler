@@ -18,7 +18,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hubbup.MikLabelModel", "src
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.DotNet.Github.IssueLabeler", "src\Microsoft.DotNet.GitHub.IssueLabeler\Microsoft.DotNet.Github.IssueLabeler.csproj", "{AF671A89-AC9D-42C8-A940-73745684B63A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.DotNet.Github.LabelPredictor", "src\LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj", "{19E7A3A7-6208-4E29-889B-86256241594C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.DotNet.Github.LabelPredictor", "src\LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj", "{19E7A3A7-6208-4E29-889B-86256241594C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DotNetLabelerUploader", "src\DotNetLabelerUploader\DotNetLabelerUploader.csproj", "{B7729468-F9F6-4066-8E9E-FD04529E1A59}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DotNetLabelerWakerUpper", "src\DotNetLabelerWakerUpper\DotNetLabelerWakerUpper.csproj", "{74F9D770-2E51-49D6-A0A9-E4E9C428559D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -42,6 +46,14 @@ Global
 		{19E7A3A7-6208-4E29-889B-86256241594C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{19E7A3A7-6208-4E29-889B-86256241594C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{19E7A3A7-6208-4E29-889B-86256241594C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7729468-F9F6-4066-8E9E-FD04529E1A59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7729468-F9F6-4066-8E9E-FD04529E1A59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7729468-F9F6-4066-8E9E-FD04529E1A59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7729468-F9F6-4066-8E9E-FD04529E1A59}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74F9D770-2E51-49D6-A0A9-E4E9C428559D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74F9D770-2E51-49D6-A0A9-E4E9C428559D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74F9D770-2E51-49D6-A0A9-E4E9C428559D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74F9D770-2E51-49D6-A0A9-E4E9C428559D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -51,6 +63,8 @@ Global
 		{CA47F6FC-382F-4034-9F12-517CC14E5CB0} = {3D534DD7-7F6F-45D7-A62B-3E7DCF9FAB8F}
 		{AF671A89-AC9D-42C8-A940-73745684B63A} = {3D534DD7-7F6F-45D7-A62B-3E7DCF9FAB8F}
 		{19E7A3A7-6208-4E29-889B-86256241594C} = {3D534DD7-7F6F-45D7-A62B-3E7DCF9FAB8F}
+		{B7729468-F9F6-4066-8E9E-FD04529E1A59} = {3D534DD7-7F6F-45D7-A62B-3E7DCF9FAB8F}
+		{74F9D770-2E51-49D6-A0A9-E4E9C428559D} = {3D534DD7-7F6F-45D7-A62B-3E7DCF9FAB8F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {60D53155-0C10-41E9-B797-FC68F4EDFF8A}
