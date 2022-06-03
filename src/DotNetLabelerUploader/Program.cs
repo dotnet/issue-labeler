@@ -224,20 +224,26 @@ static void PrintFollowUpInstructions(string owner, string repo, string uploaded
     // NOTE: The keys in this dictionary must all be lowercase!
     var webAppMap = new Dictionary<(string owner, string repo), string>()
     {
+        // App Service Plan: dotnet-extensions-labeler
         {("dotnet", "aspnetcore"), "dotnet-aspnetcore-labeler" },
         {("dotnet", "maui"), "dotnet-aspnetcore-labeler" },
+        {("dotnet", "msbuild"), "dotnet-aspnetcore-labeler" },
 
+        {("microsoft", "dotnet-framework-docker"), "microsoft-dotnet-framework-docker" },
+
+        {("nuget", "home"), "nuget-home-labeler" },
+
+        // App Service Plan: MicrosoftDotNetGithubIssueLabeler2018092
         {("dotnet", "roslyn"), "dotnet-roslyn-labeler" },
         {("dotnet", "source-build"), "dotnet-roslyn-labeler" },
 
+        // App Service Plan: dotnet-runtime
         {("dotnet", "docker-tools"), "dotnet-runtime-issue-labeler" },
         {("dotnet", "dotnet-api-docs"), "dotnet-runtime-issue-labeler" },
         {("dotnet", "dotnet-buildtools-prereqs-docker"), "dotnet-runtime-issue-labeler" },
         {("dotnet", "dotnet-docker"), "dotnet-runtime-issue-labeler" },
         {("dotnet", "runtime"), "dotnet-runtime-issue-labeler" },
         {("dotnet", "sdk"), "dotnet-runtime-issue-labeler" },
-
-        {("microsoft", "dotnet-framework-docker"), "microsoft-dotnet-framework-docker" },
     };
 
     if (!webAppMap.TryGetValue((owner.ToLowerInvariant(), repo.ToLowerInvariant()), out var webAppService))

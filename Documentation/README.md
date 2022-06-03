@@ -153,28 +153,34 @@ TODO: Contact Eilon Lipton
 
 ## Web App Service List
 
-There are several Web App Services running, each configured for predictions for a set of repos. Note that a Web App Service can support multiple repos in the same GitHub org, but cannot support multiple orgs.
+The Azure Subscription used for the issue labelers contains several _App Service Plans_, each of which contains several _Web Apps_. An App Sevice Plan represents a machine, each of which can run multiple Web Apps, each of which can serve label predictions for multiple GitHub repos.
 
-If you are adding a new repo and the repo is in the same org as one of the repos below, consider adding your repo's data to an existing app (but ask the existing users for permission first!).
+Note that a _Web App_ can support multiple repos in the same GitHub org, but cannot support multiple orgs.
 
-* App: dotnet-aspnetcore-labeler
-  1. dotnet/aspnetcore issue+pr
-  1. dotnet/maui issue+pr
-  1. dotnet/roslyn issue+pr (not actually used!)
-* App: dotnet-roslyn-labeler
-  1. dotnet/roslyn issue+pr
-  1. dotnet/source-build issue
-* App: dotnet-runtime-issue-labeler
-  1. dotnet/docker-tools issues
-  1. dotnet/dotnet-api-docs issues+pr
-  1. dotnet/dotnet-buildtools-prereqs-docker issues
-  1. dotnet/dotnet-docker issues
-  1. dotnet/runtime issues+pr
-  1. dotnet/sdk issues+pr
-* App: microsoft-dotnet-framework-docker
-  1. microsoft/dotnet-framework-docker issues
-* App: nuget-home-labeler
-  1. nuget/home issues
+If you are adding a new repo and the repo is in the same org as one of the repos below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
+
+* App Service Plan: dotnet-extensions-labeler
+   1. App: dotnet-aspnetcore-labeler
+      1. dotnet/aspnetcore issue+pr
+      1. dotnet/maui issue+pr
+      1. dotnet/msbuild issue+pr
+      1. dotnet/roslyn issue+pr (not actually used!)
+   1. App: microsoft-dotnet-framework-docker
+      1. microsoft/dotnet-framework-docker issues
+   1. App: nuget-home-labeler
+      1. nuget/home issues
+* App Service Plan: MicrosoftDotNetGithubIssueLabeler2018092
+   1. App: dotnet-roslyn-labeler
+      1. dotnet/roslyn issue+pr
+      1. dotnet/source-build issue
+* App Service Plan: dotnet-runtime
+   1. App: dotnet-runtime-issue-labeler
+      1. dotnet/docker-tools issues
+      1. dotnet/dotnet-api-docs issues+pr
+      1. dotnet/dotnet-buildtools-prereqs-docker issues
+      1. dotnet/dotnet-docker issues
+      1. dotnet/runtime issues+pr
+      1. dotnet/sdk issues+pr
 
 ## Further reading
 
