@@ -21,7 +21,7 @@ class Program
         using (var textWriterTraceListener = new TextWriterTraceListener(@"trace.log"))
         {
             using ILoggerFactory loggerFactory = LoggerFactory.Create(builder => builder
-                .AddSimpleConsole()
+                .AddSimpleConsole(o => o.TimestampFormat = "[hh:mm:ss] ")
                 .AddTraceSource(new SourceSwitch("TraceLogs") { Level = SourceLevels.All }, textWriterTraceListener)
             );
 
@@ -44,28 +44,28 @@ class Program
 
                     var loadUrl = ExtractLoadUrl(testUrl);
                     string? response = await GetResponse(client, new Uri(loadUrl));
-                    if (response is null || response.Contains("not yet configured") || response.Contains("Only predictions for"))
+                    if (response is null || response.Contains("not yet configured", StringComparison.Ordinal) || response.Contains("Only predictions for", StringComparison.Ordinal))
                     {
-                        string reason = response == null ? "app not responding" : response;
+                        string reason = response ?? "app not responding";
                         logger.LogInformation(0, "Skipping - {Reason}", reason);
                         continue;
                     }
 
-                    while (response!.Contains("loading"))
+                    while (response!.Contains("loading", StringComparison.Ordinal))
                     {
-                        Thread.Sleep(5000);
+                        await Task.Delay(5000);
                         logger.LogInformation(1, "5 second delay - {Reason}", response);
                         response = await GetResponse(client, new Uri(loadUrl));
                     }
 
-                    Debug.Assert(response!.Contains("Loaded"));
+                    Debug.Assert(response!.Contains("Loaded", StringComparison.Ordinal));
                     var labelResponse = await GetLabelResponse(client, new Uri(testUrl));
                     if (labelResponse != null)
                     {
                         var labelSuggestion = labelResponse as LabelSuggestion;
                         if (labelSuggestion != null && labelSuggestion.LabelScores != null)
                         {
-                            logger.LogInformation(2, "Top score for `{Item}` is {TopScoreLabelName}",
+                            logger.LogInformation(2, "Top score for {Item} is [{TopScoreLabelName}]",
                                 testUrl.AsSpan().Slice(ExtractEndpointIndex(testUrl)).ToString(),
                                 labelSuggestion.LabelScores.First().LabelName);
                         }
