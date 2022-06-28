@@ -192,45 +192,33 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
 
             var existingLabelList = iop?.Labels?.Where(x => !string.IsNullOrEmpty(x.Name)).Select(x => x.Name).ToList();
-            bool issueMissingAreaLabel = !existingLabelList.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any();
+            bool issueMissingAreaLabel = !existingLabelList?.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any() ?? true;
 
             // update section
             if (labels.Count > 0 || (foundArea && issueMissingAreaLabel))
             {
                 //var issueUpdate = iop.ToUpdate();
-                var issueUpdate = new IssueUpdate();
+                var labelsToAdd = new List<string>();
 
                 if (foundArea && issueMissingAreaLabel)
                 {
                     // no area label yet
-                    issueUpdate.AddLabel(theFoundLabel);
+                    labelsToAdd.Add(theFoundLabel);
                 }
 
-                var existingLabelNames = existingLabelList.ToHashSet();
-                foreach (var newLabel in labels)
-                {
-                    if (!existingLabelNames.Contains(newLabel))
-                    {
-                        issueUpdate.AddLabel(newLabel);
-                    }
-                }
+                labelsToAdd.AddRange(labels);
 
-                if (options.CanUpdateIssue && issueUpdate.Labels != null && issueUpdate.Labels.Count > 0)
+                if (options.CanUpdateIssue && labelsToAdd.Any())
                 {
-                    issueUpdate.Milestone = iop.Milestone?.Number; // The number of milestone associated with the issue.
-                    foreach (var existingLabel in existingLabelNames)
-                    {
-                        issueUpdate.AddLabel(existingLabel);
-                    }
-                    await _gitHubClientWrapper.UpdateIssue(owner, repo, number, issueUpdate);
+                    await _gitHubClientWrapper.AddLabels(owner, repo, number, labelsToAdd);
                 }
-                else if (!options.CanUpdateIssue && issueUpdate.Labels != null && issueUpdate.Labels.Count > 0)
+                else if (!options.CanUpdateIssue && labelsToAdd.Any())
                 {
-                    _logger.LogInformation($"! skipped updating labels for {issueOrPr} {number}. would have become: {string.Join(",", issueUpdate.Labels)}");
+                    _logger.LogInformation($"! skipped adding labels for {issueOrPr} {number}. would have been added: {string.Join(",", labelsToAdd)}");
                 }
                 else
                 {
-                    _logger.LogInformation($"! dispatcher app - No update made to labels for {issueOrPr} {number}.");
+                    _logger.LogInformation($"! dispatcher app - No labels added to {issueOrPr} {number}.");
                 }
             }
 
@@ -239,9 +227,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 foreach (var labelFound in labels)
                 {
-                    if (!string.IsNullOrEmpty(labelRetriever.CommentFor(labelFound)))
+                    var labelComment = labelRetriever.CommentFor(labelFound);
+
+                    if (!string.IsNullOrEmpty(labelComment))
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.CommentFor(labelFound));
+                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelComment);
                     }
                 }
 
@@ -528,7 +518,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
         Task<Octokit.Issue> GetIssue(string owner, string repo, int number);
         Task<Octokit.PullRequest> GetPullRequest(string owner, string repo, int number);
         Task<IReadOnlyList<PullRequestFile>> GetPullRequestFiles(string owner, string repo, int number);
-        Task UpdateIssue(string owner, string repo, int number, IssueUpdate issueUpdate);
+        Task AddLabels(string owner, string repo, int number, IEnumerable<string> labels);
         Task CommentOn(string owner, string repo, int number, string comment);
     }
     public class GitHubClientWrapper : IGitHubClientWrapper
@@ -610,7 +600,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return prFiles;
         }
 
-        public async Task UpdateIssue(string owner, string repo, int number, IssueUpdate issueUpdate)
+        public async Task AddLabels(string owner, string repo, int number, IEnumerable<string> labels)
         {
             if (_client == null)
             {
@@ -618,13 +608,14 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
             try
             {
-                await _client.Issue.Update(owner, repo, number, issueUpdate);
+                await _client.Issue.Labels.AddToIssue(owner, repo, number, labels.ToArray());
             }
             catch (Exception ex)
             {
+                // Log the error and retry the operation once
                 _logger.LogError($"ex was of type {ex.GetType()}, message: {ex.Message}");
                 _client = await _gitHubClientFactory.CreateAsync(_skipAzureKeyVault);
-                await _client.Issue.Update(owner, repo, number, issueUpdate);
+                await _client.Issue.Labels.AddToIssue(owner, repo, number, labels.ToArray());
             }
         }
 
