@@ -192,7 +192,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
 
             var existingLabelList = iop?.Labels?.Where(x => !string.IsNullOrEmpty(x.Name)).Select(x => x.Name).ToList();
-            bool issueMissingAreaLabel = !existingLabelList.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any();
+            bool issueMissingAreaLabel = !existingLabelList?.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any() ?? true;
 
             // update section
             if (labels.Count > 0 || (foundArea && issueMissingAreaLabel))
