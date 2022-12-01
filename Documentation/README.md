@@ -18,9 +18,11 @@ If your are adding your repo to an existing labeler, see the [Web App Service Li
 Follow these steps to create a new labeler app:
 
 1. To create a new labeler, you must have access to the `GitHubIssueLabeller` resource group in the `DDFun IaaS Dev Shared Public` Azure Subscription. Contact the DevDiv Azure Ops email alias to request access.
+   - Ensure your applied Subscription Filter in the Azure Portal includes the subscription; otherwise the resource group won't be visible
+   - Your Subscription Filter is managed at https://ms.portal.azure.com/#settings/directory
 1. Go to the Azure Portal to create a new web app: https://ms.portal.azure.com/#create/Microsoft.WebSite
 1. Select these settings:
-   - **Subscription**: DDFun IaaS subscription
+   - **Subscription**: DDFun IaaS Dev Shared Public
    - **Resource Group**: GitHubIssueLabeller
    - **Name**: Arbitrary, but try to follow a pattern like `nuget-home-labeler`
    - **Publish**: Code
