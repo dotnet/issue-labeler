@@ -102,12 +102,13 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
 1. Upload model to Azure storage
    1. Open a command prompt in the `src/DotNetLabelerUploader` folder of the issue-labeler repo
    1. Get the Azure Storage access key for the `dotnetissuelabelerdata` storage account in Azure
-      1. In the Azure Portal, go to the DDFun IaaS Dev Shared Public subscription, and select the `dotnetissuelabelerdata` storage account
+      1. In the Azure Portal, go to the DDFun IaaS Dev Shared Public subscription, navigate into the subscriptions Resources, and select the `dotnetissuelabelerdata` storage account
       1. Select **Access keys** from the left side menu
       1. Copy the Key value for key1 or key2.
       1. In the command prompt run: `dotnet user-secrets set IssueLabelerKey AZURE_KEY_HERE`.
    1. Run the tool for the repo data you wish to upload: `dotnet run -- C:\PATH\TO\ZIPS OWNER/REPO`, for example, `dotnet run -- C:\GitHub\issue-labeler\src\CreateMikLabelModel dotnet/maui`
-1. Update predictor app to point to the new model
+      1. Note: This uploader app will rename the ZIP files when saved in Blob Storage to use a file name template that includes a version number
+1. Update predictor app to point to the new model (by referencing the newly uploaded blob)
    1. The uploader tool from the previous step printed out further instructions how to do that. It looks something like this:
       1. Go to https://portal.azure.com/
       1. Go to this subscription: DDFun IaaS Dev Shared Public
