@@ -78,7 +78,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                             owner, repo),
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
                         CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>()
+                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
+                        NoAreaDeterminedLabel = _configuration.GetSection($"{owner}:{repo}:no_area_determined_label").Get<string>()
                     });
             }
             catch (Exception)
@@ -96,6 +97,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public double Threshold { get; set; }
             public bool CanCommentOnIssue { get; set; }
             public bool CanUpdateIssue { get; set; }
+            public string NoAreaDeterminedLabel { get; set; }
         }
 
         private async Task InnerTask(string owner, string repo, int number)
@@ -236,15 +238,22 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 }
 
                 // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && labelRetriever.CommentWhenMissingAreaLabel)
+                if (!foundArea && issueMissingAreaLabel)
                 {
-                    if (issueOrPr == GithubObjectType.Issue)
+                    if (!string.IsNullOrEmpty(options.NoAreaDeterminedLabel))
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForIssue);
+                        await _gitHubClientWrapper.AddLabels(owner, repo, iop.Number, new[] { options.NoAreaDeterminedLabel });
                     }
-                    else
+                    else if (labelRetriever.CommentWhenMissingAreaLabel)
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForPr);
+                        if (issueOrPr == GithubObjectType.Issue)
+                        {
+                            await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForIssue);
+                        }
+                        else
+                        {
+                            await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForPr);
+                        }
                     }
                 }
             }
