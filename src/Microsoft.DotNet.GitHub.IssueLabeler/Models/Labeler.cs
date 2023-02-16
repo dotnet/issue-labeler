@@ -78,7 +78,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                             owner, repo),
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
                         CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>()
+                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
+                        NoAreaDeterminedLabel = SanitizeLabel(_configuration.GetSection($"{owner}:{repo}:no_area_determined_label").Get<string>())
                     });
             }
             catch (Exception)
@@ -89,6 +90,16 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
         }
 
+        private string SanitizeLabel(string label)
+        {
+            if (string.IsNullOrWhiteSpace(label))
+            {
+                return null;
+            }
+
+            return label.Trim();
+        }
+
         private class LabelerOptions
         {
             public ILabelRetriever LabelRetriever { get; set; }
@@ -96,6 +107,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public double Threshold { get; set; }
             public bool CanCommentOnIssue { get; set; }
             public bool CanUpdateIssue { get; set; }
+            public string NoAreaDeterminedLabel { get; set; }
         }
 
         private async Task InnerTask(string owner, string repo, int number)
@@ -192,21 +204,29 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
 
             var existingLabelList = iop?.Labels?.Where(x => !string.IsNullOrEmpty(x.Name)).Select(x => x.Name).ToList();
-            bool issueMissingAreaLabel = !existingLabelList?.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any() ?? true;
 
-            // update section
-            if (labels.Count > 0 || (foundArea && issueMissingAreaLabel))
+            // if there's no area- label, and there's also not a label used for when no area was determined
+            // then we need to take action for the missing area label
+            bool issueMissingAreaLabel = !existingLabelList?.Any(x =>
+                x.StartsWith("area-", StringComparison.OrdinalIgnoreCase) ||
+                (options.NoAreaDeterminedLabel != null && x.Equals(options.NoAreaDeterminedLabel, StringComparison.OrdinalIgnoreCase))) ?? true;
+
+            // update the labels for the issue/pr
+            if (labels.Count > 0 || issueMissingAreaLabel)
             {
-                //var issueUpdate = iop.ToUpdate();
-                var labelsToAdd = new List<string>();
+                var labelsToAdd = new List<string>(labels);
 
-                if (foundArea && issueMissingAreaLabel)
+                if (issueMissingAreaLabel)
                 {
-                    // no area label yet
-                    labelsToAdd.Add(theFoundLabel);
+                    if (foundArea)
+                    {
+                        labelsToAdd.Add(theFoundLabel);
+                    }
+                    else if (options.NoAreaDeterminedLabel != null)
+                    {
+                        labelsToAdd.Add(options.NoAreaDeterminedLabel);
+                    }
                 }
-
-                labelsToAdd.AddRange(labels);
 
                 if (options.CanUpdateIssue && labelsToAdd.Any())
                 {
@@ -235,8 +255,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     }
                 }
 
-                // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && labelRetriever.CommentWhenMissingAreaLabel)
+                // if we're still missing an area label and there's no label to indicate no area was determined, leave a comment.
+                if (!foundArea && issueMissingAreaLabel && options.NoAreaDeterminedLabel == null)
                 {
                     if (issueOrPr == GithubObjectType.Issue)
                     {
