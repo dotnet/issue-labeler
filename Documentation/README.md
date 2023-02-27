@@ -65,7 +65,7 @@ Follow these steps to create a new labeler app:
    - Right-click on the **Microsoft.DotNet.Github.IssueLabeler** project and select **Publish...**
    - Create a new Publish Profile and select **Azure** as the target, then pick **Azure App Service (Windows)** as the specific target
    - Select the **DDFun IaaS Dev Shared Public** subscription (formerly known as **DDITPublic**)
-   - Select the App Service instance that you created earlier (for example, `nuget-home-labeler`)
+   - Select the App Service instance that you created earlier (for example, `nuget-home-labeler` or `dispatcher-app`), check the "Deploy as ZIP package" box, and click **Next**
    - Deployment type: Publish
    - Click **Finish**, then **Close**
    - In the Settings screen click one of the pencil icons to edit the Settings and make sure the following are set:
