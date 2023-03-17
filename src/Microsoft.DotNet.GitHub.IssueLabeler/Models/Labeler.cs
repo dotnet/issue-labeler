@@ -170,7 +170,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     {
                         _logger.LogInformation($"#  dispatcher app - skipped: prefer manual prediction instead.");
                     }
-                    else if (topChoice.Score >= options.Threshold || labelRetriever.OkToIgnoreThresholdFor(topChoice.LabelName))
+                    else if (topChoice.Score >= options.Threshold)
                     {
                         foundArea = true;
                         theFoundLabel = topChoice.LabelName;

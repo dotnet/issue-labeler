@@ -20,16 +20,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
             return false;
         }
 
-        public bool OkToIgnoreThresholdFor(string chosenLabel)
-        {
-            if (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))
-            {
-                // return (!chosenLabel.Equals("area-System.Net", StringComparison.OrdinalIgnoreCase) && 
-                //     chosenLabel.StartsWith("area-System", StringComparison.OrdinalIgnoreCase));
-            }
-            return false;
-        }
-
         public string GetMessageToAddDocForNewApi(string label) => $"""
             Note regarding the `{label}` label:
 
