@@ -77,14 +77,15 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                             "{0}/api/WebhookIssue/{1}/{2}/", _configuration[$"{owner}:{repo}:prediction_url"],
                             owner, repo),
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
-                        CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
-                        AreaOwnersDoc = _configuration.GetSection($"{owner}:{repo}:area_owners_doc").Get<string>(),
-                        NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
-                        ApplyLinkedIssueAreaLabelToPr = _configuration.GetSection($"{owner}:{repo}:apply_linked_issue_area_label_to_pr").Get<bool>(),
-                        SkipLabelingForAuthor = (string author) => _configuration.GetSection($"{owner}:{repo}:skip_labeling_for_author:{author}").Get<bool>(),
-                        SkipPrediction = _configuration.GetSection($"{owner}:{repo}:skip_prediction").Get<bool>(),
-                        SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
+                        CanUpdateLabels = _configuration.GetValue<bool>($"{owner}:{repo}:can_update_labels", false),
+                        CanCommentOnIssue = _configuration.GetValue<bool>($"{owner}:{repo}:can_comment_on", false),
+                        AreaOwnersDoc = _configuration.GetValue<string>($"{owner}:{repo}:area_owners_doc", null),
+                        NewApiPrLabel = _configuration.GetValue<string>($"{owner}:{repo}:new_api_pr_label", null),
+                        ApplyLinkedIssueAreaLabelToPr = _configuration.GetValue<bool>($"{owner}:{repo}:apply_linked_issue_area_label_to_pr", false),
+
+                        SkipLabelingForAuthor = (string author) => _configuration.GetValue<bool>($"{owner}:{repo}:skip_labeling_for_author:{author}", false),
+                        SkipPrediction = _configuration.GetValue<bool>($"{owner}:{repo}:skip_prediction", false),
+                        SkipUntriagedLabel = _configuration.GetValue<bool>($"{owner}:{repo}:skip_untriaged_label", false),
                     });
             }
             catch (Exception)
@@ -102,7 +103,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public double Threshold { get; init; }
             public string AreaOwnersDoc { get; init; }
             public bool CanCommentOnIssue { get; init; }
-            public bool CanUpdateIssue { get; init; }
+            public bool CanUpdateLabels { get; init; }
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
             public Func<string, bool> SkipLabelingForAuthor { get; init; }
@@ -221,11 +222,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
                 labelsToAdd.AddRange(labels);
 
-                if (options.CanUpdateIssue && labelsToAdd.Any())
+                if (options.CanUpdateLabels && labelsToAdd.Any())
                 {
                     await _gitHubClientWrapper.AddLabels(owner, repo, number, labelsToAdd);
                 }
-                else if (!options.CanUpdateIssue && labelsToAdd.Any())
+                else if (!options.CanUpdateLabels && labelsToAdd.Any())
                 {
                     _logger.LogInformation($"! skipped adding labels for {issueOrPr} {number}. would have been added: {string.Join(",", labelsToAdd)}");
                 }
