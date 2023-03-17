@@ -13,14 +13,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
         public bool SkipPrediction { get => 
                 _repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
 
-        public bool AllowTakingLinkedIssueLabel
-        {
-            get =>
-            (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase)) ||
-            (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("sdk", StringComparison.OrdinalIgnoreCase)) ||
-            (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase));
-        }
-
         public bool PreferManualLabelingFor(string chosenLabel)
         {
             if (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))

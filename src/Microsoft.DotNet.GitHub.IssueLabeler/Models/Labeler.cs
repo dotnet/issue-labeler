@@ -80,6 +80,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
                         CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
                         NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
+                        ApplyLinkedIssueAreaLabelToPr = _configuration.GetSection($"{owner}:{repo}:apply_linked_issue_area_label_to_pr").Get<bool>(),
                         SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
                     });
             }
@@ -93,13 +94,14 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
         private class LabelerOptions
         {
-            public LabelRetriever LabelRetriever { get; set; }
-            public string PredictionUrl { get; set; }
-            public double Threshold { get; set; }
-            public bool CanCommentOnIssue { get; set; }
-            public bool CanUpdateIssue { get; set; }
-            public string NewApiPrLabel { get; set; }
-            public bool SkipUntriagedLabel { get; set; }
+            public LabelRetriever LabelRetriever { get; init; }
+            public string PredictionUrl { get; init; }
+            public double Threshold { get; init; }
+            public bool CanCommentOnIssue { get; init; }
+            public bool CanUpdateIssue { get; init; }
+            public string NewApiPrLabel { get; init; }
+            public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+            public bool SkipUntriagedLabel { get; init; }
         }
 
         private async Task InnerTask(string owner, string repo, int number)
@@ -135,7 +137,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 if (iop.PullRequest != null)
                 {
                     string body = iop.Body ?? string.Empty;
-                    if (labelRetriever.AllowTakingLinkedIssueLabel)
+                    if (options.ApplyLinkedIssueAreaLabelToPr)
                     {
                         (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(owner, repo, body);
                         if (!string.IsNullOrEmpty(linkedIssue.label))
