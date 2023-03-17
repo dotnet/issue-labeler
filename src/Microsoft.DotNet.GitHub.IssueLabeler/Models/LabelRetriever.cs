@@ -1,6 +1,7 @@
 ﻿using Microsoft.DotNet.GitHub.IssueLabeler;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
@@ -8,9 +9,8 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
     {
         public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
 
-        public bool OkToAddUntriagedLabel { get =>
-                !_repo.Equals("runtime", StringComparison.OrdinalIgnoreCase) &&
-                !_repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
+        private readonly IEnumerable<string> _untriagedLabelDisabledRepos = new string[] { "runtime", "aspnetcore", "dotnet-api-docs" };
+        public bool OkToAddUntriagedLabel { get => !_untriagedLabelDisabledRepos.Contains(_repo, StringComparer.OrdinalIgnoreCase); }
 
         public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
         public bool SkipPrediction { get => 
