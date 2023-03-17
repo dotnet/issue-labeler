@@ -24,6 +24,9 @@ bld/
 [Oo]bj/
 [Ll]og/
 
+# Publishing artifacts
+src/Microsoft.DotNet.GitHub.IssueLabeler/Properties/ServiceDependencies/
+
 # we don't want to commit models directly, using nuget packages instead
 *.zip
 

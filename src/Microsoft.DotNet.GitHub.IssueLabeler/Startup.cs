@@ -37,7 +37,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             services.AddSingleton<IQueueHelper, QueueHelper>();
             services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
             services.AddSingleton<IDiffHelper, DiffHelper>();
-            services.AddSingleton<ILabeler, Labeler>();
+            services.AddSingleton<Labeler, Labeler>();
             services.AddAzureClients(
                 builder => {
                     builder.AddBlobServiceClient(Configuration["QConnectionString"]);

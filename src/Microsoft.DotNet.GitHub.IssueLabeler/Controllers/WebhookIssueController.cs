@@ -15,13 +15,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
     [Route("api/WebhookIssue")]
     public class WebhookIssueController : Controller
     {
-        private ILabeler _labeler { get; set; }
+        private Labeler _labeler { get; set; }
 
         private ILogger<WebhookIssueController> Logger { get; set; }
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         public WebhookIssueController(
-            ILabeler labeler,
+            Labeler labeler,
             ILogger<WebhookIssueController> logger,
             IBackgroundTaskQueue backgroundTaskQueue)
         {

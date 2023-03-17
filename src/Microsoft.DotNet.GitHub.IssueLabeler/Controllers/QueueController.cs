@@ -13,13 +13,13 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Controllers
         private ILogger<QueueController> Logger { get; set; }
         private IQueueHelper _queueHelper;
         private readonly bool _inPreview = true;
-        private readonly ILabeler _labeler;
+        private readonly Labeler _labeler;
         private readonly bool _canCommentOnIssue;
         private readonly bool _canUpdateIssue;
         private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
         public QueueController(
-            ILabeler labeler,
+            Labeler labeler,
             IConfiguration configuration,
             IQueueHelper queueHelper,
             ILogger<QueueController> logger,
