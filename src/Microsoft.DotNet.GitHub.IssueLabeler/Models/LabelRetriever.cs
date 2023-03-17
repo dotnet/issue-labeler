@@ -7,8 +7,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
     public class LabelRetriever
     {
-        public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
-
         public bool PreferManualLabelingFor(string chosenLabel)
         {
             if (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) && _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))
@@ -23,11 +21,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 
             This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.
             """;
-
-        private string _areaLabelLinked =>
-            _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase) ? "[area label](" +
-                @"https://github.com/dotnet/runtime/blob/master/docs/area-owners.md" +
-            ")" : "area label";
 
         private static string LinkToAreaOwnersDoc(string areaOwnersDoc) =>
             string.IsNullOrWhiteSpace(areaOwnersDoc) ? "area label" : $"[area label]({areaOwnersDoc})";

@@ -79,9 +79,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
                         CanUpdateLabels = _configuration.GetValue<bool>($"{owner}:{repo}:can_update_labels", false),
                         CanCommentOnIssue = _configuration.GetValue<bool>($"{owner}:{repo}:can_comment_on", false),
+
                         AreaOwnersDoc = _configuration.GetValue<string>($"{owner}:{repo}:area_owners_doc", null),
                         NewApiPrLabel = _configuration.GetValue<string>($"{owner}:{repo}:new_api_pr_label", null),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetValue<bool>($"{owner}:{repo}:apply_linked_issue_area_label_to_pr", false),
+                        NoAreaDeterminedSkipComment = _configuration.GetValue<bool>($"{owner}:{repo}:no_area_determined:skip_comment", false),
 
                         DelayLabelingSeconds = _configuration.GetValue<int>($"{owner}:{repo}:delay_labeling_seconds", 0),
                         SkipLabelingForAuthor = (string author) => _configuration.GetValue<bool>($"{owner}:{repo}:skip_labeling_for_author:{author}", false),
@@ -102,11 +104,13 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public LabelRetriever LabelRetriever { get; init; }
             public string PredictionUrl { get; init; }
             public double Threshold { get; init; }
-            public string AreaOwnersDoc { get; init; }
             public bool CanCommentOnIssue { get; init; }
             public bool CanUpdateLabels { get; init; }
+
+            public string AreaOwnersDoc { get; init; }
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+            public bool NoAreaDeterminedSkipComment { get; init; }
 
             public int DelayLabelingSeconds { get; init; }
             public Func<string, bool> SkipLabelingForAuthor { get; init; }
@@ -248,7 +252,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 }
 
                 // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && labelRetriever.CommentWhenMissingAreaLabel)
+                if (!foundArea && issueMissingAreaLabel && !options.NoAreaDeterminedSkipComment)
                 {
                     if (issueOrPr == GithubObjectType.Issue)
                     {
