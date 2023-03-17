@@ -82,6 +82,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         AreaOwnersDoc = _configuration.GetSection($"{owner}:{repo}:area_owners_doc").Get<string>(),
                         NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetSection($"{owner}:{repo}:apply_linked_issue_area_label_to_pr").Get<bool>(),
+                        SkipLabelingForAuthor = (string author) => _configuration.GetSection($"{owner}:{repo}:skip_labeling_for_author:{author}").Get<bool>(),
                         SkipPrediction = _configuration.GetSection($"{owner}:{repo}:skip_prediction").Get<bool>(),
                         SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
                     });
@@ -104,6 +105,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public bool CanUpdateIssue { get; init; }
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+            public Func<string, bool> SkipLabelingForAuthor { get; init; }
             public bool SkipPrediction { get; init; }
             public bool SkipUntriagedLabel { get; init; }
         }
@@ -124,9 +126,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var labels = new HashSet<string>();
             GithubObjectType issueOrPr = iop.PullRequest != null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
 
-            if (labelRetriever.ShouldSkipUpdatingLabels(iop.User.Login))
+            if (options.SkipLabelingForAuthor(iop.User.Login))
             {
-                _logger.LogInformation($"! dispatcher app - skipped for racing for {issueOrPr} {number}.");
+                _logger.LogInformation($"! dispatcher app - skipped labeling for author '{iop.User.Location}' on {owner}/{repo} {issueOrPr} {number}.");
                 return;
             }
 

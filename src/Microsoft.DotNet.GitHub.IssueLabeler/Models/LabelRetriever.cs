@@ -10,8 +10,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
         public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
 
         public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
-        public bool SkipPrediction { get => 
-                _repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
 
         public bool PreferManualLabelingFor(string chosenLabel)
         {
@@ -58,13 +56,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
         {
             _owner = owner;
             _repo = repo;
-        }
-
-        public bool ShouldSkipUpdatingLabels(string issueAuthor)
-        {
-            return _repo.Equals("roslyn", StringComparison.OrdinalIgnoreCase) &&
-                _owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) &&
-                issueAuthor.Equals("dotnet-bot", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
