@@ -83,6 +83,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         NewApiPrLabel = _configuration.GetValue<string>($"{owner}:{repo}:new_api_pr_label", null),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetValue<bool>($"{owner}:{repo}:apply_linked_issue_area_label_to_pr", false),
 
+                        DelayLabelingSeconds = _configuration.GetValue<int>($"{owner}:{repo}:delay_labeling_seconds", 0),
                         SkipLabelingForAuthor = (string author) => _configuration.GetValue<bool>($"{owner}:{repo}:skip_labeling_for_author:{author}", false),
                         SkipPrediction = _configuration.GetValue<bool>($"{owner}:{repo}:skip_prediction", false),
                         SkipUntriagedLabel = _configuration.GetValue<bool>($"{owner}:{repo}:skip_untriaged_label", false),
@@ -106,6 +107,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public bool CanUpdateLabels { get; init; }
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+
+            public int DelayLabelingSeconds { get; init; }
             public Func<string, bool> SkipLabelingForAuthor { get; init; }
             public bool SkipPrediction { get; init; }
             public bool SkipUntriagedLabel { get; init; }
@@ -195,11 +198,10 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             GithubObjectType issueOrPr,
             LabelRetriever labelRetriever)
         {
-
-            if (labelRetriever.AddDelayBeforeUpdatingLabels)
+            if (options.DelayLabelingSeconds > 0)
             {
                 // to avoid race with dotnet-bot
-                await Task.Delay(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(options.DelayLabelingSeconds));
             }
 
             // get iop again

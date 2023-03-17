@@ -7,8 +7,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
     public class LabelRetriever
     {
-        public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
-
         public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
 
         public bool PreferManualLabelingFor(string chosenLabel)
