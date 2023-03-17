@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.DotNet.GitHub.IssueLabeler
 {
-    public class Labeler : ILabeler
+    public class Labeler
     {
         private IQueueHelper _queueHelper;
         private Regex _regex;
@@ -91,7 +91,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
         private class LabelerOptions
         {
-            public ILabelRetriever LabelRetriever { get; set; }
+            public LabelRetriever LabelRetriever { get; set; }
             public string PredictionUrl { get; set; }
             public double Threshold { get; set; }
             public bool CanCommentOnIssue { get; set; }
@@ -179,7 +179,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             HashSet<string> labels,
             string theFoundLabel,
             GithubObjectType issueOrPr,
-            ILabelRetriever labelRetriever)
+            LabelRetriever labelRetriever)
         {
 
             if (labelRetriever.AddDelayBeforeUpdatingLabels)
@@ -296,7 +296,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return await Task.FromResult<(string, int)>(default);
         }
 
-        private async Task<HashSet<string>> GetNonAreaLabelsAsync(ILabelRetriever labelRetriever, string owner, string repo, Octokit.Issue iop)
+        private async Task<HashSet<string>> GetNonAreaLabelsAsync(LabelRetriever labelRetriever, string owner, string repo, Octokit.Issue iop)
         {
             if (_regex == null)
             {

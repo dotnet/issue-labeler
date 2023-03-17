@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
-    public class LabelRetriever : ILabelRetriever
+    public class LabelRetriever
     {
         public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
 
