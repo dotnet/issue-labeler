@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
+using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Net.WebRequestMethods;
 
 namespace DeploymentTests;
 
@@ -38,7 +40,7 @@ namespace DeploymentTests;
 /// Preparation steps for seeing the application logger information that shows the background worker logs:
 /// 1. From the deployed application in the Azure portal, within the 'Development Tools' section, open 'App Service Editor (Preview)'
 /// 2. Click the 'Open Editor' link to open the App Service Editor
-/// 3. Open the `web.config` file (e.g. https://dispatcher-app.scm.azurewebsites.net/dev/wwwroot/web.config)
+/// 3. Open the `web.config` file
 /// 4. Change `stdoutLogEnabled` to "true"
 /// 5. On the Azure portal 'Overview' page for the application, Restart the application
 /// 6. Under the 'Development Tools' section, go to 'Advanced Tools' and click 'Go'
@@ -50,7 +52,8 @@ namespace DeploymentTests;
 ///     ls stdout*.log | sort LastWriteTime -Descending | Select -First 5
 /// 
 /// Given the URL of the most recent log, you can download the current log file. The file will be written to repeatedly as more
-/// logs accumulate. Log data is flushed to disk periodically; you can force the log to be flushed by restarting the service.
+/// logs accumulate. Log data is flushed to disk periodically, so after invoking the tests you may have to wait a while before
+/// the log gets flushed. You can force logs to be flushed by restarting the app after you're certain the processing has completed.
 /// </para>
 /// </remarks>
 public class IssueLabelingTests : ServiceTestBase
@@ -68,7 +71,7 @@ public class IssueLabelingTests : ServiceTestBase
     /// GET /api/webhookissue/test/{org}/{repo}/{id}
     /// </summary>
     [Theory]
-    [InlineData("dotnet", "runtime", 42_000)]
+    [InlineData("dotnet", "runtime", 42000)]
     public async Task GET_test_endpoint(string org, string repo, int id)
     {
         HttpResponseMessage? response = await CreateTestHttpClient().GetAsync(new Uri(ServiceTestBase.ServiceWebhookApiRoot, $"test/{org}/{repo}/{id}"));
@@ -86,11 +89,73 @@ public class IssueLabelingTests : ServiceTestBase
     /// Log entries will be created tracking the results of receiving a webhook event for the issues/prs. These log entries
     /// can be helpful for troubleshooting behavior of the Labeler and/or verifying that the expected results occurred.
     /// </para>
+    /// <para>
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.BackgroundTaskQueue[0]
+    ///       dequeued work item
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! dispatcher app - started query for dotnet/runtime#80000
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[100]
+    ///       Start processing HTTP request GET .../api/WebhookIssue/dotnet/runtime/80000
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[100]
+    ///       Sending HTTP request GET .../api/WebhookIssue/dotnet/runtime/80000
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[101]
+    ///       Received HTTP response headers after 430.0831ms - 200
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[101]
+    ///       End processing HTTP request after 430.3744ms - 200
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! received prediction: area-System.Threading,area-System.Diagnostics.Tracing,area-System.Threading.Tasks
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.QueuedHostedService[0]
+    ///       completed work item
+    /// </para>
+    /// <para>
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.BackgroundTaskQueue[0]
+    ///       dequeued work item
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! dispatcher app - started query for dotnet/roslyn#50042
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! problem with new approach: An invalid request URI was provided. The request URI must either be an absolute URI or BaseAddress must be set.
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[100]
+    ///       Start processing HTTP request GET .../api/WebhookIssue/dotnet/roslyn/50042
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[100]
+    ///       Sending HTTP request GET .../api/WebhookIssue/dotnet/roslyn/50042
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[101]
+    ///       Received HTTP response headers after 677.2148ms - 200
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[101]
+    ///       End processing HTTP request after 677.496ms - 200
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! received prediction: Area-IDE,Area-Infrastructure,Area-Analyzers
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.QueuedHostedService[0]
+    ///       completed work item
+    /// </para>
+    /// <para>
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.BackgroundTaskQueue[0]
+    ///       dequeued work item
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! dispatcher app - started query for dotnet/aspnetcore#30000
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.WebhookIssueController[0]
+    ///       ! Webhook call for: dotnet/runtime#80000
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.WebhookIssueController[0]
+    ///       ! Webhook call for: dotnet/roslyn#40000
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[100]
+    ///       Start processing HTTP request GET .../api/WebhookIssue/dotnet/aspnetcore/30000
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[100]
+    ///       Sending HTTP request GET .../api/WebhookIssue/dotnet/aspnetcore/30000
+    /// info: System.Net.Http.HttpClient.Default.ClientHandler[101]
+    ///       Received HTTP response headers after 1282.1243ms - 200
+    /// info: System.Net.Http.HttpClient.Default.LogicalHandler[101]
+    ///       End processing HTTP request after 1282.5892ms - 200
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! received prediction: area-identity,area-security,area-blazor
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.Labeler[0]
+    ///       ! dispatcher app - No comment made to labels for Issue 30000.
+    /// info: Microsoft.DotNet.GitHub.IssueLabeler.QueuedHostedService[0]
+    ///       completed work item
+    /// </para>
     /// </remarks>
     [Theory]
-    [InlineData("dotnet", "runtime", IssueOrPullRequest.Issue, 42000)]
-    [InlineData("dotnet", "roslyn", IssueOrPullRequest.PullRequest, 42000)]
-    [InlineData("dotnet", "aspnetcore", IssueOrPullRequest.Issue, 42000)]
+    [InlineData("dotnet", "runtime", IssueOrPullRequest.Issue, 80000)]
+    [InlineData("dotnet", "roslyn", IssueOrPullRequest.PullRequest, 50042)]
+    [InlineData("dotnet", "aspnetcore", IssueOrPullRequest.Issue, 30000)]
     public async Task POST_webhook_endpoint(string org, string repo, IssueOrPullRequest type, int id)
     {
         string issueOrPullRequest = type switch
