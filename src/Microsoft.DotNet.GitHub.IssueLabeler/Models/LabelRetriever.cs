@@ -43,10 +43,14 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
                 @"https://github.com/dotnet/runtime/blob/master/docs/area-owners.md" +
             ")" : "area label";
 
-        public string MessageToAddAreaLabelForPr =>
-            "I couldn't figure out the best area label to add to this PR. If you have write-permissions please help me learn by adding exactly one " + _areaLabelLinked + ".";
-        public string MessageToAddAreaLabelForIssue =>
-            "I couldn't figure out the best area label to add to this issue. If you have write-permissions please help me learn by adding exactly one " + _areaLabelLinked + ".";
+        private static string LinkToAreaOwnersDoc(string areaOwnersDoc) =>
+            string.IsNullOrWhiteSpace(areaOwnersDoc) ? "area label" : $"[area label]({areaOwnersDoc})";
+
+        public string GetMessageToAddAreaLabelForPr(string areaOwnersDoc) =>
+            $"I couldn't figure out the best area label to add to this PR. If you have write-permissions please help me learn by adding exactly one {LinkToAreaOwnersDoc(areaOwnersDoc)}.";
+
+        public string GetMessageToAddAreaLabelForIssue(string areaOwnersDoc) =>
+            $"I couldn't figure out the best area label to add to this issue. If you have write-permissions please help me learn by adding exactly one {LinkToAreaOwnersDoc(areaOwnersDoc)}.";
 
         private readonly string _owner;
         private readonly string _repo;

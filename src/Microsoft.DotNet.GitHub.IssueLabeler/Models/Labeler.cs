@@ -79,6 +79,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
                         CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
                         CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
+                        AreaOwnersDoc = _configuration.GetSection($"{owner}:{repo}:area_owners_doc").Get<string>(),
                         NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetSection($"{owner}:{repo}:apply_linked_issue_area_label_to_pr").Get<bool>(),
                         SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
@@ -97,6 +98,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public LabelRetriever LabelRetriever { get; init; }
             public string PredictionUrl { get; init; }
             public double Threshold { get; init; }
+            public string AreaOwnersDoc { get; init; }
             public bool CanCommentOnIssue { get; init; }
             public bool CanUpdateIssue { get; init; }
             public string NewApiPrLabel { get; init; }
@@ -242,11 +244,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 {
                     if (issueOrPr == GithubObjectType.Issue)
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForIssue);
+                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.GetMessageToAddAreaLabelForIssue(options.AreaOwnersDoc));
                     }
                     else
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForPr);
+                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.GetMessageToAddAreaLabelForPr(options.AreaOwnersDoc));
                     }
                 }
             }
