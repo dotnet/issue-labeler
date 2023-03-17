@@ -6,6 +6,7 @@
     <SignAssembly>false</SignAssembly>
     <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -78,7 +78,9 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                             owner, repo),
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
                         CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>()
+                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>(),
+                        NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
+                        SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
                     });
             }
             catch (Exception)
@@ -96,6 +98,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public double Threshold { get; set; }
             public bool CanCommentOnIssue { get; set; }
             public bool CanUpdateIssue { get; set; }
+            public string NewApiPrLabel { get; set; }
+            public bool SkipUntriagedLabel { get; set; }
         }
 
         private async Task InnerTask(string owner, string repo, int number)
@@ -121,7 +125,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
 
             // get non area labels
-            labels = await GetNonAreaLabelsAsync(labelRetriever, owner, repo, iop);
+            labels = await GetNonAreaLabelsAsync(options, owner, repo, iop);
 
             bool foundArea = false;
             string theFoundLabel = default;
@@ -225,14 +229,10 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             // comment section
             if (options.CanCommentOnIssue)
             {
-                foreach (var labelFound in labels)
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && labels.Contains(options.NewApiPrLabel))
                 {
-                    var labelComment = labelRetriever.CommentFor(labelFound);
-
-                    if (!string.IsNullOrEmpty(labelComment))
-                    {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelComment);
-                    }
+                    string newApiComment = labelRetriever.GetMessageToAddDocForNewApi(options.NewApiPrLabel);
+                    await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, newApiComment);
                 }
 
                 // if newlabels has no area-label and existing does not also. then comment
@@ -296,7 +296,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return await Task.FromResult<(string, int)>(default);
         }
 
-        private async Task<HashSet<string>> GetNonAreaLabelsAsync(LabelRetriever labelRetriever, string owner, string repo, Octokit.Issue iop)
+        private async Task<HashSet<string>> GetNonAreaLabelsAsync(LabelerOptions options, string owner, string repo, Octokit.Issue iop)
         {
             if (_regex == null)
             {
@@ -313,7 +313,21 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 iopModel = CreateIssue(iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
             }
-            return labelRetriever.GetNonAreaLabelsForIssueAsync(iopModel);
+
+            HashSet<string> nonAreaLabelsToAdd = new HashSet<string>();
+
+            if (iopModel is PrModel pr)
+            {
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && pr.ShouldAddDoc) nonAreaLabelsToAdd.Add(options.NewApiPrLabel);
+                if (pr.Author.Equals("monojenkins")) nonAreaLabelsToAdd.Add("mono-mirror");
+            }
+
+            if (iopModel is IssueModel issue)
+            {
+                if (!options.SkipUntriagedLabel) nonAreaLabelsToAdd.Add("untriaged");
+            }
+
+            return nonAreaLabelsToAdd;
         }
 
         private static IssueModel CreateIssue(int number, string title, string body, string[] userMentions, string author)

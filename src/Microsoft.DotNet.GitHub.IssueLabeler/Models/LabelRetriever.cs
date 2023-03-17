@@ -9,9 +9,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
     {
         public bool AddDelayBeforeUpdatingLabels { get => _repo.Equals("dotnet-api-docs", StringComparison.OrdinalIgnoreCase); }
 
-        private readonly IEnumerable<string> _untriagedLabelDisabledRepos = new string[] { "runtime", "aspnetcore", "dotnet-api-docs" };
-        public bool OkToAddUntriagedLabel { get => !_untriagedLabelDisabledRepos.Contains(_repo, StringComparer.OrdinalIgnoreCase); }
-
         public bool CommentWhenMissingAreaLabel { get => !_repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
         public bool SkipPrediction { get => 
                 _repo.Equals("deployment-tools", StringComparison.OrdinalIgnoreCase); }
@@ -43,9 +40,11 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
             return false;
         }
 
-        private readonly string MessageToAddDoc =
-               "Note regarding the `new-api-needs-documentation` label:" + Environment.NewLine + Environment.NewLine +
-               "This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.";
+        public string GetMessageToAddDocForNewApi(string label) => $"""
+            Note regarding the `{label}` label:
+
+            This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.
+            """;
 
         private string _areaLabelLinked =>
             _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase) ? "[area label](" +
@@ -70,48 +69,6 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
             return _repo.Equals("roslyn", StringComparison.OrdinalIgnoreCase) &&
                 _owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) &&
                 issueAuthor.Equals("dotnet-bot", StringComparison.OrdinalIgnoreCase);
-        }
-
-        public HashSet<string> GetNonAreaLabelsForIssueAsync(IssueModel issue)
-        {
-            var lcs = new HashSet<string>();
-            if (issue is PrModel pr)
-            {
-                if (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) &&
-                    _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (pr.ShouldAddDoc)
-                    {
-                        //_logger.LogInformation($"! PR number {pr.Number} should be a documentation PR as it adds lines to a ref *cs file.");
-                        string shouldAddDoc = "new-api-needs-documentation";
-                        lcs.Add(shouldAddDoc);
-                    }
-                    if (pr.Author.Equals("monojenkins"))
-                    {
-                        lcs.Add("mono-mirror");
-                    }
-                }
-            }
-            else
-            {
-                if (OkToAddUntriagedLabel)
-                {
-                    lcs.Add("untriaged");
-                }
-            }
-            return lcs;
-        }
-
-        public string CommentFor(string label)
-        {
-            if (_owner.Equals("dotnet", StringComparison.OrdinalIgnoreCase) &&
-                _repo.Equals("runtime", StringComparison.OrdinalIgnoreCase) &&
-                label.Equals("new-api-needs-documentation", StringComparison.OrdinalIgnoreCase)
-                )
-            {
-                return MessageToAddDoc;
-            }
-            return default;
         }
     }
 }
