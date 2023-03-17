@@ -82,6 +82,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         AreaOwnersDoc = _configuration.GetSection($"{owner}:{repo}:area_owners_doc").Get<string>(),
                         NewApiPrLabel = _configuration.GetSection($"{owner}:{repo}:new_api_pr_label").Get<string>(),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetSection($"{owner}:{repo}:apply_linked_issue_area_label_to_pr").Get<bool>(),
+                        SkipPrediction = _configuration.GetSection($"{owner}:{repo}:skip_prediction").Get<bool>(),
                         SkipUntriagedLabel = _configuration.GetSection($"{owner}:{repo}:skip_untriaged_label").Get<bool>(),
                     });
             }
@@ -103,6 +104,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public bool CanUpdateIssue { get; init; }
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+            public bool SkipPrediction { get; init; }
             public bool SkipUntriagedLabel { get; init; }
         }
 
@@ -133,7 +135,8 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
             bool foundArea = false;
             string theFoundLabel = default;
-            if (!labelRetriever.SkipPrediction)
+
+            if (!options.SkipPrediction)
             {
                 // find shortcut to get label
                 if (iop.PullRequest != null)
