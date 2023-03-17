@@ -86,7 +86,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         NoAreaDeterminedSkipComment = _configuration.GetValue<bool>($"{owner}:{repo}:no_area_determined:skip_comment", false),
 
                         DelayLabelingSeconds = _configuration.GetValue<int>($"{owner}:{repo}:delay_labeling_seconds", 0),
-                        SkipLabelingForAuthor = (string author) => _configuration.GetValue<bool>($"{owner}:{repo}:skip_labeling_for_author:{author}", false),
+                        SkipLabelingForAuthors = _configuration.GetValue<string>($"{owner}:{repo}:skip_labeling_for_authors", "").Split(new[] { ',', ';', ' '}),
                         SkipPrediction = _configuration.GetValue<bool>($"{owner}:{repo}:skip_prediction", false),
                         SkipUntriagedLabel = _configuration.GetValue<bool>($"{owner}:{repo}:skip_untriaged_label", false),
                     });
@@ -113,7 +113,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public bool NoAreaDeterminedSkipComment { get; init; }
 
             public int DelayLabelingSeconds { get; init; }
-            public Func<string, bool> SkipLabelingForAuthor { get; init; }
+            public string[] SkipLabelingForAuthors { get; init; }
             public bool SkipPrediction { get; init; }
             public bool SkipUntriagedLabel { get; init; }
         }
@@ -134,7 +134,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var labels = new HashSet<string>();
             GithubObjectType issueOrPr = iop.PullRequest != null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
 
-            if (options.SkipLabelingForAuthor(iop.User.Login))
+            if (options.SkipLabelingForAuthors.Contains(iop.User.Login, StringComparer.OrdinalIgnoreCase))
             {
                 _logger.LogInformation($"! dispatcher app - skipped labeling for author '{iop.User.Location}' on {owner}/{repo} {issueOrPr} {number}.");
                 return;
