@@ -1,7 +1,6 @@
 ﻿using Microsoft.DotNet.GitHub.IssueLabeler;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Microsoft.DotNet.Github.IssueLabeler.Models
 {
@@ -19,7 +18,7 @@ namespace Microsoft.DotNet.Github.IssueLabeler.Models
         public string GetMessageToAddDocForNewApi(string label) => $"""
             Note regarding the `{label}` label:
 
-            This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, to please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.
+            This serves as a reminder for when your PR is modifying a ref *.cs file and adding/modifying public APIs, please make sure the API implementation in the src *.cs file is documented with triple slash comments, so the PR reviewers can sign off that change.
             """;
 
         private static string LinkToAreaOwnersDoc(string areaOwnersDoc) =>
