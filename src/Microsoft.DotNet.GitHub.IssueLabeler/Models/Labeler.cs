@@ -77,8 +77,18 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                             "{0}/api/WebhookIssue/{1}/{2}/", _configuration[$"{owner}:{repo}:prediction_url"],
                             owner, repo),
                         Threshold = double.Parse(_configuration[$"{owner}:{repo}:threshold"]),
-                        CanUpdateIssue = _configuration.GetSection($"{owner}:{repo}:can_update_labels").Get<bool>(),
-                        CanCommentOnIssue = _configuration.GetSection($"{owner}:{repo}:can_comment_on").Get<bool>()
+                        CanUpdateLabels = _configuration.GetValue<bool>($"{owner}:{repo}:can_update_labels", false),
+                        CanCommentOnIssue = _configuration.GetValue<bool>($"{owner}:{repo}:can_comment_on", false),
+
+                        AreaOwnersDoc = _configuration.GetValue<string>($"{owner}:{repo}:area_owners_doc", null),
+                        NewApiPrLabel = _configuration.GetValue<string>($"{owner}:{repo}:new_api_pr_label", null),
+                        ApplyLinkedIssueAreaLabelToPr = _configuration.GetValue<bool>($"{owner}:{repo}:apply_linked_issue_area_label_to_pr", false),
+                        NoAreaDeterminedSkipComment = _configuration.GetValue<bool>($"{owner}:{repo}:no_area_determined:skip_comment", false),
+
+                        DelayLabelingSeconds = _configuration.GetValue<int>($"{owner}:{repo}:delay_labeling_seconds", 0),
+                        SkipLabelingForAuthors = _configuration.GetValue<string>($"{owner}:{repo}:skip_labeling_for_authors", "").Split(new[] { ',', ';', ' '}),
+                        SkipPrediction = _configuration.GetValue<bool>($"{owner}:{repo}:skip_prediction", false),
+                        SkipUntriagedLabel = _configuration.GetValue<bool>($"{owner}:{repo}:skip_untriaged_label", false),
                     });
             }
             catch (Exception)
@@ -91,11 +101,21 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
         private class LabelerOptions
         {
-            public LabelRetriever LabelRetriever { get; set; }
-            public string PredictionUrl { get; set; }
-            public double Threshold { get; set; }
-            public bool CanCommentOnIssue { get; set; }
-            public bool CanUpdateIssue { get; set; }
+            public LabelRetriever LabelRetriever { get; init; }
+            public string PredictionUrl { get; init; }
+            public double Threshold { get; init; }
+            public bool CanCommentOnIssue { get; init; }
+            public bool CanUpdateLabels { get; init; }
+
+            public string AreaOwnersDoc { get; init; }
+            public string NewApiPrLabel { get; init; }
+            public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
+            public bool NoAreaDeterminedSkipComment { get; init; }
+
+            public int DelayLabelingSeconds { get; init; }
+            public string[] SkipLabelingForAuthors { get; init; }
+            public bool SkipPrediction { get; init; }
+            public bool SkipUntriagedLabel { get; init; }
         }
 
         private async Task InnerTask(string owner, string repo, int number)
@@ -114,24 +134,25 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             var labels = new HashSet<string>();
             GithubObjectType issueOrPr = iop.PullRequest != null ? GithubObjectType.PullRequest : GithubObjectType.Issue;
 
-            if (labelRetriever.ShouldSkipUpdatingLabels(iop.User.Login))
+            if (options.SkipLabelingForAuthors.Contains(iop.User.Login, StringComparer.OrdinalIgnoreCase))
             {
-                _logger.LogInformation($"! dispatcher app - skipped for racing for {issueOrPr} {number}.");
+                _logger.LogInformation($"! dispatcher app - skipped labeling for author '{iop.User.Location}' on {owner}/{repo} {issueOrPr} {number}.");
                 return;
             }
 
             // get non area labels
-            labels = await GetNonAreaLabelsAsync(labelRetriever, owner, repo, iop);
+            labels = await GetNonAreaLabelsAsync(options, owner, repo, iop);
 
             bool foundArea = false;
             string theFoundLabel = default;
-            if (!labelRetriever.SkipPrediction)
+
+            if (!options.SkipPrediction)
             {
                 // find shortcut to get label
                 if (iop.PullRequest != null)
                 {
                     string body = iop.Body ?? string.Empty;
-                    if (labelRetriever.AllowTakingLinkedIssueLabel)
+                    if (options.ApplyLinkedIssueAreaLabelToPr)
                     {
                         (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(owner, repo, body);
                         if (!string.IsNullOrEmpty(linkedIssue.label))
@@ -157,7 +178,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     {
                         _logger.LogInformation($"#  dispatcher app - skipped: prefer manual prediction instead.");
                     }
-                    else if (topChoice.Score >= options.Threshold || labelRetriever.OkToIgnoreThresholdFor(topChoice.LabelName))
+                    else if (topChoice.Score >= options.Threshold)
                     {
                         foundArea = true;
                         theFoundLabel = topChoice.LabelName;
@@ -181,11 +202,10 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             GithubObjectType issueOrPr,
             LabelRetriever labelRetriever)
         {
-
-            if (labelRetriever.AddDelayBeforeUpdatingLabels)
+            if (options.DelayLabelingSeconds > 0)
             {
                 // to avoid race with dotnet-bot
-                await Task.Delay(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(options.DelayLabelingSeconds));
             }
 
             // get iop again
@@ -208,11 +228,11 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
                 labelsToAdd.AddRange(labels);
 
-                if (options.CanUpdateIssue && labelsToAdd.Any())
+                if (options.CanUpdateLabels && labelsToAdd.Any())
                 {
                     await _gitHubClientWrapper.AddLabels(owner, repo, number, labelsToAdd);
                 }
-                else if (!options.CanUpdateIssue && labelsToAdd.Any())
+                else if (!options.CanUpdateLabels && labelsToAdd.Any())
                 {
                     _logger.LogInformation($"! skipped adding labels for {issueOrPr} {number}. would have been added: {string.Join(",", labelsToAdd)}");
                 }
@@ -225,26 +245,22 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             // comment section
             if (options.CanCommentOnIssue)
             {
-                foreach (var labelFound in labels)
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && labels.Contains(options.NewApiPrLabel))
                 {
-                    var labelComment = labelRetriever.CommentFor(labelFound);
-
-                    if (!string.IsNullOrEmpty(labelComment))
-                    {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelComment);
-                    }
+                    string newApiComment = labelRetriever.GetMessageToAddDocForNewApi(options.NewApiPrLabel);
+                    await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, newApiComment);
                 }
 
                 // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && labelRetriever.CommentWhenMissingAreaLabel)
+                if (!foundArea && issueMissingAreaLabel && !options.NoAreaDeterminedSkipComment)
                 {
                     if (issueOrPr == GithubObjectType.Issue)
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForIssue);
+                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.GetMessageToAddAreaLabelForIssue(options.AreaOwnersDoc));
                     }
                     else
                     {
-                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.MessageToAddAreaLabelForPr);
+                        await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, labelRetriever.GetMessageToAddAreaLabelForPr(options.AreaOwnersDoc));
                     }
                 }
             }
@@ -296,7 +312,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             return await Task.FromResult<(string, int)>(default);
         }
 
-        private async Task<HashSet<string>> GetNonAreaLabelsAsync(LabelRetriever labelRetriever, string owner, string repo, Octokit.Issue iop)
+        private async Task<HashSet<string>> GetNonAreaLabelsAsync(LabelerOptions options, string owner, string repo, Octokit.Issue iop)
         {
             if (_regex == null)
             {
@@ -313,7 +329,28 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             {
                 iopModel = CreateIssue(iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
             }
-            return labelRetriever.GetNonAreaLabelsForIssueAsync(iopModel);
+
+            HashSet<string> nonAreaLabelsToAdd = new HashSet<string>();
+
+            if (iopModel is PrModel pr)
+            {
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && pr.ShouldAddDoc)
+                {
+                    nonAreaLabelsToAdd.Add(options.NewApiPrLabel);
+                }
+
+                if (pr.Author.Equals("monojenkins"))
+                {
+                    nonAreaLabelsToAdd.Add("mono-mirror");
+                }
+            }
+
+            if (iopModel is IssueModel issue)
+            {
+                if (!options.SkipUntriagedLabel) nonAreaLabelsToAdd.Add("untriaged");
+            }
+
+            return nonAreaLabelsToAdd;
         }
 
         private static IssueModel CreateIssue(int number, string title, string body, string[] userMentions, string author)
