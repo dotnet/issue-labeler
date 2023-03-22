@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <SolutionTargetFrameworkVersion>net6.0</SolutionTargetFrameworkVersion>
+    <SolutionTargetFrameworkVersion>net7.0</SolutionTargetFrameworkVersion>
     <GitHubJwtVersion>0.0.5</GitHubJwtVersion>
     <!-- TODO: Microsoft.Azure.Services.AppAuthentication is obsolete. Evaluate Azure.Identity. -->
     <MicrosoftAzureKeyVaultVersion>3.0.5</MicrosoftAzureKeyVaultVersion>
@@ -9,7 +9,7 @@
     <MicrosoftAzureStorageBlobsVersion>12.15.0</MicrosoftAzureStorageBlobsVersion>
     <MicrosoftAzureStorageQueuesVersion>12.13.0</MicrosoftAzureStorageQueuesVersion>
     <MicrosoftDataAnalysisVersion>0.20.1</MicrosoftDataAnalysisVersion>
-    <MicrosoftExtensionsLoggingAbstractionsVersion>6.0.3</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>7.0.0</MicrosoftExtensionsLoggingAbstractionsVersion>
     <MicrosoftExtensionsAzureVersion>1.6.3</MicrosoftExtensionsAzureVersion>
     <MicrosoftMLVersion>2.0.1</MicrosoftMLVersion>
     <MicrosoftMLAutoMLVersion>0.20.1</MicrosoftMLAutoMLVersion>
