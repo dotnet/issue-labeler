@@ -334,8 +334,15 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
             if (iopModel is PrModel pr)
             {
-                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && pr.ShouldAddDoc) nonAreaLabelsToAdd.Add(options.NewApiPrLabel);
-                if (pr.Author.Equals("monojenkins")) nonAreaLabelsToAdd.Add("mono-mirror");
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && pr.ShouldAddDoc)
+                {
+                    nonAreaLabelsToAdd.Add(options.NewApiPrLabel);
+                }
+
+                if (pr.Author.Equals("monojenkins"))
+                {
+                    nonAreaLabelsToAdd.Add("mono-mirror");
+                }
             }
 
             if (iopModel is IssueModel issue)
