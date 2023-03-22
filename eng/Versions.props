@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <!-- Libs -->
-    <CommandLineParserVersion>2.2.1</CommandLineParserVersion>
-    <MicrosoftAzureServicesAppAuthenticationVersion>1.3.1</MicrosoftAzureServicesAppAuthenticationVersion>
-    <!-- update MicrosoftDataAnalysisVersion to 2.0.0 -->
-    <MicrosoftDataAnalysisVersion>0.1.0</MicrosoftDataAnalysisVersion>
-    <OctokitVersion>0.48.0</OctokitVersion>
-    <OctokitGraphQLVersion>0.1.7-beta</OctokitGraphQLVersion>
+    <SolutionTargetFrameworkVersion>net6.0</SolutionTargetFrameworkVersion>
+    <GitHubJwtVersion>0.0.5</GitHubJwtVersion>
+    <!-- TODO: Microsoft.Azure.Services.AppAuthentication is obsolete. Evaluate Azure.Identity. -->
     <MicrosoftAzureKeyVaultVersion>3.0.5</MicrosoftAzureKeyVaultVersion>
-    <MicrosoftExtensionsVersion>5.0.0</MicrosoftExtensionsVersion>
+    <MicrosoftAzureServicesAppAuthenticationVersion>1.3.1</MicrosoftAzureServicesAppAuthenticationVersion>
+    <MicrosoftAzureStorageBlobsVersion>12.15.0</MicrosoftAzureStorageBlobsVersion>
+    <MicrosoftAzureStorageQueuesVersion>12.13.0</MicrosoftAzureStorageQueuesVersion>
+    <MicrosoftDataAnalysisVersion>0.20.1</MicrosoftDataAnalysisVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>6.0.3</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <MicrosoftExtensionsAzureVersion>1.6.3</MicrosoftExtensionsAzureVersion>
+    <MicrosoftMLVersion>2.0.1</MicrosoftMLVersion>
+    <MicrosoftMLAutoMLVersion>0.20.1</MicrosoftMLAutoMLVersion>
     <MicrosoftDotNetGitHubIssueLabelerAssetsVersion>1.12.19</MicrosoftDotNetGitHubIssueLabelerAssetsVersion>
-    <MicrosoftAutoMLVersion>0.17.2</MicrosoftAutoMLVersion>
-    <MicrosoftMLVersion>1.5.2</MicrosoftMLVersion>
-    <MicrosoftVisualStudioWebCodeGenerationDesignVersion>2.0.4</MicrosoftVisualStudioWebCodeGenerationDesignVersion>
+    <OctokitVersion>5.0.2</OctokitVersion>
   </PropertyGroup>
 </Project>
- 
