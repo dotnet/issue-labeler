@@ -2,7 +2,7 @@
 
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>$(SolutionTargetFrameworkVersion)</TargetFramework>
     <SignAssembly>false</SignAssembly>
     <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
@@ -14,16 +14,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.8.0-beta.1" />
-    <PackageReference Include="Azure.Storage.Queues" Version="12.6.0-beta.1" />
-    <PackageReference Include="GitHubJwt" Version="0.0.4" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="$(MicrosoftAzureStorageBlobsVersion)" />
+    <PackageReference Include="Azure.Storage.Queues" Version="$(MicrosoftAzureStorageQueuesVersion)" />
+    <PackageReference Include="GitHubJwt" Version="$(GitHubJwtVersion)" />
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
     <PackageReference Include="Microsoft.DotNet.GitHubIssueLabeler.Assets" Version="$(MicrosoftDotNetGitHubIssueLabelerAssetsVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Azure" Version="1.1.0-beta.1" />
+    <PackageReference Include="Microsoft.Extensions.Azure" Version="$(MicrosoftExtensionsAzureVersion)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
-    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
+    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftMLAutoMLVersion)" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
   </ItemGroup>
