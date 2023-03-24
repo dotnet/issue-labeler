@@ -84,6 +84,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         NewApiPrLabel = _configuration.GetValue<string>($"{owner}:{repo}:new_api_pr_label", null),
                         ApplyLinkedIssueAreaLabelToPr = _configuration.GetValue<bool>($"{owner}:{repo}:apply_linked_issue_area_label_to_pr", false),
                         NoAreaDeterminedSkipComment = _configuration.GetValue<bool>($"{owner}:{repo}:no_area_determined:skip_comment", false),
+                        NoAreaDeterminedLabel = _configuration.GetValue<string>($"{owner}:{repo}:no_area_determined:label", null),
 
                         DelayLabelingSeconds = _configuration.GetValue<int>($"{owner}:{repo}:delay_labeling_seconds", 0),
                         SkipLabelingForAuthors = _configuration.GetValue<string>($"{owner}:{repo}:skip_labeling_for_authors", "").Split(new[] { ',', ';', ' '}),
@@ -111,6 +112,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             public string NewApiPrLabel { get; init; }
             public bool ApplyLinkedIssueAreaLabelToPr { get; init; }
             public bool NoAreaDeterminedSkipComment { get; init; }
+            public string NoAreaDeterminedLabel { get; init; }
 
             public int DelayLabelingSeconds { get; init; }
             public string[] SkipLabelingForAuthors { get; init; }
@@ -136,7 +138,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
 
             if (options.SkipLabelingForAuthors.Contains(iop.User.Login, StringComparer.OrdinalIgnoreCase))
             {
-                _logger.LogInformation($"! dispatcher app - skipped labeling for author '{iop.User.Location}' on {owner}/{repo} {issueOrPr} {number}.");
+                _logger.LogInformation($"! dispatcher app - skipped labeling for author '{iop.User.Location}' on {owner}/{repo}#{number} ({issueOrPr}).");
                 return;
             }
 
@@ -157,7 +159,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                         (string label, int number) linkedIssue = await GetAnyLinkedIssueLabel(owner, repo, body);
                         if (!string.IsNullOrEmpty(linkedIssue.label))
                         {
-                            _logger.LogInformation($"! dispatcher app - PR number {iop.Number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
+                            _logger.LogInformation($"! dispatcher app - PR number {owner}/{repo}#{number} fixes issue number {linkedIssue.number} with area label {linkedIssue.label}.");
                             foundArea = true;
                             theFoundLabel = linkedIssue.label;
                         }
@@ -176,7 +178,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     var topChoice = labelSuggestion.LabelScores.OrderByDescending(x => x.Score).First();
                     if (labelRetriever.PreferManualLabelingFor(topChoice.LabelName))
                     {
-                        _logger.LogInformation($"#  dispatcher app - skipped: prefer manual prediction instead.");
+                        _logger.LogInformation($"#  dispatcher app - skipped for {owner}/{repo}#{number} ({issueOrPr}): prefer manual prediction instead.");
                     }
                     else if (topChoice.Score >= options.Threshold)
                     {
@@ -185,7 +187,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     }
                     else
                     {
-                        _logger.LogInformation($"! dispatcher app - The Model was not able to assign the label to the {issueOrPr} {number} confidently.");
+                        _logger.LogInformation($"! dispatcher app - The Model was not able to assign the label to {owner}/{repo}#{number} ({issueOrPr}) confidently.");
                     }
                 }
             }
@@ -197,7 +199,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             string owner, string repo,
             int number,
             bool foundArea,
-            HashSet<string> labels,
+            HashSet<string> labelsToAdd,
             string theFoundLabel,
             GithubObjectType issueOrPr,
             LabelRetriever labelRetriever)
@@ -208,51 +210,53 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 await Task.Delay(TimeSpan.FromSeconds(options.DelayLabelingSeconds));
             }
 
-            // get iop again
+            // get iop again to retrieve its labels
             var iop = await _gitHubClientWrapper.GetIssue(owner, repo, number);
-
             var existingLabelList = iop?.Labels?.Where(x => !string.IsNullOrEmpty(x.Name)).Select(x => x.Name).ToList();
-            bool issueMissingAreaLabel = !existingLabelList?.Where(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Any() ?? true;
 
-            // update section
-            if (labels.Count > 0 || (foundArea && issueMissingAreaLabel))
+            // Check for existing area labels or the label indicating no area was determined
+            bool hasAnAreaLabelAlready = existingLabelList?.Any(x => x.StartsWith("area-", StringComparison.OrdinalIgnoreCase)) ?? false;
+            bool hasNeedsAreaLabelAlready = !string.IsNullOrEmpty(options.NoAreaDeterminedLabel) && existingLabelList is not null ? existingLabelList.Any(x => x.Equals(options.NoAreaDeterminedLabel, StringComparison.OrdinalIgnoreCase)) : false;
+
+            if (!hasAnAreaLabelAlready && !hasNeedsAreaLabelAlready)
             {
-                //var issueUpdate = iop.ToUpdate();
-                var labelsToAdd = new List<string>();
-
-                if (foundArea && issueMissingAreaLabel)
+                if (foundArea)
                 {
-                    // no area label yet
                     labelsToAdd.Add(theFoundLabel);
                 }
+                else if (!string.IsNullOrEmpty(options.NoAreaDeterminedLabel))
+                {
+                    labelsToAdd.Add(options.NoAreaDeterminedLabel);
+                }
+            }
 
-                labelsToAdd.AddRange(labels);
-
-                if (options.CanUpdateLabels && labelsToAdd.Any())
+            if (labelsToAdd.Any())
+            {
+                if (options.CanUpdateLabels)
                 {
                     await _gitHubClientWrapper.AddLabels(owner, repo, number, labelsToAdd);
                 }
-                else if (!options.CanUpdateLabels && labelsToAdd.Any())
+                else if (!options.CanUpdateLabels)
                 {
-                    _logger.LogInformation($"! skipped adding labels for {issueOrPr} {number}. would have been added: {string.Join(",", labelsToAdd)}");
+                    _logger.LogInformation($"! skipped adding labels for {owner}/{repo}#{number} ({issueOrPr}). would have been added: {string.Join(",", labelsToAdd)}");
                 }
                 else
                 {
-                    _logger.LogInformation($"! dispatcher app - No labels added to {issueOrPr} {number}.");
+                    _logger.LogInformation($"! dispatcher app - No labels added to {owner}/{repo}#{number} ({issueOrPr}).");
                 }
             }
 
             // comment section
             if (options.CanCommentOnIssue)
             {
-                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && labels.Contains(options.NewApiPrLabel))
+                if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && labelsToAdd.Contains(options.NewApiPrLabel))
                 {
                     string newApiComment = labelRetriever.GetMessageToAddDocForNewApi(options.NewApiPrLabel);
                     await _gitHubClientWrapper.CommentOn(owner, repo, iop.Number, newApiComment);
                 }
 
-                // if newlabels has no area-label and existing does not also. then comment
-                if (!foundArea && issueMissingAreaLabel && !options.NoAreaDeterminedSkipComment)
+                // If there's no area label yet and we didn't find an area, optionally leave a comment
+                if (!foundArea && !hasAnAreaLabelAlready && !options.NoAreaDeterminedSkipComment)
                 {
                     if (issueOrPr == GithubObjectType.Issue)
                     {
@@ -266,7 +270,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
             }
             else
             {
-                _logger.LogInformation($"! dispatcher app - No comment made to labels for {issueOrPr} {number}.");
+                _logger.LogInformation($"! dispatcher app - No comment made to labels for {owner}/{repo}#{number} ({issueOrPr}).");
             }
         }
 
@@ -287,7 +291,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                     Label = default
                 }).Select(x => x.LabelAreaScore).ToList();
 
-                _logger.LogInformation("! received prediction: {0}", string.Join(",", predictionList.Select(x => x.LabelName)));
+                _logger.LogInformation($"! received prediction for {owner}/{repo}#{number}: {0}", string.Join(",", predictionList.Select(x => x.LabelName)));
 
                 return new LabelSuggestion()
                 {
@@ -395,7 +399,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogInformation("! problem with new approach: " + ex.Message);
+                    _logger.LogInformation($"! problem with new approach on PR {owner}/{repo}#{number}: " + ex.Message);
                     pr.ShouldAddDoc = segmentedDiff.AddDocInfo;
                 }
             }
