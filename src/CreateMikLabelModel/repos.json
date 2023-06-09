@@ -37,6 +37,9 @@
       "dotnet/msbuild"
     ],
     [
+      "dotnet/sdk"
+    ],
+    [
       "NuGet/Home"
     ]
   ]
