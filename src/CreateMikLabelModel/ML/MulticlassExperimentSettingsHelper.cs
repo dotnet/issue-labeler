@@ -24,13 +24,14 @@ namespace CreateMikLabelModel.ML
             var cts = new System.Threading.CancellationTokenSource();
             experimentSettings.CancellationToken = cts.Token;
 
-            // Set the cache directory to null.
+            // Local development note: You can set the cache directory to null.
+            //
             // This will cause all models produced by AutoML to be kept in memory 
             // instead of written to disk after each run, as AutoML is training.
             // (Please note: for an experiment on a large dataset, opting to keep all 
             // models trained by AutoML in memory could cause your system to run out 
             // of memory.)
-            experimentSettings.CacheDirectory = new DirectoryInfo(Path.GetTempPath());
+            experimentSettings.CacheDirectoryName = Path.GetTempPath();
             experimentSettings.OptimizingMetric = MulticlassClassificationMetric.MicroAccuracy;
             return (columnInference, experimentSettings);
         }

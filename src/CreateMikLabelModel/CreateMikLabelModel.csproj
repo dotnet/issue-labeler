@@ -3,7 +3,7 @@
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>$(SolutionTargetFrameworkVersion)</TargetFramework>
     <LangVersion>latest</LangVersion>
     <UserSecretsId>AspNetHello.App</UserSecretsId>
   </PropertyGroup>
