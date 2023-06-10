@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj" />
+    <ProjectReference Include="..\Microsoft.DotNet.Github.LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj" />
   </ItemGroup>
 
   <ItemGroup>
