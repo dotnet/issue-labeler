@@ -11,7 +11,7 @@ We use GraphQL and [Octokit](https://www.nuget.org/packages/Octokit/) to downloa
 
 The [CreateMikLabelModel](https://github.com/dotnet/issue-labeler/tree/master/src/CreateMikLabelModel) project is responsible for:
 
-1. Downloading Github issues and pull requests
+1. Downloading GitHub issues and pull requests
 2. Specifying which data to download (title, description, labels, author, mentions, PR file names, optionally PR diff etc.)
 3. Segmenting issue or PR records into train (first 80%), validate (second 10%), and test (last 10%) data.
 4. Customizing ML training settings: ML models to skip/consider (e.g. FastTreeOva), time to train, information to consider while training (e.g. number of file changes).
@@ -28,8 +28,8 @@ Since dotnet/runtime has a big set of area owners and contributors, we decided t
 
 ## The public-dispatcher branch
 
-The public-dispatcher branch is the code base for the github app that gets installed per github organization. We would have one app instance per org (one for Microsoft and one for dotnet) based off the public-dispatcher branch. The github app would be able to query top three predictions in a distributed way from other app(s) based off of the main branch which are configured for one or more repository to provide prediction scores.
+The public-dispatcher branch is the code base for the GitHub app that gets installed per GitHub organization. We would have one app instance per org (one for Microsoft and one for dotnet) based off the public-dispatcher branch. The GitHub app would be able to query top three predictions in a distributed way from other app(s) based off of the main branch which are configured for one or more repository to provide prediction scores.
 
 ![image](https://user-images.githubusercontent.com/5897654/154319795-35975683-c4ae-477d-8a7c-74ad3079f1ed.png)
 
-Based on the above diagram we can publish multiple apps using the same source code from main branch, where each app is responsible for giving predictions for one or more github repositories. But there would be only a single github app per github organization (e.g. dotnet) which has the webhook setup to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.
+Based on the above diagram we can publish multiple apps using the same source code from main branch, where each app is responsible for giving predictions for one or more GitHub repositories. But there would be only a single github app per github organization (e.g. dotnet) which has the webhook setup to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.

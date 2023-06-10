@@ -18,7 +18,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hubbup.MikLabelModel", "src
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.DotNet.Github.IssueLabeler", "src\Microsoft.DotNet.GitHub.IssueLabeler\Microsoft.DotNet.Github.IssueLabeler.csproj", "{AF671A89-AC9D-42C8-A940-73745684B63A}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.DotNet.Github.LabelPredictor", "src\LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj", "{19E7A3A7-6208-4E29-889B-86256241594C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.DotNet.Github.LabelPredictor", "src\Microsoft.DotNet.Github.LabelPredictor\Microsoft.DotNet.Github.LabelPredictor.csproj", "{19E7A3A7-6208-4E29-889B-86256241594C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DotNetLabelerUploader", "src\DotNetLabelerUploader\DotNetLabelerUploader.csproj", "{B7729468-F9F6-4066-8E9E-FD04529E1A59}"
 EndProject

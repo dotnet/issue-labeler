@@ -51,7 +51,7 @@ Follow these steps to create a new labeler app:
    - In the same DDFun IaaS subscription, go to the **Mirror** Key Vault resource
      - Select **Access Policies**
      - Click **Create**
-     - Select the following **Secret Permissions**: `Get`, `List` (note: _not_ Key or Certificat permissions!)
+     - Select the following **Secret Permissions**: `Get`, `List` (note: _not_ Key or Certificate permissions!)
      - Click **Next**
      - Search in the list for the Web App name that you created (example: `nuget-home-labeler`)
      - Click **Next**
@@ -78,7 +78,6 @@ Follow these steps to create a new labeler app:
 1. The publish operation should launch your web browser to its URL and you should see the message `Check the logs, or predict labels.`, indicating the app is running
    - Note that the app is not yet configured to predict anything! It's just an app with no data.
    - You will need to follow the steps to create and upload prediction models and configure the app to serve those predictions.
-
 
 ## Create and upload prediction models to Azure Storage
 
@@ -144,7 +143,20 @@ Once you have configured a predictor and uploaded a training model, there are th
 
 ### Setting up GitHub Webhooks for fully automated labeling
 
-TODO: How to do this?
+The `feature/public-dispatcher` branch of this repository contains the GitHub app that responds to webhooks and can automatically apply labels to issues and pull requests. That app is deployed as the `dispatcher-app`, and it is configured to know how to reach each predictor app by owner/repo. After setting up a new repository's ML.NET model and ensuring its predictor app can respond to requests and show the top three label predictions, the `dispatcher-app` can be set up to make those requests automatically and update issues and pull requests with the predicted labels.
+
+In the `dispatcher-app` configuration, many settings can be added for each repository. The primary settings are:
+
+1. `{owner}:{repo}:can_comment_on`: (true|false)
+   - Indicates whether the app should add comments to issues/PRs that are processed
+2. `{owner}:{repo}:can_update_labels`: (true|false)
+   - Indicates whether the app should make label changes to issues/PRs
+3. `{owner}:{repo}:prediction_url`: e.g., https://dotnet-runtime-issue-labeler.azurewebsites.net/
+   - Specifies the URL to the predictor app configured above that can produce label predictions for this owner/repo
+4. `{owner}:{repo}:threshold`: 0.0-1.0
+   - Specifies the minimum threshold confidence required for a prediction to be applied to an issue/PR
+
+With the new configuration settings in place, the `dotnet-issue-labeler` app also needs to be granted access to the new repository so that it can apply changes to the issues and pull requests. Requests can be sent to the repository owners through https://github.com/apps/dotnet-issue-labeler/installations/new.
 
 ### Use Hubbup to view label predictions
 
