@@ -20,7 +20,6 @@
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
-    <PackageReference Include="Microsoft.DotNet.GitHubIssueLabeler.Assets" Version="$(MicrosoftDotNetGitHubIssueLabelerAssetsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="$(MicrosoftExtensionsAzureVersion)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftMLAutoMLVersion)" />
