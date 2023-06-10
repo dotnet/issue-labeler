@@ -164,26 +164,27 @@ If you are adding a new repo and the repo is in the same org as one of the repos
 
 * App Service Plan: dotnet-extensions-labeler
    1. App: dotnet-aspnetcore-labeler
-      1. dotnet/aspnetcore issue+pr
-      1. dotnet/maui issue+pr
-      1. dotnet/msbuild issue+pr
-      1. dotnet/roslyn issue+pr (not actually used!)
+      1. dotnet/aspnetcore: issues + prs
+      1. dotnet/maui: issues + prs
+      1. dotnet/msbuild: issues + prs
+      1. dotnet/roslyn: issues + prs (not actually used!)
    1. App: microsoft-dotnet-framework-docker
-      1. microsoft/dotnet-framework-docker issues
+      1. microsoft/dotnet-framework-docker: issues
+      1. microsoft/vscode-dotnettools: issues
    1. App: nuget-home-labeler
-      1. nuget/home issues
+      1. nuget/home: issues
 * App Service Plan: MicrosoftDotNetGithubIssueLabeler2018092
    1. App: dotnet-roslyn-labeler
-      1. dotnet/roslyn issue+pr
-      1. dotnet/source-build issue
+      1. dotnet/roslyn: issues + prs
+      1. dotnet/source-build: issues
 * App Service Plan: dotnet-runtime
    1. App: dotnet-runtime-issue-labeler
-      1. dotnet/docker-tools issues
-      1. dotnet/dotnet-api-docs issues+pr
-      1. dotnet/dotnet-buildtools-prereqs-docker issues
-      1. dotnet/dotnet-docker issues
-      1. dotnet/runtime issues+pr
-      1. dotnet/sdk issues+pr
+      1. dotnet/docker-tools: issues
+      1. dotnet/dotnet-api-docs: issues + prs
+      1. dotnet/dotnet-buildtools-prereqs-docker: issues
+      1. dotnet/dotnet-docker: issues
+      1. dotnet/runtime: issues + prs
+      1. dotnet/sdk: issues + prs
 
 ## Further reading
 

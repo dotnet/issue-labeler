@@ -65,7 +65,7 @@ namespace Microsoft.DotNet.GitHub.IssueLabeler
                 Logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, repo);
                 return Ok($"Loaded {owner}/{repo}");
             }
-            return Ok($"Prediction engines for {owner}/{repo} are still loading.");
+            return Ok($"Prediction engines for {owner}/{repo} are still loading. Issue Engine Loaded: {modelHolder.IsIssueEngineLoaded}. Use Issues for PRs: {modelHolder.UseIssuesForPrsToo}. PR Engine Loaded: {modelHolder.IsPrEngineLoaded}.");
         }
 
         [HttpGet("{owner}/{repo}/{id}")]

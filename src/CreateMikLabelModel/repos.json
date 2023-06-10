@@ -7,8 +7,8 @@
       "dotnet/aspnetcore"
     ],
     [
-      "dotnet/dotnet-docker",
       "microsoft/dotnet-framework-docker",
+      "dotnet/dotnet-docker",
       "dotnet/dotnet-buildtools-prereqs-docker"
     ],
     [
@@ -41,6 +41,9 @@
     ],
     [
       "NuGet/Home"
+    ],
+    [
+      "microsoft/vscode-dotnettools"
     ]
   ]
 }
