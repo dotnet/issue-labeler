@@ -5,7 +5,7 @@ using PredictionEngine;
 
 if (args.Length != 3)
 {
-    PrintHelp(errorMessages: $@"ERROR: Required parameters missing: dotnet run -- C:\PATH\TO\ZIPS OWNER/REPO ISSUE_OR_PR_NUMBER");
+    PrintHelp(errorMessages: $@"ERROR: Required parameters missing: dotnet run -- PATH_TO_ZIPS OWNER/REPO ISSUE_OR_PR_NUMBER");
     return 1;
 }
 

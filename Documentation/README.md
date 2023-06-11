@@ -2,7 +2,7 @@
 
 This document describes how to set up a new issue labeler app (for a new GitHub repo), as well as how to update the training data for an existing labeler app and repo.
 
-Note: Several parts of this document have steps that require particular membership and permissions for various GitHub repos, Azure subscriptions and resources, and so forth. You may have to request permissions or send PRs to make certain changes.
+Note: Several parts of this document have steps that require particular membership and permissions for various GitHub repositories, Azure subscriptions and resources, and so forth. You may have to request permissions or send PRs to make certain changes.
 
 ## Add support for a new GitHub repo
 
@@ -26,7 +26,7 @@ Follow these steps to create a new labeler app:
    - **Resource Group**: GitHubIssueLabeller
    - **Name**: Arbitrary, but try to follow a pattern like `nuget-home-labeler`
    - **Publish**: Code
-   - **Runtime stack**: .NET 6 (LTS)
+   - **Runtime stack**: .NET 7 (STS)
    - **OS**: Windows
    - **Region**: West US or similar is best, so that it is nearer to other resources in this resource group, and where there are existing App Service Plans that can be shared
    - **App Service Plan**: If possible, pick an existing service plan (all apps in the same service plan share the same machine resources, so don't put "too much" into one). Otherwise create a new service plan of an appropriate size. How big is big enough? Memory is the largest concern, so start small, and upgrade to more memory if it runs out.
@@ -62,7 +62,7 @@ Follow these steps to create a new labeler app:
    - Clone the https://github.com/dotnet/issue-labeler repo
    - Open the **issue-labeler.sln** solution in Visual Studio
    - Check that you can build the **Microsoft.DotNet.Github.IssueLabeler** project
-   - Right-click on the **Microsoft.DotNet.Github.IssueLabeler** project and select **Publish...**
+   - Right-click on the **PredictionService** project and select **Publish...**
    - Create a new Publish Profile and select **Azure** as the target, then pick **Azure App Service (Windows)** as the specific target
    - Select the **DDFun IaaS Dev Shared Public** subscription (formerly known as **DDITPublic**)
    - Select the App Service instance that you created earlier (for example, `nuget-home-labeler` or `dispatcher-app`), check the "Deploy as ZIP package" box, and click **Next**
@@ -70,7 +70,7 @@ Follow these steps to create a new labeler app:
    - Click **Finish**, then **Close**
    - In the Settings screen click one of the pencil icons to edit the Settings and make sure the following are set:
      - **Configuration**: Release
-     - **Target framework**: net6.0
+     - **Target framework**: net7.0
      - **Deployment mode**: Self-contained
      - **Target Runtime**: win-x64
      - Click **Save**
@@ -83,7 +83,7 @@ Follow these steps to create a new labeler app:
 
 If the label training model for your repo is out of date or non-existent, you will need to create a new model, upload it to Azure Storage, and update the predictor app to use the new model.
 
-Pre-requisites:
+Prerequisites:
 
 1. The repo must already have "area" labels that follow the pattern `area/some_name`, `area:some_name`, or `area-some_name`, and a minimum of 500 issues labeled with at least one area label. If there are too few labeled issues, the model will not be reliable. Also, areas are ideally exclusive, meaning that issues or PRs should have exactly one label. It's acceptable to have more than one area label on an item, but those are not reliable for generating models.
 1. To upload models to Azure, you must have access to the `GitHubIssueLabeller` resource group in the `DDFun IaaS Dev Shared Public` Azure Subscription. Contact the DevDiv Azure Ops email alias to request access.
@@ -91,7 +91,7 @@ Pre-requisites:
 To get started, clone the https://github.com/dotnet/issue-labeler repo so that you can run the required tools.
 
 1. Create training model on your machine
-   1. Open a command prompt in the `src/CreateMikLabelModel` folder of the issue-labeler repo
+   1. Open a command prompt in the `src/ModelCreator` folder
    1. If you have not yet done so, create a GitHub OAuth token to use for this app:
       1. Create a [GitHub Personal Access Token](https://github.com/settings/tokens) and copy the value to your clipboard
       1. In the command prompt run: `dotnet user-secrets set GitHubAccessToken THE_TOKEN_VALUE`.
@@ -100,14 +100,18 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
       1. The tool will download all the GitHub issues and PRs from the repo. This can take anywhere from a few minutes to even 10 minutes, depending on how many issues/PRs exist in the repo.
       1. It will then run a computationally intensive process to perform the machine learning. This can take around 30 minutes on a high-end workstation.
       1. The output will be two ZIP files containing the models for issues and PRs. If the repo has no PRs, that model will be skipped.
+1. Test the model locally
+   1. Open a command prompt in the `src/ModelTester` folder
+   1. Run the tool for the repo data you wish to test: `dotnet run -- PATH_TO_ZIPS OWNER/REPO ISSUE_OR_PR_NUMBER`, for example, `dotnet run -- ..\ModelCreator dotnet/maui 14895`
+      1. Note: The same `GitHubAccessToken` user-secret is required
 1. Upload model to Azure storage
-   1. Open a command prompt in the `src/DotNetLabelerUploader` folder of the issue-labeler repo
+   1. Open a command prompt in the `src/ModelUploader` folder
    1. Get the Azure Storage access key for the `dotnetissuelabelerdata` storage account in Azure
       1. In the Azure Portal, go to the DDFun IaaS Dev Shared Public subscription, navigate into the subscriptions Resources, and select the `dotnetissuelabelerdata` storage account
       1. Select **Access keys** from the left side menu
       1. Copy the Key value for key1 or key2.
       1. In the command prompt run: `dotnet user-secrets set IssueLabelerKey AZURE_KEY_HERE`.
-   1. Run the tool for the repo data you wish to upload: `dotnet run -- C:\PATH\TO\ZIPS OWNER/REPO`, for example, `dotnet run -- C:\GitHub\issue-labeler\src\CreateMikLabelModel dotnet/maui`
+   1. Run the tool for the repo data you wish to upload: `dotnet run -- PATH_TO_ZIPS OWNER/REPO`, for example, `dotnet run -- ..\ModelCreator dotnet/maui`
       1. Note: This uploader app will rename the ZIP files when saved in Blob Storage to use a file name template that includes a version number
 1. Update predictor app to point to the new model (by referencing the newly uploaded blob)
    1. The uploader tool from the previous step printed out further instructions how to do that. It looks something like this:
@@ -126,22 +130,14 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
 
 Once the new model is uploaded, you'll need to warm up the predictor app and test that it is predicting labels for issues and PRs in that repo.
 
-1. Open a command prompt in the `src/DotNetLabelerWakerUpper` folder of the issue-labeler repo
+1. Open a command prompt in the `src/ModelWarmup` folder
 1. Run `dotnet run`
 
 This will call the `load` API of each known labeler app, wait for it to be ready, and then get label predictions for arbitrary issues and PRs in that repo. This can take a few minutes to run.
 
-Note: If you added a new repo, please edit the `src/DotNetLabelerWakerUpper/appSettings.json` file in the issue labeler repo and add two issues and two PRs to the list so that the waker-upper tool can warm up the predictions for the new repo as well.
+Note: If you added a new repo, please edit the `src/ModelWarmup/appSettings.json` file in the issue labeler repo and add two issues and two PRs to the list so that the tool can warm up the predictions for the new repo as well.
 
-## Use predicted labels in your repo
-
-Once you have configured a predictor and uploaded a training model, there are three patterns for predicting labels in your repo:
-
-1. Use a GitHub Webhook to automatically apply the best predicted area label to a new issue or PR
-1. Use Hubbup's MikLabel UI to view predicted labels and apply them
-1. Use an Edge/Chrome browser extension to view predicted labels and apply them
-
-### Setting up GitHub Webhooks for fully automated labeling
+## Setting up GitHub Webhooks for fully automated labeling
 
 The `feature/public-dispatcher` branch of this repository contains the GitHub app that responds to webhooks and can automatically apply labels to issues and pull requests. That app is deployed as the `dispatcher-app`, and it is configured to know how to reach each predictor app by owner/repo. After setting up a new repository's ML.NET model and ensuring its predictor app can respond to requests and show the top three label predictions, the `dispatcher-app` can be set up to make those requests automatically and update issues and pull requests with the predicted labels.
 
@@ -158,21 +154,13 @@ In the `dispatcher-app` configuration, many settings can be added for each repos
 
 With the new configuration settings in place, the `dotnet-issue-labeler` app also needs to be granted access to the new repository so that it can apply changes to the issues and pull requests. Requests can be sent to the repository owners through https://github.com/apps/dotnet-issue-labeler/installations/new.
 
-### Use Hubbup to view label predictions
-
-TODO: Contact Eilon Lipton
-
-### Use a browser extension to view label predictions
-
-TODO: Contact Eilon Lipton
-
 ## Web App Service List
 
-The Azure Subscription used for the issue labelers contains several _App Service Plans_, each of which contains several _Web Apps_. An App Sevice Plan represents a machine, each of which can run multiple Web Apps, each of which can serve label predictions for multiple GitHub repos.
+The Azure Subscription used for the issue labelers contains several _App Service Plans_, each of which contains several _Web Apps_. An App Service Plan represents a machine, each of which can run multiple Web Apps, each of which can serve label predictions for multiple GitHub repositories.
 
-Note that a _Web App_ can support multiple repos in the same GitHub org, but cannot support multiple orgs.
+Note that a _Web App_ can support multiple repositories in the same GitHub org, but cannot support multiple organizations.
 
-If you are adding a new repo and the repo is in the same org as one of the repos below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
+If you are adding a new repo and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
 
 * App Service Plan: dotnet-extensions-labeler
    1. App: dotnet-aspnetcore-labeler

@@ -7,7 +7,7 @@ const string UserSecretKey = "IssueLabelerKey";
 
 if (args.Length != 2)
 {
-    PrintHelp(errorMessages: $@"ERROR: Required parameters missing: dotnet run -- C:\PATH\TO\ZIPS OWNER/REPO");
+    PrintHelp(errorMessages: $@"ERROR: Required parameters missing: dotnet run -- PATH_TO_ZIPS OWNER/REPO");
     return 1;
 }
 
