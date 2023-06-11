@@ -8,10 +8,12 @@
     <MicrosoftAzureKeyVaultVersion>3.0.5</MicrosoftAzureKeyVaultVersion>
     <MicrosoftAzureServicesAppAuthenticationVersion>1.6.2</MicrosoftAzureServicesAppAuthenticationVersion>
     <MicrosoftAzureStorageBlobsVersion>12.16.0</MicrosoftAzureStorageBlobsVersion>
+    <MicrosoftAzureStorageQueuesVersion>12.14.0</MicrosoftAzureStorageQueuesVersion>
     <MicrosoftDataAnalysisVersion>0.20.1</MicrosoftDataAnalysisVersion>
 
     <!-- GitHub Packages -->
     <GitHubJwtVersion>0.0.6</GitHubJwtVersion>
+    <GraphQLClientVersion>6.0.0</GraphQLClientVersion>
     <OctokitVersion>6.0.0</OctokitVersion>
     <OctokitGraphQLVersion>0.2.0-beta</OctokitGraphQLVersion>
 
@@ -22,5 +24,6 @@
 
     <!-- Microsoft Extensions Packages -->
     <MicrosoftExtensionsVersion>7.0.0</MicrosoftExtensionsVersion>
+    <MicrosoftExtensionsLoggingAzureAppServices>7.0.5</MicrosoftExtensionsLoggingAzureAppServices>
   </PropertyGroup>
 </Project>

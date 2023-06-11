@@ -11,15 +11,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.8.0-beta.1" />
-    <PackageReference Include="Azure.Storage.Queues" Version="12.6.0-beta.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="$(MicrosoftAzureStorageBlobsVersion)" />
+    <PackageReference Include="Azure.Storage.Queues" Version="$(MicrosoftAzureStorageQueuesVersion)" />
     <PackageReference Include="GitHubJwt" Version="$(GitHubJwtVersion)" />
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.1.0-beta.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="5.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="$(MicrosoftExtensionsLoggingAzureAppServices)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
