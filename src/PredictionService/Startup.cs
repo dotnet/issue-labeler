@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for more information.
 
 using GitHubHelpers;
-using PredictionService.Models;
 using Microsoft.Extensions.Azure;
+using PredictionEngine;
 
 namespace PredictionService;
 
@@ -26,14 +26,10 @@ public class Startup
         services.AddHostedService<QueuedHostedService>();
         services.AddSingleton<BackgroundTaskQueue, BackgroundTaskQueue>();
         services.AddHttpClient();
-        services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
-
-        // For production: use Azure KeyVault and Blob configuration
+        services.AddSingleton<GitHubClientWrapper, GitHubClientWrapper>();
         services.AddSingleton<IGitHubClientFactory, AzureKeyVaultGitHubClientFactory>();
         services.AddSingleton<IModelHolderFactory, AzureBlobModelHolderFactory>();
 
-        services.AddSingleton<DiffHelper, DiffHelper>();
-        services.AddSingleton<Labeler, Labeler>();
         services.AddAzureClients(
             builder => {
                 builder.AddBlobServiceClient(Configuration["QConnectionString"]);

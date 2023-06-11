@@ -6,8 +6,9 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.ML;
+using PredictionEngine;
 
-namespace PredictionService.Models;
+namespace PredictionService;
 
 // make singleton => bg service and the controller can access.....
 // IModelHolder.... holds the prediction engine.... -> is it loaded yet? then if so return suggestion
@@ -17,8 +18,6 @@ public class AzureBlobModelHolder : IModelHolder
 
     public AzureBlobModelHolder(ILogger<AzureBlobModelHolderFactory> logger, IConfiguration configuration, string repo)
     {
-        // TODO: imagine there is an array of model holders, prefixes itself with owner/repo info.
-
         _logger = logger;
         _connectionString = configuration["QConnectionString"];
         _blobContainerName = configuration["BlobContainer"];
@@ -63,20 +62,23 @@ public class AzureBlobModelHolder : IModelHolder
                 throw new ArgumentNullException($"repo: {repo}, missing config....");
             }
         }
+
         _loadRequested = 0;
     }
+
     private int _loadRequested;
-    private bool IsPrModelPathDownloaded => (UseIssuesForPrsToo && IsIssueModelPathDownloaded) || File.Exists(PrPath);
+    private bool IsPrModelPathDownloaded => UseIssuesForPrsToo && IsIssueModelPathDownloaded || File.Exists(PrPath);
     private bool IsIssueModelPathDownloaded => File.Exists(IssuePath);
     private string PrPath;
     private string IssuePath;
 
     public bool LoadRequested => _loadRequested != 0;
-    public bool IsPrEngineLoaded => (PrPredEngine != null);
-    public bool IsIssueEngineLoaded => (IssuePredEngine != null);
+    public bool IsPrEngineLoaded => PrPredEngine != null;
+    public bool IsIssueEngineLoaded => IssuePredEngine != null;
     public bool UseIssuesForPrsToo { get; private set; }
     public PredictionEngine<GitHubIssue, GitHubIssuePrediction> IssuePredEngine { get; private set; } = null;
     public PredictionEngine<GitHubPullRequest, GitHubIssuePrediction> PrPredEngine { get; private set; } = null;
+
     public async Task LoadEnginesAsync()
     {
         _logger.LogInformation($"! {nameof(LoadEnginesAsync)} called.");
@@ -111,6 +113,7 @@ public class AzureBlobModelHolder : IModelHolder
     private async Task EnsureModelPathsAvailableAsync()
     {
         _logger.LogInformation($"! {nameof(EnsureModelPathsAvailableAsync)} called.");
+
         if (IsIssueModelPathDownloaded && IsPrModelPathDownloaded)
         {
             return;
@@ -128,12 +131,14 @@ public class AzureBlobModelHolder : IModelHolder
                 await DownloadModelAsync(_logger, container, _issueModelBlobName, /*lastUpdated,*/ IssuePath);
                 Interlocked.Increment(ref timesIssueDownloaded);
             }
+
             if (!IsPrModelPathDownloaded)
             {
                 _logger.LogInformation($"! downloading to {PrPath}.");
                 await DownloadModelAsync(_logger, container, _prModelBlobName, /*lastUpdated,*/ PrPath);
                 Interlocked.Increment(ref timesPrDownloaded);
             }
+
             _logger.LogInformation($"! downloaded version of ml model available at {Directory.GetCurrentDirectory()}.");
             _logger.LogInformation($"! {nameof(timesPrDownloaded)}: {timesPrDownloaded}, {nameof(timesIssueDownloaded)}: {timesIssueDownloaded}");
         }
@@ -143,25 +148,21 @@ public class AzureBlobModelHolder : IModelHolder
         }
     }
 
-    private static async Task DownloadModelAsync(
-        ILogger _logger, BlobContainerClient container, string blobName, /*DateTimeOffset lastUpdated,*/
-        string localPath
-        )
+    private static async Task DownloadModelAsync(ILogger _logger, BlobContainerClient container, string blobName, string localPath)
     {
         if (!File.Exists(localPath))
         {
-            var condition = new BlobRequestConditions()
-            { };// TODO { IfModifiedSince = lastUpdated };
+            var condition = new BlobRequestConditions();
             var blockBlob = container.GetBlobClient(blobName);
 
             BlobProperties properties = await blockBlob.GetPropertiesAsync();
-            // TODO check properties.LastModified
             _logger.LogInformation($"conditionally downloading {blobName}");
-            using (var fileStream = System.IO.File.OpenWrite(localPath))
+
+            using (var fileStream = File.OpenWrite(localPath))
             {
                 await blockBlob.DownloadToAsync(fileStream, condition, new StorageTransferOptions() { });
             }
-            // TODO: new FileStream, pass in buffer size 1MB rather than default 1KB
+
             _logger.LogInformation($"downloaded ml model");
         }
     }

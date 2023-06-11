@@ -7,35 +7,41 @@ using Newtonsoft.Json;
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-namespace PredictionService.Models;
+namespace PredictionEngine;
 
-public class GitHubLabel
+public class GitHubIssue
 {
+    [JsonIgnore]
     [LoadColumn(0)]
-    [ColumnName("id")]
-    public long Id;
+    public string CombinedID;
 
     [LoadColumn(1)]
-    [ColumnName("node_id")]
-    public string NodeId;
+    public float ID;
 
     [LoadColumn(2)]
-    [ColumnName("url")]
-    public string Url;
+    public string Area;
 
     [LoadColumn(3)]
-    [ColumnName("name")]
-    public string Name;
+    public string Title;
 
     [LoadColumn(4)]
-    [ColumnName("color")]
-    public string Color;
+    public string Description;
 
     [LoadColumn(5)]
-    [ColumnName("default")]
-    public bool Flag;
+    public string Author;
 
     [LoadColumn(6)]
-    [ColumnName("description")]
-    public string Description;
+    public float IsPR;
+
+    [LoadColumn(7)]
+    public string UserMentions;
+
+    [LoadColumn(8)]
+    public float NumMentions;
+
+    [NoColumn]
+    public List<GitHubLabel> Labels { get; set; }
+
+    [NoColumn]
+    public int Number { get; set; }
 }

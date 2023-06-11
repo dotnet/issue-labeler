@@ -4,7 +4,7 @@
 
 using Microsoft.ML.Data;
 
-namespace PredictionService.Models;
+namespace PredictionEngine;
 
 public class GitHubIssuePrediction
 {

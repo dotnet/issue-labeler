@@ -2,8 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using PredictionService.Models;
+using GitHubHelpers;
 using Microsoft.AspNetCore.Mvc;
+using PredictionEngine;
 
 namespace PredictionService;
 
@@ -11,22 +12,21 @@ namespace PredictionService;
 [Route("api/PredictionEngine")]
 public class PredictionEngineController : Controller
 {
-    private Labeler _labeler { get; set; }
-
-    private ILogger<PredictionEngineController> Logger { get; set; }
-    private readonly IModelHolderFactory _modelHolderFactory;
+    private ILogger<PredictionEngineController> _logger { get; set; }
     private string _owner;
+    private readonly GitHubClientWrapper _gitHubClientWrapper;
+    private readonly IModelHolderFactory _modelHolderFactory;
 
     public PredictionEngineController(
-        Labeler labeler,
         ILogger<PredictionEngineController> logger,
         IConfiguration configuration,
+        GitHubClientWrapper gitHubClientWrapper,
         IModelHolderFactory modelHolderFactory)
     {
-        _modelHolderFactory = modelHolderFactory;
-        _labeler = labeler;
-        Logger = logger;
+        _logger = logger;
         _owner = configuration["RepoOwner"];
+        _gitHubClientWrapper = gitHubClientWrapper;
+        _modelHolderFactory = modelHolderFactory;        
     }
 
     [HttpGet("")]
@@ -40,7 +40,6 @@ public class PredictionEngineController : Controller
     [HttpGet("load/{owner}/{repo}")]
     public IActionResult ManuallyRequestEnginesLoaded(string owner, string repo)
     {
-        // TODO: Add a threshold for how many repo engine loads are allowed
         if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest($"Only predictions for {_owner} are supported");
@@ -54,17 +53,16 @@ public class PredictionEngineController : Controller
 
         if (modelHolder.IsIssueEngineLoaded && (modelHolder.UseIssuesForPrsToo || modelHolder.IsPrEngineLoaded))
         {
-            // queued hosted service: task to only download and load models
-            Logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, repo);
+            _logger.LogInformation("! Checked to see if prediction engines were loaded: {Owner}/{Repo}", _owner, repo);
             return Ok($"Loaded {owner}/{repo}");
         }
+
         return Ok($"Prediction engines for {owner}/{repo} are still loading. Issue Engine Loaded: {modelHolder.IsIssueEngineLoaded}. Use Issues for PRs: {modelHolder.UseIssuesForPrsToo}. PR Engine Loaded: {modelHolder.IsPrEngineLoaded}.");
     }
 
     [HttpGet("{owner}/{repo}/{id}")]
     public async Task<IActionResult> GetPrediction(string owner, string repo, int id)
     {
-        // TODO: Add a threshold for how many repo engine loads are allowed
         if (!owner.Equals(_owner, StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest($"Only predictions for {_owner} are supported");
@@ -78,13 +76,13 @@ public class PredictionEngineController : Controller
 
         if (modelHolder.IsIssueEngineLoaded && (modelHolder.UseIssuesForPrsToo || modelHolder.IsPrEngineLoaded))
         {
-            // queued hosted service: task to only download and load models
-            Logger.LogInformation("! Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
-            var labelSuggestion = await _labeler.PredictUsingModelsFromStorageQueue(owner, repo, id);
+            _logger.LogInformation("! Prediction for: {Owner}/{Repo}#{IssueNumber}", owner, repo, id);
+            var predictor = new Predictor(_gitHubClientWrapper, modelHolder, _logger);
+            var labelSuggestion = await predictor.Predict(owner, repo, id);
+
             return Ok(labelSuggestion);
         }
 
-        // TODO test this
         return BadRequest("Models need to load before requesting for predictions. Wait until the models are loaded");
     }
 }

@@ -51,7 +51,7 @@ public sealed class AzureKeyVaultGitHubClientFactory : IGitHubClientFactory
 
     private static GitHubClient CreateForToken(string token, AuthenticationType authenticationType)
     {
-        var productInformation = new ProductHeaderValue("issuelabelertemplate");
+        var productInformation = new ProductHeaderValue("dotnet-issue-labeler");
         var client = new GitHubClient(productInformation)
         {
             Credentials = new Credentials(token, authenticationType)

@@ -2,9 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-namespace PredictionService.Models;
+namespace PredictionEngine;
 
-public interface IModelHolderFactory
+public class LabelAreaScore
 {
-    IModelHolder CreateModelHolder(string owner, string repo);
+    public string LabelName { get; set; }
+    public float Score { get; set; }
 }

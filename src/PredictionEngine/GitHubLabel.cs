@@ -3,45 +3,38 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.ML.Data;
-using Newtonsoft.Json;
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
 
-namespace PredictionService.Models;
+namespace PredictionEngine;
 
-public class GitHubIssue
+public class GitHubLabel
 {
-    [JsonIgnore]
     [LoadColumn(0)]
-    public string CombinedID;
+    [ColumnName("id")]
+    public long Id;
 
     [LoadColumn(1)]
-    public float ID;
+    [ColumnName("node_id")]
+    public string NodeId;
 
     [LoadColumn(2)]
-    public string Area;
+    [ColumnName("url")]
+    public string Url;
 
     [LoadColumn(3)]
-    public string Title;
+    [ColumnName("name")]
+    public string Name;
 
     [LoadColumn(4)]
-    public string Description;
+    [ColumnName("color")]
+    public string Color;
 
     [LoadColumn(5)]
-    public string Author;
+    [ColumnName("default")]
+    public bool Flag;
 
     [LoadColumn(6)]
-    public float IsPR;
-
-    [LoadColumn(7)]
-    public string UserMentions;
-
-    [LoadColumn(8)]
-    public float NumMentions;
-
-    [NoColumn]
-    public List<GitHubLabel> Labels { get; set; }
-
-    [NoColumn]
-    public int Number { get; set; }
+    [ColumnName("description")]
+    public string Description;
 }

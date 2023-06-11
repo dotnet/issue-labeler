@@ -7,22 +7,13 @@ using Octokit;
 
 namespace GitHubHelpers;
 
-public interface IGitHubClientWrapper
+public class GitHubClientWrapper
 {
-    Task<Octokit.Issue> GetIssue(string owner, string repo, int number);
-    Task<Octokit.PullRequest> GetPullRequest(string owner, string repo, int number);
-    Task<IReadOnlyList<PullRequestFile>> GetPullRequestFiles(string owner, string repo, int number);
-}
-
-public class GitHubClientWrapper : IGitHubClientWrapper
-{
-    private readonly ILogger<GitHubClientWrapper> _logger;
+    private readonly ILogger<GitHubClientWrapper>? _logger;
     private readonly IGitHubClientFactory _gitHubClientFactory;
     private GitHubClient? _client;
 
-    public GitHubClientWrapper(
-        ILogger<GitHubClientWrapper> logger,
-        IGitHubClientFactory gitHubClientFactory)
+    public GitHubClientWrapper(IGitHubClientFactory gitHubClientFactory, ILogger<GitHubClientWrapper>? logger = null)
     {
         _gitHubClientFactory = gitHubClientFactory;
         _logger = logger;
@@ -51,7 +42,10 @@ public class GitHubClientWrapper : IGitHubClientWrapper
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error occurred during '{requestName}'. Exception Type: {ex.GetType()}. Message: {ex.Message}.");
+            if (_logger is not null)
+            {
+                _logger.LogError($"Error occurred during '{requestName}'. Exception Type: {ex.GetType()}. Message: {ex.Message}.");
+            }
 
             client = await PrepareClient(true);
             return await makeRequest(client);

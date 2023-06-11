@@ -4,7 +4,7 @@
 
 using Microsoft.ML;
 
-namespace PredictionService.Models;
+namespace PredictionEngine;
 
 public interface IModelHolder
 {
@@ -13,6 +13,5 @@ public interface IModelHolder
     bool IsIssueEngineLoaded { get; }
     PredictionEngine<GitHubIssue, GitHubIssuePrediction> IssuePredEngine { get; }
     PredictionEngine<GitHubPullRequest, GitHubIssuePrediction> PrPredEngine { get; }
-    Task LoadEnginesAsync();
     bool UseIssuesForPrsToo { get; }
 }

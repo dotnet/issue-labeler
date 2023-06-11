@@ -18,20 +18,20 @@ public struct SegmentedDiff
     public bool PossiblyExtensionsLabel { get; set; }
 }
 
-public class DiffHelper
+public static class DiffHelper
 {
     /// <summary>
     /// name of files taken from fileDiffs
     /// </summary>
-    public IEnumerable<string> FilenamesOf(string[] fileDiffs) => fileDiffs.Select(fileWithDiff => Path.GetFileNameWithoutExtension(fileWithDiff));
+    public static IEnumerable<string> FilenamesOf(string[] fileDiffs) => fileDiffs.Select(fileWithDiff => Path.GetFileNameWithoutExtension(fileWithDiff));
 
     /// <summary>
     /// file extensions taken from fileDiffs
     /// </summary>
-    public IEnumerable<string> ExtensionsOf(string[] fileDiffs) => fileDiffs.Select(file => Path.GetExtension(file)).
+    public static IEnumerable<string> ExtensionsOf(string[] fileDiffs) => fileDiffs.Select(file => Path.GetExtension(file)).
             Select(extension => string.IsNullOrEmpty(extension) ? "no_extension" : extension);
 
-    public SegmentedDiff SegmentDiff(string[] fileDiffs)
+    public static SegmentedDiff SegmentDiff(string[] fileDiffs)
     {
         if (fileDiffs == null || string.IsNullOrEmpty(string.Join(';', fileDiffs)))
         {
@@ -100,7 +100,7 @@ public class DiffHelper
     /// </summary>
     /// <param name="textToFlatten">a dictionary containing text and number of times they were repeated</param>
     /// <returns>space delimited text</returns>
-    public string FlattenWithWhitespace(Dictionary<string, int> folder)
+    public static string FlattenWithWhitespace(Dictionary<string, int> folder)
     {
         var folderSb = new StringBuilder();
         foreach (var f in folder.OrderByDescending(x => x.Value))

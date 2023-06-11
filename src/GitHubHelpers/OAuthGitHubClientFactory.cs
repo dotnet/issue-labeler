@@ -30,7 +30,7 @@ public sealed class OAuthGitHubClientFactory : IGitHubClientFactory
 
     private static GitHubClient CreateForToken(string token)
     {
-        var productInformation = new ProductHeaderValue("issuelabelertemplate");
+        var productInformation = new ProductHeaderValue("dotnet-issue-labeler");
         var client = new GitHubClient(productInformation)
         {
             Credentials = new Credentials(token)

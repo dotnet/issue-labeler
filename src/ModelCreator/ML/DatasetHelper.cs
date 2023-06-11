@@ -34,21 +34,21 @@ public static class DatasetHelper
 
     private class DatasetHelperInner
     {
-        public static readonly DatasetHelperInner Instance = new DatasetHelperInner(new DiffHelper());
-        private DatasetHelperInner(DiffHelper diffHelper)
+        public static readonly DatasetHelperInner Instance = new DatasetHelperInner();
+
+        private DatasetHelperInner()
         {
-            _diffHelper = diffHelper;
             _sb = new StringBuilder();
             _folderSb = new StringBuilder();
             _regexForUserMentions = new Regex(@"@[a-zA-Z0-9_//-]+");
         }
+
         private readonly Regex _regexForUserMentions;
         private readonly StringBuilder _folderSb;
-        private readonly DiffHelper _diffHelper;
         private readonly StringBuilder _sb;
 
         /// <summary>
-        /// partitions the dataset in inputPath into train, validate and test datapaths
+        /// partitions the dataset in inputPath into train, validate and test data paths
         /// </summary>
         /// <param name="inputPath">path to the input dataset</param>
         /// <param name="trainPath">the output to store the train dataset</param>
@@ -236,13 +236,13 @@ public static class DatasetHelper
                     // for PRs in archived repos, how they could be re-mapped if they were transferred
                     filePaths = reMapFiles(filePaths, fromRepo);
 
-                    var segmentedDiff = _diffHelper.SegmentDiff(filePaths);
+                    var segmentedDiff = DiffHelper.SegmentDiff(filePaths);
 
                     _sb.Append('\t').Append(string.Join(' ', filePaths))
                         .Append('\t').Append(string.Join(' ', segmentedDiff.Filenames))
                         .Append('\t').Append(string.Join(' ', segmentedDiff.Extensions))
-                        .Append('\t').Append(_diffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames))
-                        .Append('\t').Append(_diffHelper.FlattenWithWhitespace(segmentedDiff.Folders));
+                        .Append('\t').Append(DiffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames))
+                        .Append('\t').Append(DiffHelper.FlattenWithWhitespace(segmentedDiff.Folders));
                 }
                 else
                 {

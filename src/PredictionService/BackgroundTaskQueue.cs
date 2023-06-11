@@ -4,7 +4,7 @@
 
 using System.Collections.Concurrent;
 
-namespace PredictionService.Models;
+namespace PredictionService;
 
 public class BackgroundTaskQueue
 {
