@@ -9,7 +9,6 @@
     <MicrosoftAzureServicesAppAuthenticationVersion>1.6.2</MicrosoftAzureServicesAppAuthenticationVersion>
     <MicrosoftAzureStorageBlobsVersion>12.16.0</MicrosoftAzureStorageBlobsVersion>
     <MicrosoftAzureStorageQueuesVersion>12.14.0</MicrosoftAzureStorageQueuesVersion>
-    <MicrosoftDataAnalysisVersion>0.20.1</MicrosoftDataAnalysisVersion>
 
     <!-- GitHub Packages -->
     <GitHubJwtVersion>0.0.6</GitHubJwtVersion>
@@ -19,12 +18,14 @@
 
     <!-- ML.NET Packages -->
     <!-- Microsoft.ML 2.0.0+ has a blocking known issue: https://github.com/dotnet/machinelearning/issues/6565 -->
+    <MicrosoftDataAnalysisVersion>0.19.1</MicrosoftDataAnalysisVersion>
     <MicrosoftMLVersion>1.7.1</MicrosoftMLVersion>
-    <MicrosoftAutoMLVersion>0.19.1</MicrosoftAutoMLVersion>
+    <MicrosoftMLAutoMLVersion>0.19.1</MicrosoftMLAutoMLVersion>
 
     <!-- Microsoft Extensions Packages -->
     <MicrosoftExtensionsAzureVersion>1.6.3</MicrosoftExtensionsAzureVersion>
     <MicrosoftExtensionsVersion>7.0.0</MicrosoftExtensionsVersion>
     <MicrosoftExtensionsLoggingAzureAppServices>7.0.5</MicrosoftExtensionsLoggingAzureAppServices>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>7.0.0</MicrosoftExtensionsLoggingAbstractionsVersion>
   </PropertyGroup>
 </Project>

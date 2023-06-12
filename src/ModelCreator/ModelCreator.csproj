@@ -22,7 +22,7 @@
     <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="$(GraphQLClientVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
-    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftAutoMLVersion)" />
+    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftMLAutoMLVersion)" />
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
   </ItemGroup>
 

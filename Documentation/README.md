@@ -139,7 +139,7 @@ Note: If you added a new repo, please edit the `src/ModelWarmup/appSettings.json
 
 ## Setting up GitHub Webhooks for fully automated labeling
 
-The `feature/public-dispatcher` branch of this repository contains the GitHub app that responds to webhooks and can automatically apply labels to issues and pull requests. That app is deployed as the `dispatcher-app`, and it is configured to know how to reach each predictor app by owner/repo. After setting up a new repository's ML.NET model and ensuring its predictor app can respond to requests and show the top three label predictions, the `dispatcher-app` can be set up to make those requests automatically and update issues and pull requests with the predicted labels.
+The `IssueLabelerService` project contains the GitHub app that responds to webhooks and can automatically apply labels to issues and pull requests. That app is deployed as the `dispatcher-app`, and it is configured to know how to reach each predictor app by owner/repo. After setting up a new repository's ML.NET model and ensuring its predictor app can respond to requests and show the top three label predictions, the `dispatcher-app` can be set up to make those requests automatically and update issues and pull requests with the predicted labels.
 
 In the `dispatcher-app` configuration, many settings can be added for each repository. The primary settings are:
 

@@ -33,7 +33,7 @@ This console application consumes the ZIP files produced by `ModelCreator` and u
 
 After uploading new models to Azure and configuring the `PredictionService` to use the new models, the `ModelWarmup` console application can be used to load and warm up the models by issuing requests to the `PredictionService` for all of the repositories' models hosted by that service.
 
-## The `PredictionService` project
+## PredictionService
 
 The [PredictionService](https://github.com/dotnet/issue-labeler/tree/master/src/PredictionService) project is the web application that uses ML models created using `ModelCreator` to predict area labels. Given repository owner/name/number combination, the `PredictionService` app provides an API returning top three predictions along with their confidence score. This information is computed using the ML models loaded in memory uploaded from Azure Blob Storage, which we produced in `ModelCreator` project.
 
@@ -41,10 +41,18 @@ Since dotnet/runtime has a big set of area owners and contributors, we decided t
 
 For dotnet/aspnetcore however, this webhook is not active and instead, the aspnetcore repository uses the https://hubbup.io web app to allow for manual area label assignment. Rather than doing automatic assignments, the hubbup app provides a nice UI for the prediction results it receives from [PredictionService](https://github.com/dotnet/issue-labeler/tree/master/src/PredictionService).
 
-## The public-dispatcher branch
+## IssueLabelerService
 
-The `public-dispatcher` branch is the code base for the GitHub app that gets installed per GitHub organization. The GitHub app queries the top three predictions in a distributed way from the various `PredictionService` deployments, with routing based on org and repo.
+The [IssueLabelerService](https://github.com/dotnet/issue-labeler/tree/master/src/IssueLabelerService) project is the GitHub app that gets installed into repositories that opt into automatic issue labeling.
+
+The GitHub app receives webhoook events for issue and pull request events, queries the top three predictions in a distributed way from the various `PredictionService` deployments (with routing based on org and repo), and updates the issues and pull requests with labels and comments per each repo's configuration.
 
 ![image](https://user-images.githubusercontent.com/5897654/154319795-35975683-c4ae-477d-8a7c-74ad3079f1ed.png)
 
-Based on the above diagram we can publish multiple `PredictionService` apps using the same source code, where each app is responsible for giving predictions for one or more GitHub repositories. There is only a single GitHub app which has the webhook set up to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.
+We publish multiple `PredictionService` apps using the same source code, where each app is responsible for giving predictions for one or more GitHub repositories. There is only one `IssueLabelerService` GitHub app which has the webhook set up to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.
+
+The GitHub App is configured as the [dotnet-issue-labeler](https://github.com/apps/dotnet-issue-labeler/) app on GitHub, and its corresponding service is https://dispatcher-app.azurewebsites.net/. This service was developed under the `feat/public-dispatcher` branch and ultimately merged back into `main`.
+
+## IssueLabelerService.DeploymentTests
+
+The [IssueLabelerService.DeploymentTests](https://github.com/dotnet/issue-labeler/tree/master/test/IssueLabelerService.DeploymentTests) test project will make requests to the production deployment of the `IssueLabelerService` (`dispatcher-app`) to verify that the service is responding to simulated webhook events.
