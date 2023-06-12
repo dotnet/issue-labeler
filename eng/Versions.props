@@ -10,17 +10,18 @@
     <MicrosoftAzureStorageBlobsVersion>12.16.0</MicrosoftAzureStorageBlobsVersion>
     <MicrosoftAzureStorageQueuesVersion>12.14.0</MicrosoftAzureStorageQueuesVersion>
 
+    <!-- GitHub Packages -->
+    <GitHubJwtVersion>0.0.6</GitHubJwtVersion>
+    <OctokitVersion>6.0.0</OctokitVersion>
+
     <!-- ML.NET Packages -->
-    <MicrosoftDataAnalysisVersion>0.20.1</MicrosoftDataAnalysisVersion>
-    <MicrosoftMLVersion>2.0.1</MicrosoftMLVersion>
-    <MicrosoftMLAutoMLVersion>0.20.1</MicrosoftMLAutoMLVersion>
+    <!-- Microsoft.ML 2.0.0+ has a blocking known issue: https://github.com/dotnet/machinelearning/issues/6565 -->
+    <MicrosoftDataAnalysisVersion>0.19.1</MicrosoftDataAnalysisVersion>
+    <MicrosoftMLVersion>1.7.1</MicrosoftMLVersion>
+    <MicrosoftMLAutoMLVersion>0.19.1</MicrosoftMLAutoMLVersion>
 
     <!-- Microsoft.Extensions Packages -->
     <MicrosoftExtensionsAzureVersion>1.6.3</MicrosoftExtensionsAzureVersion>
     <MicrosoftExtensionsLoggingAbstractionsVersion>7.0.0</MicrosoftExtensionsLoggingAbstractionsVersion>
-
-    <!-- GitHub Packages -->
-    <GitHubJwtVersion>0.0.5</GitHubJwtVersion>
-    <OctokitVersion>6.0.0</OctokitVersion>
   </PropertyGroup>
 </Project>
