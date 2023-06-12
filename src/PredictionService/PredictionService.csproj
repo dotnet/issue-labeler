@@ -17,7 +17,7 @@
     <PackageReference Include="Microsoft.Azure.KeyVault" Version="$(MicrosoftAzureKeyVaultVersion)" />
     <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="$(MicrosoftAzureServicesAppAuthenticationVersion)" />
     <PackageReference Include="Microsoft.Data.Analysis" Version="$(MicrosoftDataAnalysisVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Azure" Version="1.1.0-beta.1" />
+    <PackageReference Include="Microsoft.Extensions.Azure" Version="$(MicrosoftExtensionsAzureVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="$(MicrosoftExtensionsLoggingAzureAppServices)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />

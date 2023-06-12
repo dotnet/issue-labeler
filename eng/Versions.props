@@ -23,6 +23,7 @@
     <MicrosoftAutoMLVersion>0.19.1</MicrosoftAutoMLVersion>
 
     <!-- Microsoft Extensions Packages -->
+    <MicrosoftExtensionsAzureVersion>1.6.3</MicrosoftExtensionsAzureVersion>
     <MicrosoftExtensionsVersion>7.0.0</MicrosoftExtensionsVersion>
     <MicrosoftExtensionsLoggingAzureAppServices>7.0.5</MicrosoftExtensionsLoggingAzureAppServices>
   </PropertyGroup>
