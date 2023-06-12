@@ -24,10 +24,10 @@ public class Startup
         services.AddControllersWithViews();
         services.AddHostedService<QueuedHostedService>();
         services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-        services.AddSingleton<GitHubClientFactory>();
+        services.AddSingleton<IGitHubClientFactory, AzureKeyVaultGitHubClientFactory>();
         services.AddHttpClient();
         services.AddSingleton<IQueueHelper, QueueHelper>();
-        services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
+        services.AddSingleton<GitHubClientWrapper, GitHubClientWrapper>();
         services.AddSingleton<Labeler, Labeler>();
         services.AddAzureClients(
             builder => {

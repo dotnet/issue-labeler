@@ -66,4 +66,14 @@ public class GitHubClientWrapper
     {
         return await MakeRequestWithRetry("GetPullRequestFiles", client => client.PullRequest.Files(owner, repo, number));
     }
+
+    public async Task<IReadOnlyList<Label>> AddLabels(string owner, string repo, int number, IEnumerable<string> labels)
+    {
+        return await MakeRequestWithRetry("AddLabels", client => client.Issue.Labels.AddToIssue(owner, repo, number, labels.ToArray()));
+    }
+
+    public async Task<IssueComment> CommentOn(string owner, string repo, int number, string comment)
+    {
+        return await MakeRequestWithRetry("CommentOn", client => client.Issue.Comment.Create(owner, repo, number, comment));
+    }
 }

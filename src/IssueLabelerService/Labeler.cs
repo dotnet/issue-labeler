@@ -5,6 +5,7 @@
 using GitHubHelpers;
 using IssueLabelerService.Models;
 using Octokit;
+using PredictionEngine;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
@@ -20,7 +21,7 @@ public class Labeler
     private readonly ILogger<Labeler> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
-    private readonly IGitHubClientWrapper _gitHubClientWrapper;
+    private readonly GitHubClientWrapper _gitHubClientWrapper;
     private readonly IBackgroundTaskQueue _backgroundTaskQueue;
 
     public Labeler(
@@ -29,7 +30,7 @@ public class Labeler
         IHttpClientFactory httpClientFactory,
         ILogger<Labeler> logger,
         IBackgroundTaskQueue backgroundTaskQueue,
-        IGitHubClientWrapper gitHubClientWrapper)
+        GitHubClientWrapper gitHubClientWrapper)
     {
         _queueHelper = queueHelper;
         _backgroundTaskQueue = backgroundTaskQueue;
@@ -311,7 +312,7 @@ public class Labeler
         }
         string body = iop.Body ?? string.Empty;
         var userMentions = _regex.Matches(body).Select(x => x.Value).ToArray();
-        IssueModel iopModel = null;
+        GitHubIssue iopModel = null;
         if (iop.PullRequest != null)
         {
             iopModel = await CreatePullRequest(owner, repo, iop.Number, iop.Title, iop.Body, userMentions, iop.User.Login);
@@ -323,7 +324,7 @@ public class Labeler
 
         HashSet<string> nonAreaLabelsToAdd = new HashSet<string>();
 
-        if (iopModel is PrModel pr)
+        if (iopModel is GitHubPullRequest pr)
         {
             if (!string.IsNullOrWhiteSpace(options.NewApiPrLabel) && pr.ShouldAddDoc)
             {
@@ -336,7 +337,7 @@ public class Labeler
             }
         }
 
-        if (iopModel is IssueModel issue)
+        if (iopModel is GitHubIssue issue)
         {
             if (!options.SkipUntriagedLabel) nonAreaLabelsToAdd.Add("untriaged");
         }
@@ -344,9 +345,9 @@ public class Labeler
         return nonAreaLabelsToAdd;
     }
 
-    private static IssueModel CreateIssue(int number, string title, string body, string[] userMentions, string author)
+    private static GitHubIssue CreateIssue(int number, string title, string body, string[] userMentions, string author)
     {
-        return new IssueModel()
+        return new GitHubIssue()
         {
             Number = number,
             Title = title,
@@ -358,9 +359,9 @@ public class Labeler
         };
     }
 
-    private async Task<PrModel> CreatePullRequest(string owner, string repo, int number, string title, string body, string[] userMentions, string author)
+    private async Task<GitHubPullRequest> CreatePullRequest(string owner, string repo, int number, string title, string body, string[] userMentions, string author)
     {
-        var pr = new PrModel()
+        var pr = new GitHubPullRequest()
         {
             Number = number,
             Title = title,

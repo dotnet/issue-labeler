@@ -2,16 +2,18 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using PredictionEngine;
+
 namespace IssueLabelerService.Models;
 
 public class IssueEventPayload
 {
     public string Action { set; get; }
 
-    public IssueModel Issue { set; get; }
+    public GitHubIssue Issue { set; get; }
 
-    public PrModel Pull_Request { set; get; }
-    public Label Label { set; get; }
+    public GitHubPullRequest Pull_Request { set; get; }
+    public GitHubLabel Label { set; get; }
 
     public Repository Repository { get; set; }
 }

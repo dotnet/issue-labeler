@@ -18,7 +18,7 @@ public interface IQueueHelper
 
 public class QueueHelper : IQueueHelper
 {
-    private readonly IGitHubClientWrapper _gitHubClientWrapper;
+    private readonly GitHubClientWrapper _gitHubClientWrapper;
 
     private readonly ILogger<QueueHelper> _logger;
     private readonly IConfiguration _configuration;
@@ -27,7 +27,7 @@ public class QueueHelper : IQueueHelper
 
     public QueueHelper(IConfiguration configuration,
         ILogger<QueueHelper> logger,
-        IGitHubClientWrapper gitHubClientWrapper)
+        GitHubClientWrapper gitHubClientWrapper)
     {
         _logger = logger;
         _gitHubClientWrapper = gitHubClientWrapper;

@@ -23,4 +23,9 @@
     <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GitHubHelpers\GitHubHelpers.csproj" />
+    <ProjectReference Include="..\PredictionEngine\PredictionEngine.csproj" />
+  </ItemGroup>
 </Project>

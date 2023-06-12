@@ -29,4 +29,7 @@ public class GitHubPullRequest : GitHubIssue
 
     [LoadColumn(14)]
     public string Folders;
+
+    [NoColumn]
+    public bool ShouldAddDoc { get; set; } = false;
 }

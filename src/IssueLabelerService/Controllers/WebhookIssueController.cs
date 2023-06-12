@@ -5,6 +5,7 @@
 using GitHubHelpers;
 using IssueLabelerService.Models;
 using Microsoft.AspNetCore.Mvc;
+using PredictionEngine;
 
 namespace IssueLabelerService.Controllers;
 
@@ -48,7 +49,7 @@ public class WebhookIssueController : Controller
     [HttpPost]
     public IActionResult PostAsync([FromBody]IssueEventPayload data)
     {
-        IssueModel issueOrPullRequest = data.Issue ?? data.Pull_Request;
+        GitHubIssue issueOrPullRequest = data.Issue ?? data.Pull_Request;
         IssueType issueOrPr = data.Issue == null ? IssueType.PullRequest : IssueType.Issue;
         if (data.Action == "opened")
         {

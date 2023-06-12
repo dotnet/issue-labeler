@@ -2,9 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-namespace IssueLabelerService.Models;
+namespace PredictionEngine;
 
-public class LabelSuggestion
+public class LabelScore
 {
-    public List<LabelAreaScore> LabelScores { get; set; }
+    public LabelAreaScore LabelAreaScore { get; set; }
+    public GitHubLabel Label { get; set; }
 }
