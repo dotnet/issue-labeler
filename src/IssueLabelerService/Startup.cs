@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using GitHubHelpers;
-using Hubbup.MikLabelModel;
 using Microsoft.Extensions.Azure;
 
 namespace IssueLabelerService;
@@ -29,7 +28,6 @@ public class Startup
         services.AddHttpClient();
         services.AddSingleton<IQueueHelper, QueueHelper>();
         services.AddSingleton<IGitHubClientWrapper, GitHubClientWrapper>();
-        services.AddSingleton<IDiffHelper, DiffHelper>();
         services.AddSingleton<Labeler, Labeler>();
         services.AddAzureClients(
             builder => {

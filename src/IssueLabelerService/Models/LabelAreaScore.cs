@@ -2,11 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-namespace Hubbup.MikLabelModel
+namespace IssueLabelerService.Models;
+
+public class LabelAreaScore
 {
-    public enum MyTrainerStrategy
-    {
-        SdcaMultiClassTrainer = 1,
-        OVAAveragedPerceptronTrainer = 2,
-    };
+    public string LabelName { get; set; }
+    public float Score { get; set; }
 }

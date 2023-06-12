@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using GitHubHelpers;
-using Hubbup.MikLabelModel;
 using IssueLabelerService.Models;
 using Octokit;
 using System.Collections.Concurrent;
@@ -18,7 +17,6 @@ public class Labeler
     private IQueueHelper _queueHelper;
     private Regex _regex;
     private readonly Regex _regexIssueMatch;
-    private readonly IDiffHelper _diffHelper;
     private readonly ILogger<Labeler> _logger;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
@@ -31,13 +29,11 @@ public class Labeler
         IHttpClientFactory httpClientFactory,
         ILogger<Labeler> logger,
         IBackgroundTaskQueue backgroundTaskQueue,
-        IGitHubClientWrapper gitHubClientWrapper,
-        IDiffHelper diffHelper)
+        IGitHubClientWrapper gitHubClientWrapper)
     {
         _queueHelper = queueHelper;
         _backgroundTaskQueue = backgroundTaskQueue;
         _gitHubClientWrapper = gitHubClientWrapper;
-        _diffHelper = diffHelper;
         _regexIssueMatch = new Regex(@"[Ff]ix(?:ed|es|)( )+#(\d+)");
         _httpClientFactory = httpClientFactory;
         _logger = logger;
@@ -378,12 +374,12 @@ public class Labeler
         if (prFiles.Count != 0)
         {
             string[] filePaths = prFiles.Select(x => x.FileName).ToArray();
-            var segmentedDiff = _diffHelper.SegmentDiff(filePaths);
+            var segmentedDiff = DiffHelper.SegmentDiff(filePaths);
             pr.Files = string.Join(' ', segmentedDiff.FileDiffs);
             pr.Filenames = string.Join(' ', segmentedDiff.Filenames);
             pr.FileExtensions = string.Join(' ', segmentedDiff.Extensions);
-            pr.Folders = _diffHelper.FlattenWithWhitespace(segmentedDiff.Folders);
-            pr.FolderNames = _diffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames);
+            pr.Folders = DiffHelper.FlattenWithWhitespace(segmentedDiff.Folders);
+            pr.FolderNames = DiffHelper.FlattenWithWhitespace(segmentedDiff.FolderNames);
             try
             {
                 pr.ShouldAddDoc = await DoesPrAddNewApiAsync(owner, repo, pr.Number);

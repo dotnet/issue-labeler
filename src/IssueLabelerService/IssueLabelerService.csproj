@@ -11,10 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Hubbup.MikLabelModel\Hubbup.MikLabelModel.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="$(MicrosoftAzureStorageBlobsVersion)" />
     <PackageReference Include="Azure.Storage.Queues" Version="$(MicrosoftAzureStorageQueuesVersion)" />
     <PackageReference Include="GitHubJwt" Version="$(GitHubJwtVersion)" />
