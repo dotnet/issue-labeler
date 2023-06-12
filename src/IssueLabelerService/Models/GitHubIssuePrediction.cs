@@ -2,11 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-namespace Microsoft.DotNet.GitHub.IssueLabeler
+using Microsoft.ML.Data;
+
+namespace IssueLabelerService.Models;
+
+public class GitHubIssuePrediction
 {
-    public enum GithubObjectType 
-    {
-        PullRequest,
-        Issue
-    }
+    [ColumnName("PredictedLabel")]
+    public string Area;
+
+    public float[] Score;
 }

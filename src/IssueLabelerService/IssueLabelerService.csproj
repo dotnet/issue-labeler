@@ -3,6 +3,7 @@
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
     <TargetFramework>$(SolutionTargetFrameworkVersion)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
     <SignAssembly>false</SignAssembly>
     <ExcludeFromSourceBuild>true</ExcludeFromSourceBuild>
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
