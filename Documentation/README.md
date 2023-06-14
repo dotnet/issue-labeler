@@ -124,7 +124,7 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
       1. Set Application Setting `PrModel:SOME_REPO:BlobName` to: `owner-repo-pr-03.zip`
       1. Set Application Setting `PrModel:SOME_REPO:PathPrefix` to a new value, typically just incremented by one (the exact name doesn't matter; common pattern is to use `GHM-[ZIP_FILE_NAME_WITHOUT_EXTENSION]`, such as GHM-aspnetcore-issue-03)
       1. Click Save and accept the confirmation, which will restart the application and start using the new values
-      1. Run the DotNetLabelerWakerUpper tool in this repo to re-load the new models and check that they are all working.
+      1. Run the `src/ModelWarmup` tool in this repo to re-load the new models and check that they are all working.
 
 ## Test prediction models and warm up the predictor apps
 

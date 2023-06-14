@@ -269,7 +269,7 @@ static void PrintFollowUpInstructions(string owner, string repo, string uploaded
         $"7. {prStepApplicabilityWarning}Set Application Setting PrModel:{repo}:BlobName to: {uploadedPrModelFilename}",
         $"8. {prStepApplicabilityWarning}Set Application Setting PrModel:{repo}:PathPrefix to a new value, typically just incremented by one (the exact name doesn't matter; common pattern is to use GHM-[ZIP_FILE_NAME_WITHOUT_EXTENSION], such as GHM-aspnetcore-pr-03)",
         $"9. Click Save and accept the confirmation, which will restart the application and start using the new values",
-        $"10. Run the DotNetLabelerWakerUpper tool in this repo to re-load the new models and check that they are all working.",
+        $"10. Run the ModelWarmup tool in this repo to re-load the new models and check that they are all working.",
         $"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         );
 }
