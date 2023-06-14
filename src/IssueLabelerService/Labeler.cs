@@ -224,14 +224,14 @@ public class Labeler
             {
                 await _gitHubClientWrapper.AddLabels(owner, repo, number, labelsToAdd);
             }
-            else if (!options.CanUpdateLabels)
+            else
             {
                 _logger.LogInformation($"! skipped adding labels for {owner}/{repo}#{number} ({issueOrPr}). would have been added: {string.Join(",", labelsToAdd)}");
             }
-            else
-            {
-                _logger.LogInformation($"! dispatcher app - No labels added to {owner}/{repo}#{number} ({issueOrPr}).");
-            }
+        }
+        else
+        {
+            _logger.LogInformation($"! dispatcher app - No labels added to {owner}/{repo}#{number} ({issueOrPr}).");
         }
 
         // comment section
@@ -258,7 +258,7 @@ public class Labeler
         }
         else
         {
-            _logger.LogInformation($"! dispatcher app - No comment made to labels for {owner}/{repo}#{number} ({issueOrPr}).");
+            _logger.LogInformation($"! dispatcher app - Commenting disabled for {owner}/{repo}#{number} ({issueOrPr}).");
         }
     }
 
