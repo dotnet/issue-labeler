@@ -51,7 +51,7 @@ The GitHub app receives webhoook events for issue and pull request events, queri
 
 We publish multiple `PredictionService` apps using the same source code, where each app is responsible for giving predictions for one or more GitHub repositories. There is only one `IssueLabelerService` GitHub app which has the webhook set up to update issue/PRs with labels by referring to prediction results from the one or more ML-based apps configured.
 
-The GitHub App is configured as the [dotnet-issue-labeler](https://github.com/apps/dotnet-issue-labeler/) app on GitHub, and its corresponding service is https://dispatcher-app.azurewebsites.net/. This service was developed under the `feat/public-dispatcher` branch and ultimately merged back into `main`.
+The GitHub App is configured as the [dotnet-issue-labeler](https://github.com/apps/dotnet-issue-labeler/) app on GitHub, and its corresponding service is https://dispatcher-app.azurewebsites.net/. This service was developed under the `feature/public-dispatcher` branch and ultimately merged back into `main`.
 
 ## IssueLabelerService.DeploymentTests
 
