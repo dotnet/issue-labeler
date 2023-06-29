@@ -1,28 +1,25 @@
 # dotnet/issue-labeler
 
-This repo contains the code to build the dotnet issue labeler. There are two active branches that represent the two different aspects of the labeler infrastructure.
+This repo contains several projects that are all used together to operate the issue-labeler system.
 
-- `main` contains projects for producing ML.NET models, uploading them, and running the ML.NET prediction engine as a service
-   1. `src/CreateMikLabelModel` is a console app that produces ML.NET models for repositories
-   2. `src/DotNetLabelerUploader` is a console app that uploads those models to Azure Blob Storage
-      - After upload, the app shows Azure app service configuration changes that need to be made to use the new model
-   3. `src/Microsoft.DotNet.GitHub.IssueLabeler` is an ASP.NET app (Azure App Service) that hosts the ML.NET engine to make predictions
-   4. `src/Microsoft.DotNet.Github.LabelPredictor` is the class library that contains the ML.NET engine and its prediction logic
-   5. `src/DotNetLabelerWakerUpper` is a console app that will "wake up" the ASP.NET app and force load the ML.NET models to prepare the app for processing predictions
-   6. `src/Hubbup.MikLabelModel` is a standalone utility for managing issues and their labels. See https://hubbup.io.
-- `feature/public-dispatcher` contains the GitHub app that updates issues and pull requests as they are created and updated
-   1. `src/Microsoft.DotNet.GitHub.IssueLabeler` is an ASP.NET app (Azure App Service) that responds to GitHub issue/PR webhooks
-      - For each webhook event, it handles the business logic of what actions might need to occur
-      - When one of the actions indicates that an area label prediction is needed, it will dispatch a web request out to the Azure App Service deployed from the `main` branch above, receive the area label predictions/scores, and update the issue/PR accordingly.
-      - There is also logic in this application that performs other issue/PR automation, such as conditionally marking issues as `untriaged` or creating comments on issues
-
-While the `main` and `feature/public-dispatcher` branches both contain `Microsoft.DotNet.GitHub.IssueLabeler` projects, they are notably different. This is something that will be improved upon within this repository. The `main` branch's app hosts the ML.NET model and can make predictions. The `feature/public-dispatcher` branch's app operates as a GitHub app and it modifies issues/PRs using the predictions received when calling the `main` branch's deployed apps--it "dispatches" calls out to the various deployments of that app that host different models, and then it updates the issues/PRs with the predictions.
+1. `src/PredictionEngine` is the class library that contains the ML.NET engine and its prediction logic
+1. `src/ModelCreator` is a console app that produces ML.NET models for repositories to be used by the `PredictionEngine`
+1. `src/ModelTester` is a console app that can locally use the `PredictionEngine` and show predictions on the console
+1. `src/ModelUploader` is a console app that uploads those models to Azure Blob Storage
+   - After upload, the app shows Azure app service configuration changes that need to be made to use the new model
+1. `src/PredictionService` is an ASP.NET app (Azure App Service) that hosts the ML.NET engine to make predictions
+1. `src/ModelWarmup` is a console app that will "wake up" the ASP.NET app and force load the ML.NET models to prepare the app for processing predictions
+1. `src/IssueLabelerService` is an ASP.NET app (Azure App Service) that responds to GitHub issue/PR webhooks
+   - For each webhook event, it handles the business logic of what actions might need to occur
+   - When one of the actions indicates that an area label prediction is needed, it will dispatch a web request out to the `PredictionService` associated with the repo, receive the area label predictions/scores, and update the issue/PR accordingly
+   - There is also logic in this application that performs other issue/PR automation, such as conditionally marking issues as `untriaged` or creating comments on issues
+1. `src/GitHubHelpers` is a class library containing helpers and wrappers around the GitHub APIs with methods specific to the issue-labeler system's needs
 
 ## Intro to issue labeling
 
 This repository contains the source code to train ML models for making label predictions, as well as the code for automatically applying issue labels onto issue/pull requests on GitHub repositories.
 
-This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on github issues and pull requests. 
+This issue-labeler uses [ML.NET](https://github.com/dotnet/machinelearning) to help predict labels on GitHub issues and pull requests.
 
 ## Which GitHub repositories use this issue labeler today?
 

@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="..\..\eng\Versions.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(SolutionTargetFrameworkVersion)</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>dotnet-issue-labeler</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="*.tsv;*.zip" />
+    <None Remove="trace.log" />
+    <None Remove="repos.json" />
+    <Content Include="repos.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
+    <PackageReference Include="Octokit.GraphQL" Version="$(OctokitGraphQLVersion)" />
+    <PackageReference Include="GraphQL.Client" Version="$(GraphQLClientVersion)" />
+    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="$(GraphQLClientVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
+    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftMLAutoMLVersion)" />
+    <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GitHubHelpers\GitHubHelpers.csproj" />
+  </ItemGroup>
+
+</Project>
