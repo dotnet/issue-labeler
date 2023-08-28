@@ -118,7 +118,7 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
       1. Go to https://portal.azure.com/
       1. Go to this subscription: DDFun IaaS Dev Shared Public
       1. Go to the appropriate App Service resource for this repo (see Web App Service List in this document)
-      1. Select Configuration
+      1. Select Environment Variables
       1. Set Application Setting `IssueModel:SOME_REPO:BlobName` to: `owner-repo-il-03.zip`
       1. Set Application Setting `IssueModel:SOME_REPO:PathPrefix` to a new value, typically just incremented by one (the exact name doesn't matter)
       1. Set Application Setting `PrModel:SOME_REPO:BlobName` to: `owner-repo-pr-03.zip`
