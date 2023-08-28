@@ -142,6 +142,7 @@ class GraphQLDownloadHelper
                 if (backToBackFailureCount < MaxRetryCount)
                 {
                     backToBackFailureCount++;
+                    Trace.WriteLine($"Retrying after delay.");
                     await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                 }
                 else
