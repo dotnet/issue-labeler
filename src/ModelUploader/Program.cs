@@ -263,7 +263,7 @@ static void PrintFollowUpInstructions(string owner, string repo, string uploaded
         $"1. Go to https://portal.azure.com/",
         $"2. Go to this subscription: DDFun IaaS Dev Shared Public",
         $"3. Go to this App Service resource: {webAppService}",
-        $"4. Select Configuration",
+        $"4. Select Environment Variables",
         $"5. Set Application Setting IssueModel:{repo}:BlobName to: {uploadedIssuesModelFilename}",
         $"6. Set Application Setting IssueModel:{repo}:PathPrefix to a new value, typically just incremented by one (the exact name doesn't matter)",
         $"7. {prStepApplicabilityWarning}Set Application Setting PrModel:{repo}:BlobName to: {uploadedPrModelFilename}",
