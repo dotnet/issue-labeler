@@ -186,7 +186,7 @@ public static class OctokitDownloadHelper
     private static async Task<Dictionary<(DateTimeOffset, long, string), string>> DownloadRemainingAsync(
         HashSet<long> toSkip, int startIndex, int endIndex, 
         (string owner, string repo) repoCombo,
-        Func<List<string>, string, string, string, string, DateTimeOffset, int, string, bool, string> getCompressedLine,
+        Func<IReadOnlyList<string>, string, string, string, string, DateTimeOffset, int, string, bool, string> getCompressedLine,
         HashSet<int> issuesWithAreaLabel, HashSet<int> missingIssueAndPrs)
     {
         int mod = 500;
@@ -211,10 +211,10 @@ public static class OctokitDownloadHelper
                 Trace.WriteLine($"Downloading more... now at #{i}.");
             if (!missingIssueAndPrs.Contains(i))
                     Trace.WriteLine($"3. Odd turnout for #{i}");
-            List<string> filePaths = null;// string.Empty;
+            List<string>? filePaths = null;// string.Empty;
             bool isPr = true;
-            Issue issueOrPr = null;
-            string areaLabel = null;
+            Issue? issueOrPr = null;
+            string? areaLabel = null;
             try
             {
                 issueOrPr = await _client.Issue.Get(repoCombo.owner, repoCombo.repo, i).ConfigureAwait(false);
@@ -253,7 +253,7 @@ public static class OctokitDownloadHelper
             // analyze issue or PR here
 
             /* GetCompressedLine(
-            List<string> filePaths,
+            IReadOnlyList<string> filePaths,
             string area,
             string authorLogin,
             string prbody,
@@ -264,7 +264,7 @@ public static class OctokitDownloadHelper
             bool isPr)
              */
             lookup.Add((issueOrPr.CreatedAt, (long)issueOrPr.Number, repoCombo.repo), getCompressedLine(
-                filePaths,
+                (IReadOnlyList<string>?)filePaths ?? Array.Empty<string>(),
                 areaLabel,
                 issueOrPr.User.Login,
                 issueOrPr.Body,

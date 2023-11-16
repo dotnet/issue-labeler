@@ -11,11 +11,9 @@ namespace ModelCreator.Downloader;
 public static class CommonHelper
 {
     public static void AddRange<T, S>(this Dictionary<T, S> source, Dictionary<T, S> collection)
+        where T: notnull
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException("Empty collection");
-        }
+        ArgumentNullException.ThrowIfNull(nameof(collection));
 
         foreach (var item in collection)
         {
@@ -58,7 +56,7 @@ public static class CommonHelper
         };
 
     public static string GetCompressedLine(
-        List<string> filePaths,
+        IReadOnlyList<string> filePaths,
         string area,
         string authorLogin,
         string prBody,
@@ -69,7 +67,7 @@ public static class CommonHelper
         bool isPr)
     {
         var author = authorLogin ?? GitHubHelpers.GitHubUser.DeletedUser;
-        var body = (prBody?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
+        var body = (prBody ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
         var title = prTitle.Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' ').Replace('"', '`');
         var createdAt = prCreatedAt.UtcDateTime.ToFileTimeUtc();
         if (isPr)

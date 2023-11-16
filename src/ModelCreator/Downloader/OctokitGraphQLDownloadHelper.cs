@@ -114,7 +114,7 @@ public static class OctokitGraphQLDownloadHelper
         try
         {
             // For the first page, set `after` to null.
-            var vars = new Dictionary<string, object>
+            var vars = new Dictionary<string, object?>
                 {
                     { "owner", owner },
                     { "name", repo },
@@ -224,7 +224,7 @@ public static class OctokitGraphQLDownloadHelper
             }).Compile();
 
         // For the first page, set `after` to null.
-        var vars = new Dictionary<string, object>
+        var vars = new Dictionary<string, object?>
                 {
                     { "owner", owner },
                     { "name", repo },
@@ -290,7 +290,7 @@ public static class OctokitGraphQLDownloadHelper
                 Trace.WriteLine($"taking {result.Items.Count} from {result.TotalCount} and moving on.");
             }
             return result.Items.ToDictionary(x => (x.CreatedAt, (long)x.Number, repo), x => CommonHelper.GetCompressedLine(
-                null,
+                Array.Empty<string>(),
                 areaLabel,
                 x.AuthorLogin,
                 x.Body,
@@ -406,7 +406,7 @@ public static class OctokitGraphQLDownloadHelper
         var result = await _connection.Run(query);
 
         return (result.Issues.ToDictionary(x => (x.Value.CreatedAt, (long)x.Value.Number, repo), x => CommonHelper.GetCompressedLine(
-            null,
+            Array.Empty<string>(),
             areaLabel,
             x.Value.AuthorLogin,
             x.Value.Body,
