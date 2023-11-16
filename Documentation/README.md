@@ -32,26 +32,28 @@ Follow these steps to create a new labeler app:
    - **App Service Plan**: If possible, pick an existing service plan (all apps in the same service plan share the same machine resources, so don't put "too much" into one). Otherwise create a new service plan of an appropriate size. How big is big enough? Memory is the largest concern, so start small, and upgrade to more memory if it runs out.
 1. Click **Review and Create**, and then **Create**
 1. Go to the new Web App resource you created
+1. Go to **Settings** / **Environment variables**
+   - Under "App settings" set the following common variables:
+     - `AppSecretUri`: Copy the value from any of the other labeler apps
+     - `BlobContainer`: `areamodels`
+     - `GitHubAppId`: Copy this from another labeler app that targets the *same* GitHub org (for example, the `dotnet`, `microsoft`, or `nuget` org)
+     - `InstallationId`: Copy this from another labeler app that targets the *same* GitHub org (for example, `dotnet`, `microsoft`, or `nuget` org)
+     - `QConnectionString`: Copy the value from any of the other labeler apps
+     - `RepoOwner`: The owner of the repo as seen in the GitHub repo URL. For example, the repo `https://github.com/ABC/XYZ` would have `ABC` as the owner.
+     - And click **Apply**
 1. Go to **Settings** / **Configuration**
-   - In General Settings make sure these are set:
+   - Under "General settings" make sure these are set:
      - **Platform**: 64bit
      - **Always on**: On
      - And click **Save**
-   - In Application settings set the following common settings:
-     - `AppSecretUri`: Copy the value from any of the other labeler apps
-     - `BlobContainer`: `areamodels`
-     - `QConnectionString`: Copy the value from any of the other labeler apps
-     - `RepoOwner`: The owner of the repo as seen in the GitHub repo URL. For example, the repo `https://github.com/ABC/XYZ` would have `ABC` as the owner.
-     - `GitHubAppId`: Copy this from another labeler app that targets the *same* GitHub org (for example, the `dotnet`, `microsoft`, or `nuget` org)
-     - `InstallationId`: Copy this from another labeler app that targets the *same* GitHub org (for example, `dotnet`, `microsoft`, or `nuget` org)
-     - And click **Save**
 1. Go to **Settings** / **Identity**
-   - Under System Assigned, select **Status: On**, and click **Save**, and then **Yes**. This identity will enable the app to access Azure Key Vault secrets
+   - Under "System assigned", select **Status: On**, and click **Save**, and then **Yes**. This identity will enable the app to access Azure Key Vault secrets
 1. Configure Key Vault access
    - In the same DDFun IaaS subscription, go to the **Mirror** Key Vault resource
      - Select **Access Policies**
      - Click **Create**
-     - Select the following **Secret Permissions**: `Get`, `List` (note: _not_ Key or Certificate permissions!)
+     - Select the following **Secret Permissions**: `Get`, `List` (:warning: _not_ Key or Certificate permissions!)<br/>
+       ![keyvault configration](img/keyvault.png)
      - Click **Next**
      - Search in the list for the Web App name that you created (example: `nuget-home-labeler`)
      - Click **Next**
@@ -65,10 +67,12 @@ Follow these steps to create a new labeler app:
    - Right-click on the **PredictionService** project and select **Publish...**
    - Create a new Publish Profile and select **Azure** as the target, then pick **Azure App Service (Windows)** as the specific target
    - Select the **DDFun IaaS Dev Shared Public** subscription (formerly known as **DDITPublic**)
-   - Select the App Service instance that you created earlier (for example, `nuget-home-labeler` or `dispatcher-app`), check the "Deploy as ZIP package" box, and click **Next**
+   - Select the App Service instance that you created earlier (for example, `nuget-home-labeler` or `dispatcher-app`), check the "Deploy as ZIP package" box, and click **Next**<br/>
+     ![keyvault configration](img/publish1.png)
    - Deployment type: Publish
    - Click **Finish**, then **Close**
-   - In the Settings screen click one of the pencil icons to edit the Settings and make sure the following are set:
+   - In the Settings screen click one of the pencil icons to edit the Settings and make sure the following are set:<br/>
+     ![keyvault configration](img/publish2.png)
      - **Configuration**: Release
      - **Target framework**: net7.0
      - **Deployment mode**: Self-contained
@@ -91,28 +95,40 @@ Prerequisites:
 To get started, clone the https://github.com/dotnet/issue-labeler repo so that you can run the required tools.
 
 1. Create training model on your machine
-   1. Open a command prompt in the `src/ModelCreator` folder
    1. If you have not yet done so, create a GitHub OAuth token to use for this app:
       1. Create a [GitHub Personal Access Token](https://github.com/settings/tokens) and copy the value to your clipboard
-      1. In the command prompt run: `dotnet user-secrets set GitHubAccessToken THE_TOKEN_VALUE`.
-   1. Run the tool for the repo you wish to use: `dotnet run -- owner/repo`, for example, `dotnet run -- dotnet/maui`
+      1. In the command prompt run: 
+         ```
+         dotnet user-secrets set GitHubAccessToken THE_TOKEN_VALUE
+         ```
+   1. Open a command prompt in the `src/ModelCreator` folder
+   1. Run the tool for the repo you wish to use: `dotnet run -- owner/repo`, for example:
+      ```
+      src/ModelCreator> dotnet run -- dotnet/maui
+      ```
       1. If you get an error that the repo is not listed, edit the `repos.json` file and add your repo. And then also send a PR to have the list updated in the issue labeler repo.
       1. The tool will download all the GitHub issues and PRs from the repo. This can take anywhere from a few minutes to even 10 minutes, depending on how many issues/PRs exist in the repo.
       1. It will then run a computationally intensive process to perform the machine learning. This can take around 30 minutes on a high-end workstation.
       1. The output will be two ZIP files containing the models for issues and PRs. If the repo has no PRs, that model will be skipped.
 1. Test the model locally
    1. Open a command prompt in the `src/ModelTester` folder
-   1. Run the tool for the repo data you wish to test: `dotnet run -- PATH_TO_ZIPS OWNER/REPO ISSUE_OR_PR_NUMBER`, for example, `dotnet run -- ..\ModelCreator dotnet/maui 14895`
-      1. Note: The same `GitHubAccessToken` user-secret is required
+   1. Run the tool for the repo data you wish to test `dotnet run -- PATH_TO_ZIPS OWNER/REPO ISSUE_OR_PR_NUMBER`, for example:
+      ```powershell
+       src/ModelTester> dotnet run -- ..\ModelCreator dotnet/maui 14895
+       ```
+      :warning: Note: The same `GitHubAccessToken` user-secret is required
 1. Upload model to Azure storage
-   1. Open a command prompt in the `src/ModelUploader` folder
    1. Get the Azure Storage access key for the `dotnetissuelabelerdata` storage account in Azure
       1. In the Azure Portal, go to the DDFun IaaS Dev Shared Public subscription, navigate into the subscriptions Resources, and select the `dotnetissuelabelerdata` storage account
       1. Select **Access keys** from the left side menu
       1. Copy the Key value for key1 or key2.
       1. In the command prompt run: `dotnet user-secrets set IssueLabelerKey AZURE_KEY_HERE`.
-   1. Run the tool for the repo data you wish to upload: `dotnet run -- PATH_TO_ZIPS OWNER/REPO`, for example, `dotnet run -- ..\ModelCreator dotnet/maui`
-      1. Note: This uploader app will rename the ZIP files when saved in Blob Storage to use a file name template that includes a version number
+   1. Open a command prompt in the `src/ModelUploader` folder
+   1. Run the tool for the repo data you wish to upload: `dotnet run -- PATH_TO_ZIPS OWNER/REPO`, for example:
+      ```powershell
+      src/ModelUploader> dotnet run -- ..\ModelCreator dotnet/maui
+      ```
+      :warning:  Note: This uploader app will rename the ZIP files when saved in Blob Storage to use a file name template that includes a version number
 1. Update predictor app to point to the new model (by referencing the newly uploaded blob)
    1. The uploader tool from the previous step printed out further instructions how to do that. It looks something like this:
       1. Go to https://portal.azure.com/
@@ -124,14 +140,20 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
       1. Set Application Setting `PrModel:SOME_REPO:BlobName` to: `owner-repo-pr-03.zip`
       1. Set Application Setting `PrModel:SOME_REPO:PathPrefix` to a new value, typically just incremented by one (the exact name doesn't matter; common pattern is to use `GHM-[ZIP_FILE_NAME_WITHOUT_EXTENSION]`, such as GHM-aspnetcore-issue-03)
       1. Click Save and accept the confirmation, which will restart the application and start using the new values
-      1. Run the `src/ModelWarmup` tool in this repo to re-load the new models and check that they are all working.
+      1. Run the tool in this repo to re-load the new models and check that they are all working.
+         ```powershell
+         src/ModelWarmup> dotnet run
+         ```
 
 ## Test prediction models and warm up the predictor apps
 
 Once the new model is uploaded, you'll need to warm up the predictor app and test that it is predicting labels for issues and PRs in that repo.
 
 1. Open a command prompt in the `src/ModelWarmup` folder
-1. Run `dotnet run`
+1. Run
+   ```powershell
+   src/ModelWarmup> dotnet run
+   ```
 
 This will call the `load` API of each known labeler app, wait for it to be ready, and then get label predictions for arbitrary issues and PRs in that repo. This can take a few minutes to run.
 
@@ -160,9 +182,9 @@ The Azure Subscription used for the issue labelers contains several _App Service
 
 Note that a _Web App_ can support multiple repositories in the same GitHub org, but cannot support multiple organizations.
 
-If you are adding a new repo and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
+If you are adding a new repo, and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
 
-* App Service Plan: dotnet-extensions-labeler
+* App Service Plan: **dotnet-extensions-labeler**
    1. App: dotnet-aspire-labeller
       1. dotnet/aspire: issues + prs
       1. dotnet/aspire-samples: issues + prs
@@ -176,11 +198,11 @@ If you are adding a new repo and the repo is in the same org as one of the repos
       1. microsoft/vscode-dotnettools: issues
    1. App: nuget-home-labeler
       1. nuget/home: issues
-* App Service Plan: MicrosoftDotNetGithubIssueLabeler2018092
+* App Service Plan: **MicrosoftDotNetGithubIssueLabeler2018092**
    1. App: dotnet-roslyn-labeler
       1. dotnet/roslyn: issues + prs
       1. dotnet/source-build: issues
-* App Service Plan: dotnet-runtime
+* App Service Plan: **dotnet-runtime**
    1. App: dotnet-runtime-issue-labeler
       1. dotnet/docker-tools: issues
       1. dotnet/dotnet-api-docs: issues + prs

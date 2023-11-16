@@ -295,3 +295,6 @@ __pycache__/
 # ML prediction files
 *.zip
 *.tsv
+
+# Publish profile
+/**/*Zip Deploy/profile.arm.json
