@@ -163,6 +163,9 @@ Note that a _Web App_ can support multiple repositories in the same GitHub org, 
 If you are adding a new repo and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
 
 * App Service Plan: dotnet-extensions-labeler
+   1. App: dotnet-aspire-labeller
+      1. dotnet/aspire: issues + prs
+      1. dotnet/aspire-samples: issues + prs
    1. App: dotnet-aspnetcore-labeler
       1. dotnet/aspnetcore: issues + prs
       1. dotnet/maui: issues + prs

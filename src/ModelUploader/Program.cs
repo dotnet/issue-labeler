@@ -225,6 +225,9 @@ static void PrintFollowUpInstructions(string owner, string repo, string uploaded
     var webAppMap = new Dictionary<(string owner, string repo), string>()
     {
         // App Service Plan: dotnet-extensions-labeler
+        {("dotnet", "aspire"), "dotnet-aspire-labeller" },
+        {("dotnet", "aspire-samples"), "dotnet-aspire-labeller" },
+
         {("dotnet", "aspnetcore"), "dotnet-aspnetcore-labeler" },
         {("dotnet", "maui"), "dotnet-aspnetcore-labeler" },
         {("dotnet", "msbuild"), "dotnet-aspnetcore-labeler" },

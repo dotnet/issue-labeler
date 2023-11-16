@@ -4,6 +4,10 @@
     // If an array has more than one repo, the first item is the target repo containing the labels.
     // Typically, the repos after the first are archived or ancillary repos that contain useful material for generating models.
     [
+      "dotnet/aspire"
+      "dotnet/aspire-samples"
+    ],
+    [
       "dotnet/aspnetcore"
     ],
     [
