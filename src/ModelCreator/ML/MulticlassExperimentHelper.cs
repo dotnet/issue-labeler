@@ -144,7 +144,7 @@ public static class MulticlassExperimentHelper
     public static void TestPrediction(MLContext mlContext, DataFilePaths files, bool forPrs, double threshold = 0.4)
     {
         var trainedModel = mlContext.Model.Load(files.FittedModelPath, out _);
-        IEnumerable<(string knownLabel, AreaPrediction predictedResult, string issueNumber)> predictions = null;
+        IEnumerable<(string knownLabel, AreaPrediction predictedResult, string issueNumber)>? predictions = null;
         string Legend1 = $"(includes not labeling issues with confidence lower than threshold. (here {threshold * 100.0f:#,0.00}%))";
         const string Legend2 = "(includes items that could be labeled if threshold was lower.)";
         const string Legend3 = "(those incorrectly labeled)";

@@ -44,7 +44,7 @@ public sealed class AzureKeyVaultGitHubClientFactory : IGitHubClientFactory
         var client = CreateForToken(token, AuthenticationType.Bearer);
 
         var installations = await client.GitHubApps.GetAllInstallationsForCurrent();
-        var installationTokenResult = await client.GitHubApps.CreateInstallationToken(long.Parse(_configuration["InstallationId"]));
+        var installationTokenResult = await client.GitHubApps.CreateInstallationToken(long.Parse(_configuration["InstallationId"]!));
 
         return CreateForToken(installationTokenResult.Token, AuthenticationType.Oauth);
     }

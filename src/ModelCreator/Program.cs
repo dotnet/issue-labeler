@@ -25,7 +25,7 @@ public class Program
 
         var repoJsonFileName =
             Path.Combine(
-                Path.GetDirectoryName(typeof(Program).Assembly.Location),
+                Path.GetDirectoryName(typeof(Program).Assembly.Location)!,
                 "repos.json");
 
         if (!File.Exists(repoJsonFileName))
