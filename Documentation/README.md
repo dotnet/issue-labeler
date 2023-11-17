@@ -2,8 +2,21 @@
 
 This document describes how to set up a new issue labeler app (for a new GitHub repo), as well as how to update the training data for an existing labeler app and repo.
 
-Note: Several parts of this document have steps that require particular membership and permissions for various GitHub repositories, Azure subscriptions and resources, and so forth. You may have to request permissions or send PRs to make certain changes.
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
+* [Add support for a new GitHub repo](#add-support-for-a-new-github-repo)
+   + [Add new repo to an existing labeler app](#add-new-repo-to-an-existing-labeler-app)
+   + [Add new labeler app](#add-new-labeler-app)
+* [Create and upload prediction models to Azure Storage](#create-and-upload-prediction-models-to-azure-storage)
+* [Test prediction models and warm up the predictor apps](#test-prediction-models-and-warm-up-the-predictor-apps)
+* [Setup GitHub Webhooks for fully automated labeling](#setup-github-webhooks-for-fully-automated-labeling)
+* [Further reading](#further-reading)
+
+<!-- TOC end -->
+
+:warning: Note: Several parts of this document have steps that require particular membership and permissions for various GitHub repositories, Azure subscriptions and resources, and so forth. You may have to request permissions or send PRs to make certain changes.
+
+<!-- TOC --><a name="add-support-for-a-new-github-repo"></a>
 ## Add support for a new GitHub repo
 
 If your repo is not yet set up for issue labeling, there are two options:
@@ -11,9 +24,48 @@ If your repo is not yet set up for issue labeling, there are two options:
 1. Use an existing labeler app that supports the same GitHub org and add your repo's data to it
 1. Create a new labeler app and add your repo's data to it
 
-Please note that a single labeler app can support only one org, so if your org isn't supported yet, you must create a new labeler app instance.
+:warning: Please note that a single labeler app can support only one org, so if your org isn't supported yet, you must create a new labeler app instance.
 
-If your are adding your repo to an existing labeler, see the [Web App Service List](#web-app-service-list) for a list of existing apps.
+
+<!-- TOC --><a name="add-new-repo-to-an-existing-labeler-app"></a>
+### Add new repo to an existing labeler app
+
+The Azure Subscription used for the issue labelers contains several _App Service Plans_, each of which contains several _Web Apps_. An App Service Plan represents a machine, each of which can run multiple Web Apps, each of which can serve label predictions for multiple GitHub repositories.
+
+Note that a _Web App_ can support multiple repositories in the same GitHub org, but cannot support multiple organizations.
+
+If you are adding a new repo, and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
+
+<a name="webapp-list"></a>
+* App Service Plan: **dotnet-extensions-labeler**
+   1. App: **dotnet-aspnetcore-labeler**
+      1. dotnet/aspire: issues + prs
+      1. dotnet/aspnetcore: issues + prs
+      1. dotnet/extensions: issues + prs
+      1. dotnet/maui: issues + prs
+      1. dotnet/msbuild: issues + prs
+      1. dotnet/roslyn: issues + prs (not actually used!)
+   1. App: **microsoft-dotnet-framework-docker**
+      1. microsoft/dotnet-framework-docker: issues
+      1. microsoft/vscode-dotnettools: issues
+   1. App: **nuget-home-labeler**
+      1. nuget/home: issues
+* App Service Plan: **MicrosoftDotNetGithubIssueLabeler2018092**
+   1. App: **dotnet-roslyn-labeler**
+      1. dotnet/roslyn: issues + prs
+      1. dotnet/source-build: issues
+* App Service Plan: **dotnet-runtime**
+   1. App: **dotnet-runtime-issue-labeler**
+      1. dotnet/docker-tools: issues
+      1. dotnet/dotnet-api-docs: issues + prs
+      1. dotnet/dotnet-buildtools-prereqs-docker: issues
+      1. dotnet/dotnet-docker: issues
+      1. dotnet/runtime: issues + prs
+      1. dotnet/sdk: issues + prs
+
+
+<!-- TOC --><a name="add-new-labeler-app"></a>
+### Add new labeler app
 
 Follow these steps to create a new labeler app:
 
@@ -32,7 +84,7 @@ Follow these steps to create a new labeler app:
    - **App Service Plan**: If possible, pick an existing service plan (all apps in the same service plan share the same machine resources, so don't put "too much" into one). Otherwise create a new service plan of an appropriate size. How big is big enough? Memory is the largest concern, so start small, and upgrade to more memory if it runs out.
 1. Click **Review and Create**, and then **Create**
 1. Go to the new Web App resource you created
-1. Go to **Settings** / **Environment variables**
+1. Go to **Settings > Environment variables**
    - Under "App settings" set the following common variables:
      - `AppSecretUri`: Copy the value from any of the other labeler apps
      - `BlobContainer`: `areamodels`
@@ -41,12 +93,12 @@ Follow these steps to create a new labeler app:
      - `QConnectionString`: Copy the value from any of the other labeler apps
      - `RepoOwner`: The owner of the repo as seen in the GitHub repo URL. For example, the repo `https://github.com/ABC/XYZ` would have `ABC` as the owner.
      - And click **Apply**
-1. Go to **Settings** / **Configuration**
+1. Go to **Settings > Configuration**
    - Under "General settings" make sure these are set:
      - **Platform**: 64bit
      - **Always on**: On
      - And click **Save**
-1. Go to **Settings** / **Identity**
+1. Go to **Settings > Identity**
    - Under "System assigned", select **Status: On**, and click **Save**, and then **Yes**. This identity will enable the app to access Azure Key Vault secrets
 1. Configure Key Vault access
    - In the same DDFun IaaS subscription, go to the **Mirror** Key Vault resource
@@ -83,6 +135,8 @@ Follow these steps to create a new labeler app:
    - Note that the app is not yet configured to predict anything! It's just an app with no data.
    - You will need to follow the steps to create and upload prediction models and configure the app to serve those predictions.
 
+
+<!-- TOC --><a name="create-and-upload-prediction-models-to-azure-storage"></a>
 ## Create and upload prediction models to Azure Storage
 
 If the label training model for your repo is out of date or non-existent, you will need to create a new model, upload it to Azure Storage, and update the predictor app to use the new model.
@@ -132,9 +186,9 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
 1. Update predictor app to point to the new model (by referencing the newly uploaded blob)
    1. The uploader tool from the previous step printed out further instructions how to do that. It looks something like this:
       1. Go to https://portal.azure.com/
-      1. Go to this subscription: DDFun IaaS Dev Shared Public
-      1. Go to the appropriate App Service resource for this repo (see Web App Service List in this document)
-      1. Select Environment Variables
+      1. Go to this subscription: **DDFun IaaS Dev Shared Public**
+      1. Go to the appropriate App Service resource for this repo (see [Web App Service List](#webapp-list))
+      1. Select **Settings > Environment Variables**
       1. Set Application Setting `IssueModel:SOME_REPO:BlobName` to: `owner-repo-il-03.zip`
       1. Set Application Setting `IssueModel:SOME_REPO:PathPrefix` to a new value, typically just incremented by one (the exact name doesn't matter)
       1. Set Application Setting `PrModel:SOME_REPO:BlobName` to: `owner-repo-pr-03.zip`
@@ -145,6 +199,7 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
          src/ModelWarmup> dotnet run
          ```
 
+<!-- TOC --><a name="test-prediction-models-and-warm-up-the-predictor-apps"></a>
 ## Test prediction models and warm up the predictor apps
 
 Once the new model is uploaded, you'll need to warm up the predictor app and test that it is predicting labels for issues and PRs in that repo.
@@ -159,7 +214,9 @@ This will call the `load` API of each known labeler app, wait for it to be ready
 
 Note: If you added a new repo, please edit the `src/ModelWarmup/appSettings.json` file in the issue labeler repo and add two issues and two PRs to the list so that the tool can warm up the predictions for the new repo as well.
 
-## Setting up GitHub Webhooks for fully automated labeling
+
+<!-- TOC --><a name="setup-github-webhooks-for-fully-automated-labeling"></a>
+## Setup GitHub Webhooks for fully automated labeling
 
 The `IssueLabelerService` project contains the GitHub app that responds to webhooks and can automatically apply labels to issues and pull requests. That app is deployed as the `dispatcher-app`, and it is configured to know how to reach each predictor app by owner/repo. After setting up a new repository's ML.NET model and ensuring its predictor app can respond to requests and show the top three label predictions, the `dispatcher-app` can be set up to make those requests automatically and update issues and pull requests with the predicted labels.
 
@@ -174,43 +231,17 @@ In the `dispatcher-app` configuration, many settings can be added for each repos
 4. `{owner}:{repo}:threshold`: 0.0-1.0
    - Specifies the minimum threshold confidence required for a prediction to be applied to an issue/PR
 
+To configure the settings:
+
+   1. Go to https://portal.azure.com/
+   1. Find `dispatcher-app` web app
+   1. Select **Settings > Environment Variables**
+
 With the new configuration settings in place, the `dotnet-issue-labeler` app also needs to be granted access to the new repository so that it can apply changes to the issues and pull requests. Requests can be sent to the repository owners through https://github.com/apps/dotnet-issue-labeler/installations/new.
 
-## Web App Service List
 
-The Azure Subscription used for the issue labelers contains several _App Service Plans_, each of which contains several _Web Apps_. An App Service Plan represents a machine, each of which can run multiple Web Apps, each of which can serve label predictions for multiple GitHub repositories.
 
-Note that a _Web App_ can support multiple repositories in the same GitHub org, but cannot support multiple organizations.
-
-If you are adding a new repo, and the repo is in the same org as one of the repositories below, consider adding your repo's data to an existing _Web App_ (but ask the existing users for permission first!).
-
-* App Service Plan: **dotnet-extensions-labeler**
-   1. App: dotnet-aspire-labeller
-      1. dotnet/aspire: issues + prs
-      1. dotnet/aspire-samples: issues + prs
-   1. App: dotnet-aspnetcore-labeler
-      1. dotnet/aspnetcore: issues + prs
-      1. dotnet/maui: issues + prs
-      1. dotnet/msbuild: issues + prs
-      1. dotnet/roslyn: issues + prs (not actually used!)
-   1. App: microsoft-dotnet-framework-docker
-      1. microsoft/dotnet-framework-docker: issues
-      1. microsoft/vscode-dotnettools: issues
-   1. App: nuget-home-labeler
-      1. nuget/home: issues
-* App Service Plan: **MicrosoftDotNetGithubIssueLabeler2018092**
-   1. App: dotnet-roslyn-labeler
-      1. dotnet/roslyn: issues + prs
-      1. dotnet/source-build: issues
-* App Service Plan: **dotnet-runtime**
-   1. App: dotnet-runtime-issue-labeler
-      1. dotnet/docker-tools: issues
-      1. dotnet/dotnet-api-docs: issues + prs
-      1. dotnet/dotnet-buildtools-prereqs-docker: issues
-      1. dotnet/dotnet-docker: issues
-      1. dotnet/runtime: issues + prs
-      1. dotnet/sdk: issues + prs
-
+<!-- TOC --><a name="further-reading"></a>
 ## Further reading
 
 * [Implementation details](./Implementation.md) - more details on how certain projects in this repo work
