@@ -297,4 +297,4 @@ __pycache__/
 *.tsv
 
 # Publish profile
-/**/*Zip Deploy/profile.arm.json
+/**/*Zip Deploy/*.json

@@ -22,7 +22,10 @@ This document describes how to set up a new issue labeler app (for a new GitHub 
 If your repo is not yet set up for issue labeling, there are two options:
 
 1. Use an existing labeler app that supports the same GitHub org and add your repo's data to it
-1. Create a new labeler app and add your repo's data to it
+  - This is the preferred approach and should be used so long as one of the existing labeler apps can support the GitHub org and repo
+1. If it's determined this is justified, create a new labeler app and add your repo's data to it.
+  - This option should only be used if a new team/group is onboarding with the labeler and the GitHub org/repo should be handled separately from existing apps
+  - The team creating the new app becomes responsible for maintaining it
 
 :warning: Please note that a single labeler app can support only one org, so if your org isn't supported yet, you must create a new labeler app instance.
 
