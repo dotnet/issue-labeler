@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
@@ -17,7 +17,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging.AzureAppServices" Version="$(MicrosoftExtensionsLoggingAzureAppServices)" />
     <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
     <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
-    <PackageReference Include="Octokit.GraphQL" Version="$(OctokitGraphQLVersion)" />
   </ItemGroup>
 
   <ItemGroup>

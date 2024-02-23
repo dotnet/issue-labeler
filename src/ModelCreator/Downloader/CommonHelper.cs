@@ -58,7 +58,7 @@ public static class CommonHelper
     public static string GetCompressedLine(
         IReadOnlyList<string> filePaths,
         string area,
-        string authorLogin,
+        string? authorLogin,
         string prBody,
         string prTitle,
         DateTimeOffset prCreatedAt,
