@@ -118,16 +118,18 @@ Follow these steps to create a new labeler app:
 1. Publish the labeler app from Visual Studio
    - Clone the https://github.com/dotnet/issue-labeler repo
    - Open the **issue-labeler.sln** solution in Visual Studio
-   - Check that you can build the **Microsoft.DotNet.Github.IssueLabeler** project
-   - Right-click on the **PredictionService** project and select **Publish...**
-   - Create a new Publish Profile and select **Azure** as the target, then pick **Azure App Service (Windows)** as the specific target
-   - Select the **DDFun IaaS Dev Shared Public** subscription (formerly known as **DDITPublic**)
-   - Select the App Service instance that you created earlier (for example, `nuget-home-labeler` or `dispatcher-app`), check the "Deploy as ZIP package" box, and click **Next**<br/>
-     ![keyvault configration](img/publish1.png)
-   - Deployment type: Publish
-   - Click **Finish**, then **Close**
+   - Check that you can build the solution (there will be build warnings, but there should be no errors)
+   - Right-click on the **PredictionService** project and select **Publish...** to create a publish profile
+      - Target: **Azure**
+      - Specific Target: **Azure App Service (Windows)**
+      - Subscription Name: **DDFun IaaS Dev Shared Public**
+      - Choose the App Service instance from the `GitHubIssueLabeller` folder, e.g. `nuget-home-labeler`
+        ![Choose the App Service](img/publish1.png)
+      - **Check the 'Deploy as ZIP package' box**
+      - Deployment type: **Publish (generates pubxml file)**
+      - Click Finish and close the window when it's complete
    - In the Settings screen click one of the pencil icons to edit the Settings and make sure the following are set:<br/>
-     ![keyvault configration](img/publish2.png)
+     ![Publish Configuration](img/publish2.png)
      - **Configuration**: Release
      - **Target framework**: net7.0
      - **Deployment mode**: Self-contained
@@ -248,3 +250,4 @@ With the new configuration settings in place, the `dotnet-issue-labeler` app als
 ## Further reading
 
 * [Implementation details](./Implementation.md) - more details on how certain projects in this repo work
+* [Disaster Recovery](./Disaster-Recovery.md) - how to perform a full deployment of services
