@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using GitHubHelpers;
+using Microsoft.Extensions.Configuration;
 using System.Text;
 
 namespace IssueLabelerService.DeploymentTests;
@@ -177,5 +179,18 @@ public class IssueLabelingTests : ServiceTestBase
         HttpResponseMessage? response = await CreateTestHttpClient().PostAsync(ServiceTestBase.ServiceWebhookApiRoot, requestContent);
 
         Assert.True(response.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task CanHandleIssuesBeyondInt32InternalGitHubId()
+    {
+        // This test requires the GitHubAccessToken user secret to be set.
+        // Instructions for setting it can be found in /Documentation/README.md
+        var config = new ConfigurationBuilder()
+            .AddUserSecrets("dotnet-issue-labeler")
+            .Build();
+
+        var gitHubClientWrapper = new GitHubClientWrapper(new OAuthGitHubClientFactory(config));
+        var issue = await gitHubClientWrapper.GetIssue("dotnet", "runtime", 98782);
     }
 }
