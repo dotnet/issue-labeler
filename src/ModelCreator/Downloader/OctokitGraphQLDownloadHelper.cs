@@ -216,7 +216,7 @@ public static class OctokitGraphQLDownloadHelper
                 Items = connection.Nodes.Select(issue => new
                 {
                     Number = issue.Number,
-                    AuthorLogin = issue.Author.Login,
+                    AuthorLogin = issue.Author == null ? null : issue.Author.Login,
                     Body = issue.Body,
                     Title = issue.Title,
                     CreatedAt = issue.CreatedAt
@@ -396,7 +396,7 @@ public static class OctokitGraphQLDownloadHelper
                     {
                         Number = issue.Number,
                         Labels = issue.Labels(null, null, null, null, null).AllPages().Select(x => x.Name).ToList(),
-                        AuthorLogin = issue.Author.Login,
+                        AuthorLogin = issue.Author == null ? null : issue.Author.Login,
                         Body = issue.Body,
                         Title = issue.Title,
                         CreatedAt = issue.CreatedAt
