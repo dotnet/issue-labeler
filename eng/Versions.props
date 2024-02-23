@@ -13,7 +13,7 @@
     <!-- GitHub Packages -->
     <GitHubJwtVersion>0.0.6</GitHubJwtVersion>
     <GraphQLClientVersion>6.0.0</GraphQLClientVersion>
-    <OctokitVersion>6.0.0</OctokitVersion>
+    <OctokitVersion>10.0.0</OctokitVersion>
     <OctokitGraphQLVersion>0.2.0-beta</OctokitGraphQLVersion>
 
     <!-- ML.NET Packages -->
