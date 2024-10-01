@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.12.1" />
     <PackageReference Include="Azure.Storage.Blobs" Version="$(MicrosoftAzureStorageBlobsVersion)" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
   </ItemGroup>

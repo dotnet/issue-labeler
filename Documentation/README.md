@@ -166,8 +166,8 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
       src/ModelCreator> dotnet run -- dotnet/maui
       ```
       1. If you get an error that the repo is not listed, edit the `repos.json` file and add your repo. And then also send a PR to have the list updated in the issue labeler repo.
-      1. The tool will download all the GitHub issues and PRs from the repo. This can take anywhere from a few minutes to even 10 minutes, depending on how many issues/PRs exist in the repo.
-      1. It will then run a computationally intensive process to perform the machine learning. This can take around 30 minutes on a high-end workstation.
+      1. The tool will download all the GitHub issues and PRs from the repo. This can take anywhere from a few minutes to even 30 minutes, depending on how many issues/PRs exist in the repo.
+      1. It will then run a computationally intensive process to perform the machine learning. This can take around 30-90 minutes on a high-end workstation (a recent run for dotnet/maui took 75 minutes).
       1. The output will be two ZIP files containing the models for issues and PRs. If the repo has no PRs, that model will be skipped.
 1. Test the model locally
    1. Open a command prompt in the `src/ModelTester` folder
@@ -177,12 +177,9 @@ To get started, clone the https://github.com/dotnet/issue-labeler repo so that y
        ```
       :warning: Note: The same `GitHubAccessToken` user-secret is required
 1. Upload model to Azure storage
-   1. Get the Azure Storage access key for the `dotnetissuelabelerdata` storage account in Azure
-      1. In the Azure Portal, go to the DDFun IaaS Dev Shared Public subscription, navigate into the subscriptions Resources, and select the `dotnetissuelabelerdata` storage account
-      1. Select **Access keys** from the left side menu
-      1. Copy the Key value for key1 or key2.
-      1. In the command prompt run: `dotnet user-secrets set IssueLabelerKey AZURE_KEY_HERE`.
+   1. Check that you have the [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed to authenticate your machine with Azure and access the labeler storage account
    1. Open a command prompt in the `src/ModelUploader` folder
+   1. Run `az login` and follow any authentication steps. Then select the `DDFun IaaS Dev Shared Public` by its listed number and press <kbd>Enter</kbd>
    1. Run the tool for the repo data you wish to upload: `dotnet run -- PATH_TO_ZIPS OWNER/REPO`, for example:
       ```powershell
       src/ModelUploader> dotnet run -- ..\ModelCreator dotnet/maui

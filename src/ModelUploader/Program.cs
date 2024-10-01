@@ -1,4 +1,5 @@
-﻿using Azure.Storage.Blobs;
+﻿using Azure.Identity;
+using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -31,25 +32,10 @@ if (zipPaths is null)
 
 Console.WriteLine("Connecting to Azure Storage...");
 
-var azureStorageConnectionString = GetAzureConnectionString();
-if (string.IsNullOrEmpty(azureStorageConnectionString))
-{
-    PrintHelp(
-        $"ERROR: Couldn't find User Secret named '{UserSecretKey}' in configuration.",
-        $"If you don't have a key configured for the app, follow these steps:",
-        $"1. Go to https://portal.azure.com/",
-        $"2. Go to this subscription: DDFun IaaS Dev Shared Public",
-        $"3. Go to this storage resource: dotnetissuelabelerdata",
-        $"4. Select Access keys",
-        $"5. Copy the Key value for key1 or key2.",
-        $"6. Open a command prompt in this project's directory",
-        $"7. Run: dotnet user-secrets set {UserSecretKey} AZURE_KEY_HERE");
-    return 1;
-}
 BlobContainerClient container;
 try
 {
-    container = new BlobContainerClient(azureStorageConnectionString, blobContainerName: "areamodels");
+    container = new BlobContainerClient(new Uri("https://dotnetissuelabelerdata.blob.core.windows.net/areamodels"), new AzureCliCredential());
 }
 catch (Exception ex)
 {
@@ -181,20 +167,6 @@ static (string pathToIssueModelZip, string? pathToPRModelZip)? GetModelZipPaths(
         Console.WriteLine($@"INFO: Found optional PR model here: {pathToPRModelZip}");
     }
     return (pathToIssueModelZip, pathToPRModelZip);
-}
-
-static string? GetAzureConnectionString()
-{
-    var config = new ConfigurationBuilder()
-        .AddUserSecrets("dotnet-issue-labeler")
-        .Build();
-
-    var azureConnectionKey = config[UserSecretKey];
-    if (string.IsNullOrEmpty(azureConnectionKey))
-    {
-        return null;
-    }
-    return $"DefaultEndpointsProtocol=https;AccountName=dotnetissuelabelerdata;AccountKey={azureConnectionKey};EndpointSuffix=core.windows.net";
 }
 
 static void PrintHelp(params string[]? errorMessages)
