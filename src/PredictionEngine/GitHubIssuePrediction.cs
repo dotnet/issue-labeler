@@ -6,6 +6,7 @@ using Microsoft.ML.Data;
 
 namespace PredictionEngine;
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 public class GitHubIssuePrediction
 {
     [ColumnName("PredictedLabel")]
@@ -13,3 +14,4 @@ public class GitHubIssuePrediction
 
     public float[] Score;
 }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.

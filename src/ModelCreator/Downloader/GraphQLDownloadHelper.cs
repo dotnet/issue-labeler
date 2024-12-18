@@ -55,12 +55,12 @@ class GraphQLDownloadHelper
 
     public static async Task<bool> ProcessGitHubIssueData<T>(
         GraphQLHttpClient ghGraphQL, string owner, string repo, IssueType issueType, Dictionary<(DateTimeOffset, long, string), string> outputLines,
-        Func<GraphQLHttpClient, string, string, IssueType, string, Task<GitHubListPage<T>>> getPage) where T : IssuesNode
+        Func<GraphQLHttpClient, string, string, IssueType, string?, Task<GitHubListPage<T>>> getPage) where T : IssuesNode
     {
         Trace.WriteLine($"Getting all '{issueType}' items for {owner}/{repo}...");
         int backToBackFailureCount = 0;
         var hasNextPage = true;
-        string afterID = null;
+        string? afterID = null;
         var totalProcessed = 0;
         do
         {
@@ -202,7 +202,7 @@ class GraphQLDownloadHelper
         }
     }
 
-    public static async Task<GitHubListPage<T>> GetGitHubIssuePage<T>(GraphQLHttpClient ghGraphQL, string owner, string repo, IssueType issueType, string afterID)
+    public static async Task<GitHubListPage<T>> GetGitHubIssuePage<T>(GraphQLHttpClient ghGraphQL, string owner, string repo, IssueType issueType, string? afterID)
     {
         var prSpecific = issueType switch
         {
