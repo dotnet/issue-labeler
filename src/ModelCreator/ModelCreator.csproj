@@ -1,9 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-  <Import Project="..\..\eng\Versions.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>$(SolutionTargetFrameworkVersion)</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>dotnet-issue-labeler</UserSecretsId>
@@ -16,14 +13,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Octokit" Version="$(OctokitVersion)" />
-    <PackageReference Include="Octokit.GraphQL" Version="$(OctokitGraphQLVersion)" />
-    <PackageReference Include="GraphQL.Client" Version="$(GraphQLClientVersion)" />
-    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="$(GraphQLClientVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="$(MicrosoftExtensionsVersion)" />
-    <PackageReference Include="Microsoft.ML" Version="$(MicrosoftMLVersion)" />
-    <PackageReference Include="Microsoft.ML.AutoML" Version="$(MicrosoftMLAutoMLVersion)" />
-    <PackageReference Include="Microsoft.ML.FastTree" Version="$(MicrosoftMLVersion)" />
+    <PackageReference Include="Octokit" />
+    <PackageReference Include="Octokit.GraphQL" />
+    <PackageReference Include="GraphQL.Client" />
+    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
+    <PackageReference Include="Microsoft.ML" />
+    <PackageReference Include="Microsoft.ML.AutoML" />
+    <PackageReference Include="Microsoft.ML.FastTree" />
   </ItemGroup>
 
   <ItemGroup>
