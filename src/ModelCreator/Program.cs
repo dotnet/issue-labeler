@@ -36,7 +36,7 @@ public class Program
         var repoJsonContents = File.ReadAllText(repoJsonFileName);
         Trace.WriteLine($"Loaded repo list from {repoJsonFileName}");
 
-        var repoList = JsonSerializer.Deserialize<IDictionary<string, string[][]>>(repoJsonContents, new JsonSerializerOptions() { ReadCommentHandling = JsonCommentHandling.Skip, });
+        var repoList = JsonSerializer.Deserialize<IDictionary<string, string[][]>>(repoJsonContents, new JsonSerializerOptions() { ReadCommentHandling = JsonCommentHandling.Skip, })!;
 
         var repoArrays = repoList["repos"];
 

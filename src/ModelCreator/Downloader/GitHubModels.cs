@@ -5,6 +5,7 @@
 // Various models used to deserialize GraphQL responses from GitHub
 namespace ModelCreator.Downloader;
 
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 public class GitHubListPage<T>
 {
     public bool IsError { get; set; }
@@ -70,3 +71,4 @@ public class PageInfo
     public bool HasNextPage { get; set; }
     public string EndCursor { get; set; }
 }
+#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
