@@ -30,7 +30,7 @@ on:
 jobs:
   predict-pulls:
     # Do not run the workflow on forks outside the 'dotnet' org
-    if: ${{ github.repository_owner == 'jeffhandley' && (inputs.pull_numbers || github.event.number) }}
+    if: ${{ github.repository_owner == 'dotnet' && (inputs.pull_numbers || github.event.number) }}
     permissions:
       pull-requests: write
     uses: dotnet/issue-labeler/.github/workflows/predict-pulls.yml@main
