@@ -1,0 +1,17 @@
+name: "Labeler: Build Predictor App"
+
+on:
+  # Allow dispatching the workflow via the Actions UI
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: "Force a rebuild of the app"
+        type: boolean
+
+jobs:
+  build-predictor:
+    permissions:
+      actions: write
+    uses: dotnet/issue-labeler/.github/workflows/build-predictor.yml@main
+    with:
+      rebuild: ${{ inputs.rebuild }}

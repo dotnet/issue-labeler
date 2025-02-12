@@ -1,0 +1,64 @@
+name: "Predict Issue Labels"
+
+on:
+  workflow_call:
+    inputs:
+      issue_numbers:
+        description: "Issue Numbers"
+        type: string
+        required: true
+      label_prefix:
+        description: "Label Prefix"
+        type: string
+        required: true
+      threshold:
+        description: "The minimum confidence score for a label prediction"
+        type: number
+        required: true
+      default_label:
+        description: "Default Label (leave blank for no default label)"
+        type: string
+      model_cache_key:
+        description: "The cache key suffix to use for loading the model"
+        type: string
+        required: true
+        default: "LIVE"
+
+permissions:
+  issues: write
+
+env:
+  MODEL_PATH: labeler-cache/issue-model.zip
+  MODEL_CACHE_KEY: github-ml-labeler/issues/model/${{ inputs.model_cache_key }}
+  BUILD_CACHE_KEY: "github-ml-labeler/predictor-app"
+
+jobs:
+  predict-issues:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Restore the Predictor app from cache"
+        id: restore-predictor-app
+        uses: actions/cache/restore@v4
+        with:
+          path: labeler-build/Predictor
+          key: ${{ env.BUILD_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Restore model from cache"
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Run Predictor"
+        run: |
+          ./labeler-build/Predictor/Predictor \
+            ${{ format('--token "{0}"', secrets.GITHUB_TOKEN) }} \
+            ${{ format('--repo "{0}"', github.repository) }} \
+            ${{ format('--issue-model "{0}"', env.MODEL_PATH) }} \
+            ${{ format('--issue-numbers "{0}"', inputs.issue_numbers) }} \
+            ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
+            ${{ format('--threshold {0}', inputs.threshold) }} \
+            ${{ inputs.default_label && format('--default-label "{0}"', inputs.default_label) }}

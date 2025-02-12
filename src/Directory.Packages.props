@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.ML" Version="4.0.0" />
+    <PackageVersion Include="GitHubJwt" Version="0.0.6" />
+    <PackageVersion Include="GraphQL.Client" Version="6.1.0" />
+    <PackageVersion Include="GraphQL.Client.Serializer.SystemTextJson" Version="6.1.0" />
+    <PackageVersion Include="Octokit" Version="13.0.1" />
+
+    <!-- Transitive dependency version bumps -->
+    <PackageVersion Include="System.Private.Uri" Version="4.3.2" />
+  </ItemGroup>
+</Project>

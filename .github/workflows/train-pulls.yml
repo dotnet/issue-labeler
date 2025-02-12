@@ -1,0 +1,83 @@
+name: "Train Pulls Model"
+
+on:
+  workflow_call:
+    inputs:
+      data_cache_key:
+        description: "The optional cache key suffix to use for loading the data"
+        type: string
+      model_cache_key:
+        description: "The cache key suffix to use for saving the model"
+        type: string
+        required: true
+
+permissions:
+  actions: write
+
+env:
+  DATA_PATH: labeler-cache/pull-data.tsv
+  DATA_CACHE_KEY: github-ml-labeler/pulls/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}
+  MODEL_PATH: labeler-cache/pull-model.zip
+  MODEL_CACHE_KEY: github-ml-labeler/pulls/model/${{ inputs.model_cache_key }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  train-pulls:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Check out the 'dotnet/issue-labeler' repo"
+        uses: actions/checkout@v4
+        with:
+          repository: dotnet/issue-labeler
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      # Restore from cache after checkout out the repo to prevent
+      # the restored files from getting removed during checkout
+      - name: "Restore data from cache"
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DATA_PATH }}
+          key: ${{ env.DATA_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Restore existing model cache entry if one exists"
+        id: check-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}
+          fail-on-cache-miss: false
+
+      - name: "Cache backup of existing model"
+        if: ${{ steps.check-cache.outputs.cache-hit == 'true' }}
+        id: backup-model
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}/backup
+
+      - name: "Delete existing model cache entry and local copy"
+        if: ${{ steps.check-cache.outputs.cache-hit == 'true' }}
+        run: |
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/${{ github.repository }}/actions/caches?key=${{ env.MODEL_CACHE_KEY }}
+
+            rm ${{ env.MODEL_PATH }}
+
+      - name: "Run Trainer"
+        run: |
+          dotnet run -c Release --project ./src/Trainer --  \
+            ${{ format('--pull-data "{0}"', env.DATA_PATH) }} \
+            ${{ format('--pull-model "{0}"', env.MODEL_PATH) }}
+
+      - name: "Save model to cache"
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}

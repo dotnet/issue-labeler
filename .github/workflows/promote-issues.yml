@@ -1,0 +1,88 @@
+name: "Promote Issues Model"
+
+on:
+  workflow_call:
+    inputs:
+      model_cache_key:
+        description: "The cache key suffix to promote from staging"
+        type: string
+        required: true
+      backup_cache_key:
+        description: "The cache key suffix to use for backing up the currently promoted model"
+        type: string
+        default: "backup"
+
+env:
+  MODEL_PATH: labeler-cache/issue-model.zip
+  MODEL_CACHE_KEY: github-ml-labeler/issues/model/${{ inputs.model_cache_key }}
+  PROMOTION_CACHE_KEY: github-ml-labeler/issues/model/LIVE
+  BACKUP_CACHE_KEY: github-ml-labeler/issues/model/${{ inputs.backup_cache_key }}
+  GH_TOKEN: ${{ github.token }}
+
+permissions:
+  actions: write
+
+jobs:
+  promote-issues:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: "Check for existing backup cache entry"
+        id: check-backup
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.BACKUP_CACHE_KEY }}
+          lookup-only: true
+          fail-on-cache-miss: false
+
+      - name: "Abort if backup cache entry already exists"
+        if: ${{ steps.check-backup.outputs.cache-hit == 'true' }}
+        run: |
+            echo "Cannot save backup of currently promoted model. Backup cache key already exists."
+            echo "Key: ${{ env.BACKUP_CACHE_KEY }}"
+
+            exit 1
+
+      - name: "Restore existing promotion cache entry if one exists"
+        if: ${{ steps.check-backup.outputs.cache-hit != 'true'}}
+        id: check-promotion
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.PROMOTION_CACHE_KEY }}
+          fail-on-cache-miss: false
+
+      - name: "Cache backup of existing promotion model"
+        if: ${{ steps.check-promotion.outputs.cache-hit == 'true' }}
+        id: backup-model
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.BACKUP_CACHE_KEY }}
+
+      - name: "Remove local copy of currently promoted model"
+        if: ${{ steps.check-promotion.outputs.cache-hit == 'true' }}
+        run: rm ${{ env.MODEL_PATH }}
+
+      - name: "Restore model to be promoted from cache"
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Delete existing cache entry"
+        if: ${{ steps.check-promotion.outputs.cache-hit == 'true' }}
+        run: |
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/${{ github.repository }}/actions/caches?key=${{ env.PROMOTION_CACHE_KEY }}
+
+      - name: "Save promoted model to cache"
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.PROMOTION_CACHE_KEY }}

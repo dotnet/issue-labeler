@@ -1,0 +1,65 @@
+name: "Build Predictor App"
+
+on:
+  workflow_call:
+    inputs:
+      rebuild:
+        description: "Force a rebuild of the app"
+        type: boolean
+
+env:
+  BUILD_CACHE_KEY: "github-ml-labeler/predictor-app"
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  check-cache:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    steps:
+      - name: "Check the cache for an existing build of the Predictor"
+        id: restore-predictor-app
+        uses: actions/cache/restore@v4
+        with:
+          path: labeler-build/Predictor
+          key: ${{ env.BUILD_CACHE_KEY }}
+          lookup-only: true
+          fail-on-cache-miss: false
+
+      - name: "Show instructions for rebuilding"
+        if: ${{ steps.restore-predictor-app.outputs.cache-hit == 'true' && !inputs.rebuild }}
+        run: echo "To rebuild the predictor app, delete the '${{ env.BUILD_CACHE_KEY }}' action cache entry or rerun the 'build-predictor' workflow with 'rebuild' set to true."
+
+      - name: "Delete existing cache entry"
+        if: ${{ steps.restore-predictor-app.outputs.cache-hit == 'true' && inputs.rebuild }}
+        run: |
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/${{ github.repository }}/actions/caches?key=${{ env.BUILD_CACHE_KEY }}
+
+    outputs:
+      needs-build: ${{ steps.restore-predictor-app.outputs.cache-hit != 'true' || inputs.rebuild }}
+
+  build-predictor:
+    runs-on: ubuntu-24.04
+    needs: check-cache
+    if: ${{ needs.check-cache.outputs.needs-build == 'true' }}
+    steps:
+      - name: "Check out the 'dotnet/issue-labeler' repo"
+        uses: actions/checkout@v4
+        with:
+          repository: dotnet/issue-labeler
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: "Build Predictor"
+        run: dotnet publish --self-contained -r linux-x64 -c Release -o ./labeler-build/Predictor ./src/Predictor
+
+      - name: "Save Predictor app to cache"
+        uses: actions/cache/save@v4
+        with:
+          path: labeler-build/Predictor
+          key: ${{ env.BUILD_CACHE_KEY }}
