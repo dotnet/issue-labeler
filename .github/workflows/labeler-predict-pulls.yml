@@ -13,7 +13,6 @@ on:
   # Only automatically predict area labels when pull requests are first opened
   pull_request_target:
     types: opened
-    branches: "main"
 
   # Allow dispatching the workflow via the Actions UI, specifying ranges of numbers
   workflow_dispatch:
