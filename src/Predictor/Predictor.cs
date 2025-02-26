@@ -151,6 +151,9 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
             Score = score,
             Label = labels.GetItemOrDefault(index).ToString()
         })
+        // Ensure predicted labels match the expected predicate
+        .Where(prediction => labelPredicate(prediction.Label))
+        // Capture the top 3 for including in the output
         .OrderByDescending(p => p.Score)
         .Take(3);
 
