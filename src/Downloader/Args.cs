@@ -3,19 +3,22 @@
 
 public static class Args
 {
+    private const string DefaultIssuesFileName = "issues.tsv";
+    private const string DefaultPullsFileName = "pulls.tsv";
+
     public static void ShowUsage(string? message = null)
     {
         Console.WriteLine($"Invalid or missing arguments.{(message is null ? "" : " " + message)}");
-        Console.WriteLine("  --token {github_token}");
         Console.WriteLine("  --repo {org/repo1}[,{org/repo2},...]");
         Console.WriteLine("  --label-prefix {label-prefix}");
-        Console.WriteLine("  [--issue-data {path/to/issues.tsv}]");
+        Console.WriteLine($"  [--issue-data {{path/to/{DefaultIssuesFileName}}}]. Default: <current folder>/{DefaultIssuesFileName}");
         Console.WriteLine("  [--issue-limit {rows}]");
-        Console.WriteLine("  [--pull-data {path/to/pulls.tsv}]");
+        Console.WriteLine($"  [--pull-data {{path/to/{DefaultPullsFileName}}}]. Default: <current folder>/{DefaultPullsFileName}");
         Console.WriteLine("  [--pull-limit {rows}]");
         Console.WriteLine("  [--page-size {size}]");
         Console.WriteLine("  [--page-limit {pages}]");
-        Console.WriteLine("  [--retries {comma-separated-retries-in-seconds}]");
+        Console.WriteLine("  [--retries {comma-separated-retries-in-seconds}]. Default: 30,30,300,300,3000,3000");
+        Console.WriteLine("  [--token {github_token}]. Default: read from GITHUB_TOKEN env var");
         Console.WriteLine("  [--verbose]");
 
         Environment.Exit(1);
@@ -131,12 +134,16 @@ public static class Args
             }
         }
 
-        if (org is null || repos is null || githubToken is null || labelPredicate is null ||
-            (issuesPath is null && pullsPath is null))
+        githubToken ??= Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+
+        if (org is null || repos is null || githubToken is null || labelPredicate is null)
         {
             ShowUsage();
             return null;
         }
+
+        issuesPath = ResolvePath(issuesPath, defaultFileName: DefaultIssuesFileName);
+        pullsPath = ResolvePath(pullsPath, defaultFileName: DefaultPullsFileName);
 
         return (
             org,
@@ -152,5 +159,20 @@ public static class Args
             labelPredicate,
             verbose
         );
+
+        static string ResolvePath(string? path, string defaultFileName)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return Path.Combine(Environment.CurrentDirectory, defaultFileName);
+            }
+
+            if (!Path.IsPathRooted(path))
+            {
+                return Path.GetFullPath(path);
+            }
+
+            return path;
+        }
     }
 }
