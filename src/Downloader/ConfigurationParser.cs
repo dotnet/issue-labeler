@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-public static class Args
+public static class ConfigurationParser
 {
     private const string DefaultIssuesFileName = "issues.tsv";
     private const string DefaultPullsFileName = "pulls.tsv";
@@ -24,35 +24,16 @@ public static class Args
         Environment.Exit(1);
     }
 
-    public static (
-        string org,
-        string[] repos,
-        string githubToken,
-        string? issuesPath,
-        int? issueLimit,
-        string? pullsPath,
-        int? pullLimit,
-        int? pageSize,
-        int? pageLimit,
-        int[] retries,
-        Predicate<string> labelPredicate,
-        bool verbose
-    )?
-    Parse(string[] args)
+    public static Configuration? Parse(string[] args)
     {
+        string? gitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+
         Queue<string> arguments = new(args);
-        string? org = null;
-        List<string>? repos = null;
-        string? githubToken = null;
-        string? issuesPath = null;
-        int? issueLimit = null;
-        string? pullsPath = null;
-        int? pullLimit = null;
-        int? pageSize = null;
-        int? pageLimit = null;
-        int[] retries = [30, 30, 300, 300, 3000, 3000];
-        Predicate<string>? labelPredicate = null;
-        bool verbose = false;
+        Configuration config = new()
+        {
+            Repos = [],
+            Retries = [30, 30, 300, 300, 3000, 3000]
+        };
 
         while (arguments.Count > 0)
         {
@@ -61,7 +42,7 @@ public static class Args
             switch (argument)
             {
                 case "--token":
-                    githubToken = arguments.Dequeue();
+                    gitHubToken = arguments.Dequeue();
                     break;
                 case "--repo":
                     string orgRepos = arguments.Dequeue();
@@ -70,33 +51,32 @@ public static class Args
                     {
                         if (!orgRepo.Contains('/'))
                         {
-                            ShowUsage($$"""Argument '--repo' is not in the format of '{org}/{repo}': {{orgRepo}}""");
+                            ShowUsage($"Argument '--repo' is not in the format of '{{org}}/{{repo}}': {orgRepo}");
                             return null;
                         }
 
                         string[] parts = orgRepo.Split('/');
 
-                        if (org is not null && org != parts[0])
+                        if (config.Org is not null && config.Org != parts[0])
                         {
                             ShowUsage("All '--repo' values must be from the same org.");
                             return null;
                         }
 
-                        org ??= parts[0];
-                        repos ??= new();
-                        repos.Add(parts[1]);
+                        config.Org ??= parts[0];
+                        config.Repos.Add(parts[1]);
                     }
 
                     break;
                 case "--issue-data":
-                    issuesPath = arguments.Dequeue();
+                    config.IssuesPath = arguments.Dequeue();
                     break;
                 case "--issue-limit":
-                    issueLimit = int.Parse(arguments.Dequeue());
+                    config.IssueLimit = int.Parse(arguments.Dequeue());
                     break;
                 case "--pull-data":
-                    pullsPath = arguments.Dequeue();
-                    if (string.IsNullOrWhiteSpace(pullsPath))
+                    config.PullsPath = arguments.Dequeue();
+                    if (string.IsNullOrWhiteSpace(config.PullsPath))
                     {
                         ShowUsage("Argument '--pull-data' has an empty value.");
                         return null;
@@ -104,16 +84,16 @@ public static class Args
 
                     break;
                 case "--pull-limit":
-                    pullLimit = int.Parse(arguments.Dequeue());
+                    config.PullLimit = int.Parse(arguments.Dequeue());
                     break;
                 case "--page-size":
-                    pageSize = int.Parse(arguments.Dequeue());
+                    config.PageSize = int.Parse(arguments.Dequeue());
                     break;
                 case "--page-limit":
-                    pageLimit = int.Parse(arguments.Dequeue());
+                    config.PageLimit = int.Parse(arguments.Dequeue());
                     break;
                 case "--retries":
-                    retries = arguments.Dequeue().Split(',').Select(r => int.Parse(r)).ToArray();
+                    config.Retries = arguments.Dequeue().Split(',').Select(r => int.Parse(r)).ToArray();
                     break;
                 case "--label-prefix":
                     string labelPrefix = arguments.Dequeue();
@@ -123,10 +103,10 @@ public static class Args
                         return null;
                     }
 
-                    labelPredicate = (label) => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
+                    config.LabelPredicate = (label) => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
                     break;
                 case "--verbose":
-                    verbose = true;
+                    config.Verbose = true;
                     break;
                 default:
                     ShowUsage($"Unrecognized argument: {argument}");
@@ -134,31 +114,17 @@ public static class Args
             }
         }
 
-        githubToken ??= Environment.GetEnvironmentVariable("GITHUB_TOKEN");
-
-        if (org is null || repos is null || githubToken is null || labelPredicate is null)
+        if (config.Org is null || config.Repos.Count == 0 || gitHubToken is null || config.LabelPredicate is null)
         {
             ShowUsage();
             return null;
         }
 
-        issuesPath = ResolvePath(issuesPath, defaultFileName: DefaultIssuesFileName);
-        pullsPath = ResolvePath(pullsPath, defaultFileName: DefaultPullsFileName);
+        config.GithubToken = gitHubToken;
+        config.IssuesPath = ResolvePath(config.IssuesPath, defaultFileName: DefaultIssuesFileName);
+        config.PullsPath = ResolvePath(config.PullsPath, defaultFileName: DefaultPullsFileName);
 
-        return (
-            org,
-            repos.ToArray(),
-            githubToken,
-            issuesPath,
-            issueLimit,
-            pullsPath,
-            pullLimit,
-            pageSize,
-            pageLimit,
-            retries,
-            labelPredicate,
-            verbose
-        );
+        return config;
 
         static string ResolvePath(string? path, string defaultFileName)
         {
