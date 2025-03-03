@@ -5,35 +5,22 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using GitHubClient;
 
-var arguments = Args.Parse(args);
-if (arguments is null) return;
-(
-    string org,
-    string repo,
-    string githubToken,
-    string? issueModelPath,
-    List<ulong>? issueNumbers,
-    string? pullModelPath,
-    List<ulong>? pullNumbers,
-    float threshold,
-    Func<string, bool> labelPredicate,
-    string? defaultLabel,
-    bool test
-) = arguments.Value;
+var config = ConfigurationParser.Parse(args);
+if (config is not Configuration argsData) return;
 
 List<Task<(ModelType Type, ulong Number, bool Success, string[] Output)>> tasks = new();
 
-if (issueModelPath is not null && issueNumbers is not null)
+if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
 {
     Console.WriteLine("Loading issues model...");
     var issueContext = new MLContext();
-    var issueModel = issueContext.Model.Load(issueModelPath, out _);
+    var issueModel = issueContext.Model.Load(argsData.IssueModelPath, out _);
     var issuePredictor = issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel);
     Console.WriteLine("Issues prediction engine ready.");
 
-    foreach (ulong issueNumber in issueNumbers)
+    foreach (ulong issueNumber in argsData.IssueNumbers)
     {
-        var result = await GitHubApi.GetIssue(githubToken, org, repo, issueNumber);
+        var result = await GitHubApi.GetIssue(argsData.GithubToken, argsData.Org, argsData.Repo, issueNumber);
 
         if (result is null)
         {
@@ -45,25 +32,25 @@ if (issueModelPath is not null && issueNumbers is not null)
             issuePredictor,
             issueNumber,
             new Issue(result),
-            labelPredicate,
-            defaultLabel,
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
             ModelType.Issue,
-            test
+            argsData.Test
         )));
     }
 }
 
-if (pullModelPath is not null && pullNumbers is not null)
+if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
 {
     Console.WriteLine("Loading pulls model...");
     var pullContext = new MLContext();
-    var pullModel = pullContext.Model.Load(pullModelPath, out _);
+    var pullModel = pullContext.Model.Load(argsData.PullModelPath, out _);
     var pullPredictor = pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel);
     Console.WriteLine("Pulls prediction engine ready.");
 
-    foreach (ulong pullNumber in pullNumbers)
+    foreach (ulong pullNumber in argsData.PullNumbers)
     {
-        var result = await GitHubApi.GetPullRequest(githubToken, org, repo, pullNumber);
+        var result = await GitHubApi.GetPullRequest(argsData.GithubToken, argsData.Org, argsData.Repo, pullNumber);
 
         if (result is null)
         {
@@ -75,10 +62,10 @@ if (pullModelPath is not null && pullNumbers is not null)
             pullPredictor,
             pullNumber,
             new PullRequest(result),
-            labelPredicate,
-            defaultLabel,
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
             ModelType.PullRequest,
-            test
+            argsData.Test
         )));
     }
 }
@@ -125,7 +112,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(githubToken, org, repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
             }
 
             output.Add(error ?? $"Removed default label '{defaultLabel}'.");
@@ -160,16 +147,16 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
     output.Add("Label predictions:");
     output.AddRange(predictions.Select(p => $"  '{p.Label}' - Score: {p.Score}"));
 
-    var bestScore = predictions.FirstOrDefault(p => p.Score >= threshold);
+    var bestScore = predictions.FirstOrDefault(p => p.Score >= argsData.Threshold);
     output.Add(bestScore is not null ?
-        $"Label '{bestScore.Label}' meets threshold of {threshold}." :
-        $"No label meets the threshold of {threshold}.");
+        $"Label '{bestScore.Label}' meets threshold of {argsData.Threshold}." :
+        $"No label meets the threshold of {argsData.Threshold}.");
 
     if (bestScore is not null)
     {
         if (!test)
         {
-            error = await GitHubApi.AddLabel(githubToken, org, repo, type.ToString(), number, bestScore.Label);
+            error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, bestScore.Label);
         }
 
         output.Add(error ?? $"Added label '{bestScore.Label}'");
@@ -183,7 +170,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(githubToken, org, repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
             }
 
             output.Add(error ?? $"Removed default label '{defaultLabel}'");
@@ -202,7 +189,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.AddLabel(githubToken, org, repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
             }
 
             output.Add(error ?? $"Applied default label '{defaultLabel}'.");

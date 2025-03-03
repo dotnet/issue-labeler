@@ -1,52 +1,31 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-public static class Args
+public static class ConfigurationParser
 {
     public static void ShowUsage(string? message = null)
     {
         Console.WriteLine($"Invalid or missing arguments.{(message is null ? "" : " " + message)}");
-        Console.WriteLine("  --token {github_token}");
         Console.WriteLine("  --repo {org}/{repo}");
         Console.WriteLine("  --label-prefix {label-prefix}");
-        Console.WriteLine("  --threshold {threshold}");
+        Console.WriteLine("  --threshold {threshold}. Numbers in range [0, 1]");
         Console.WriteLine("  [--issue-model {path/to/issue-model.zip}]");
-        Console.WriteLine("  [--issue-numbers {issue-numbers}]");
+        Console.WriteLine("  [--issue-numbers {issue-numbers}]. Comma-separated list of number ranges");
         Console.WriteLine("  [--pull-model {path/to/pull-model.zip}]");
-        Console.WriteLine("  [--pull-numbers {pull-numbers}]");
+        Console.WriteLine("  [--pull-numbers {pull-numbers}]. Comma-separated list of number ranges");
         Console.WriteLine("  [--default-label {needs-area-label}]");
+        Console.WriteLine("  [--token {github_token}]. Default: read from GITHUB_TOKEN env var");
         Console.WriteLine("  [--test]");
 
         Environment.Exit(1);
     }
 
-    public static (
-        string org,
-        string repo,
-        string githubToken,
-        string? issueModelPath,
-        List<ulong>? issueNumbers,
-        string? pullModelPath,
-        List<ulong>? pullNumbers,
-        float threshold,
-        Func<string, bool> labelPredicate,
-        string? defaultLabel,
-        bool test
-    )?
-    Parse(string[] args)
+    public static Configuration? Parse(string[] args)
     {
+        string? gitHubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
+
         Queue<string> arguments = new(args);
-        string? org = null;
-        string? repo = null;
-        string? githubToken = null;
-        string? issueModelPath = null;
-        List<ulong>? issueNumbers = null;
-        string? pullModelPath = null;
-        List<ulong>? pullNumbers = null;
-        float? threshold = null;
-        Func<string, bool>? labelPredicate = null;
-        string? defaultLabel = null;
-        bool test = false;
+        Configuration config = new();
 
         while (arguments.Count > 0)
         {
@@ -55,7 +34,7 @@ public static class Args
             switch (argument)
             {
                 case "--token":
-                    githubToken = arguments.Dequeue();
+                    gitHubToken = arguments.Dequeue();
                     break;
                 case "--repo":
                     string orgRepo = arguments.Dequeue();
@@ -67,12 +46,12 @@ public static class Args
                     }
 
                     string[] parts = orgRepo.Split('/');
-                    org = parts[0];
-                    repo = parts[1];
+                    config.Org = parts[0];
+                    config.Repo = parts[1];
                     break;
                 case "--issue-model":
-                    issueModelPath = arguments.Dequeue();
-                    if (string.IsNullOrWhiteSpace(issueModelPath))
+                    config.IssueModelPath = arguments.Dequeue();
+                    if (string.IsNullOrWhiteSpace(config.IssueModelPath))
                     {
                         ShowUsage("Argument '--issue-model' has an empty value.");
                         return null;
@@ -80,12 +59,12 @@ public static class Args
 
                     break;
                 case "--issue-numbers":
-                    issueNumbers ??= new();
-                    issueNumbers.AddRange(ParseNumbers(arguments.Dequeue()));
+                    config.IssueNumbers ??= new();
+                    config.IssueNumbers.AddRange(ParseNumbers(arguments.Dequeue()));
                     break;
                 case "--pull-model":
-                    pullModelPath = arguments.Dequeue();
-                    if (string.IsNullOrWhiteSpace(pullModelPath))
+                    config.PullModelPath = arguments.Dequeue();
+                    if (string.IsNullOrWhiteSpace(config.PullModelPath))
                     {
                         ShowUsage("Argument '--pull-model' has an empty value.");
                         return null;
@@ -93,8 +72,8 @@ public static class Args
 
                     break;
                 case "--pull-numbers":
-                    pullNumbers ??= new();
-                    pullNumbers.AddRange(ParseNumbers(arguments.Dequeue()));
+                    config.PullNumbers ??= new();
+                    config.PullNumbers.AddRange(ParseNumbers(arguments.Dequeue()));
                     break;
                 case "--label-prefix":
                     string labelPrefix = arguments.Dequeue();
@@ -104,16 +83,16 @@ public static class Args
                         return null;
                     }
 
-                    labelPredicate = label => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
+                    config.LabelPredicate = label => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
                     break;
                 case "--threshold":
-                    threshold = float.Parse(arguments.Dequeue());
+                    config.Threshold = float.Parse(arguments.Dequeue());
                     break;
                 case "--default-label":
-                    defaultLabel = arguments.Dequeue();
+                    config.DefaultLabel = arguments.Dequeue();
                     break;
                 case "--test":
-                    test = true;
+                    config.Test = true;
                     break;
                 default:
                     ShowUsage($"Unrecognized argument: {argument}");
@@ -121,28 +100,18 @@ public static class Args
             }
         }
 
-        if (org is null || repo is null || githubToken is null || threshold is null || labelPredicate is null ||
-            (issueModelPath is null != issueNumbers is null) ||
-            (pullModelPath is null != pullNumbers is null) ||
-            (issueModelPath is null && pullModelPath is null))
+        if (config.Org is null || config.Repo is null || gitHubToken is null || config.Threshold == 0 || config.LabelPredicate is null ||
+            (config.IssueModelPath is null != config.IssueNumbers is null) ||
+            (config.PullModelPath is null != config.PullNumbers is null) ||
+            (config.IssueModelPath is null && config.PullModelPath is null))
         {
             ShowUsage();
             return null;
         }
 
-        return (
-            (string)org,
-            (string)repo,
-            (string)githubToken,
-            issueModelPath,
-            issueNumbers,
-            pullModelPath,
-            pullNumbers,
-            (float)threshold,
-            (Func<string, bool>)labelPredicate,
-            defaultLabel,
-            test
-        );
+        config.GithubToken = gitHubToken;
+
+        return config;
     }
 
     private static ulong[] ParseNumbers(string argument)
