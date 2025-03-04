@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
+
 static class ConfigurationParser
 {
     private const string DefaultIssuesModelFileName = "issue-model.zip";
@@ -12,11 +14,20 @@ static class ConfigurationParser
         // • If you provide a path for pull data, you must also provide a path for the pull model, and vice versa.
         // • At least one pair of paths(either issue or pull) must be provided.
 
-        Console.WriteLine($"Invalid or missing arguments.{(message is null ? "" : " " + message)}");
-        Console.WriteLine("  [--issue-data {path/to/issue-data.tsv}]");
-        Console.WriteLine($"  [--issue-model {{path/to/{DefaultIssuesModelFileName}}}]. Default: <current folder>/{DefaultIssuesModelFileName}");
-        Console.WriteLine("  [--pull-data {path/to/pull-data.tsv}]");
-        Console.WriteLine($"  [--pull-model {{path/to/{DefaultPullsModelFileName}}}]. Default: <current folder>/{DefaultPullsModelFileName}");
+        Console.WriteLine($"ERROR: Invalid or missing arguments.{(message is null ? "" : " " + message)}");
+        Console.WriteLine();
+
+        string executableName = Process.GetCurrentProcess().ProcessName;
+
+        Console.WriteLine("Usage:");
+        Console.WriteLine();
+        Console.WriteLine($"  {executableName} --issue-data {{path/to/issue-data.tsv}} --issue-model {{path/to/{DefaultIssuesModelFileName}}}");
+        Console.WriteLine("      --issue-data        Input tab-separated list of source issues");
+        Console.WriteLine($"      --issue-model       Output ML model. Default: <current folder>/{DefaultIssuesModelFileName}");
+        Console.WriteLine();
+        Console.WriteLine($"  {executableName} --pull-data {{path/to/pull-data.tsv}} --pull-model {{path/to/{DefaultPullsModelFileName}}}");
+        Console.WriteLine("      --pull-data         Input tab-separated list of source pull-requests");
+        Console.WriteLine($"      --pull-model        Output ML model. Default: <current folder>/{DefaultPullsModelFileName}");
 
         Environment.Exit(1);
     }

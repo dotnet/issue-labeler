@@ -1,21 +1,51 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
+
 public static class ConfigurationParser
 {
     public static void ShowUsage(string? message = null)
     {
-        Console.WriteLine($"Invalid or missing arguments.{(message is null ? "" : " " + message)}");
-        Console.WriteLine("  --label-prefix {label-prefix}");
-        Console.WriteLine("  [--threshold {threshold}]");
-        Console.WriteLine("  [--repo {org/repo1}[,{org/repo2},...]]");
-        Console.WriteLine("  [--issue-data {path/to/issue-data.tsv}]");
-        Console.WriteLine("  [--issue-model {path/to/issue-model.zip}]");
-        Console.WriteLine("  [--issue-limit {issues}]");
-        Console.WriteLine("  [--pull-data {path/to/pull-data.tsv}]");
-        Console.WriteLine("  [--pull-model {path/to/pull-model.zip}]");
-        Console.WriteLine("  [--pull-limit {pulls}]");
-        Console.WriteLine("  [--token {github_token}]. Default: read from GITHUB_TOKEN env var");
+        // The entire condition is used to determine if the configuration is invalid.
+        // If any of the following are true, the configuration is considered invalid:
+        // • The LabelPredicate is null.
+        // • Both IssueDataPath and PullDataPath are null, and either Org, Repos, or GithubToken is null.
+        // • Both IssueModelPath and PullModelPath are null.
+
+        Console.WriteLine($"ERROR: Invalid or missing arguments.{(message is null ? "" : " " + message)}");
+        Console.WriteLine();
+
+        string executableName = Process.GetCurrentProcess().ProcessName;
+
+        Console.WriteLine("Usage:");
+        Console.WriteLine();
+        Console.WriteLine($"  {executableName} --repo {{org/repo1}}[,{{org/repo2}},...] --label-prefix {{label-prefix}} --threshold {{threshold}} --issue-data {{path/to/issue-data.tsv}} --issue-model {{path/to/issue-model.zip}} [options]");
+        Console.WriteLine();
+        Console.WriteLine("    Required arguments:");
+        Console.WriteLine("        --repo              The GitHub repositories in format org/repo (comma separated for multiple)");
+        Console.WriteLine("        --label-prefix      Prefix to filter GitHub labels");
+        Console.WriteLine("        --threshold         Classification confidence threshold. Range [0, 1]");
+        Console.WriteLine("        --issue-data        Path to input issue data file");
+        Console.WriteLine("        --issue-model       Path to ML model for issue classification");
+        Console.WriteLine();
+        Console.WriteLine("    Optional arguments:");
+        Console.WriteLine("        --issue-limit       Maximum number of issues to download");
+        Console.WriteLine("        --token             GitHub access token. Default: read from GITHUB_TOKEN env var");
+        Console.WriteLine();
+        Console.WriteLine($"  {executableName} --repo {{org/repo1}}[,{{org/repo2}},...] --label-prefix {{label-prefix}} --threshold {{threshold}} --pull-data {{path/to/pull-data.tsv}} --pull-model {{path/to/pull-model.zip}} [options]");
+        Console.WriteLine();
+        Console.WriteLine("    Required arguments:");
+        Console.WriteLine("        --repo              The GitHub repositories in format org/repo (comma separated for multiple)");
+        Console.WriteLine("        --label-prefix      Prefix to filter GitHub labels");
+        Console.WriteLine("        --threshold         Classification confidence threshold. Range [0, 1]");
+        Console.WriteLine("        --pull-data         Path to input pull request data file");
+        Console.WriteLine("        --pull-model        Path to ML model for pull request classification");
+        Console.WriteLine();
+        Console.WriteLine("    Optional arguments:");
+        Console.WriteLine("        --pull-limit        Maximum number of pull requests to process");
+        Console.WriteLine("        --token             GitHub access token. Default: read from GITHUB_TOKEN env var");
+
 
         Environment.Exit(1);
     }

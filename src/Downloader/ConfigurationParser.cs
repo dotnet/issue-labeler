@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Diagnostics;
+
 public static class ConfigurationParser
 {
     private const string DefaultIssuesFileName = "issues.tsv";
@@ -8,18 +10,29 @@ public static class ConfigurationParser
 
     public static void ShowUsage(string? message = null)
     {
-        Console.WriteLine($"Invalid or missing arguments.{(message is null ? "" : " " + message)}");
-        Console.WriteLine("  --repo {org/repo1}[,{org/repo2},...]");
-        Console.WriteLine("  --label-prefix {label-prefix}");
-        Console.WriteLine($"  [--issue-data {{path/to/{DefaultIssuesFileName}}}]. Default: <current folder>/{DefaultIssuesFileName}");
-        Console.WriteLine("  [--issue-limit {rows}]");
-        Console.WriteLine($"  [--pull-data {{path/to/{DefaultPullsFileName}}}]. Default: <current folder>/{DefaultPullsFileName}");
-        Console.WriteLine("  [--pull-limit {rows}]");
-        Console.WriteLine("  [--page-size {size}]");
-        Console.WriteLine("  [--page-limit {pages}]");
-        Console.WriteLine("  [--retries {comma-separated-retries-in-seconds}]. Default: 30,30,300,300,3000,3000");
-        Console.WriteLine("  [--token {github_token}]. Default: read from GITHUB_TOKEN env var");
-        Console.WriteLine("  [--verbose]");
+        Console.WriteLine($"ERROR: Invalid or missing arguments.{(message is null ? "" : " " + message)}");
+        Console.WriteLine();
+
+        string executableName = Process.GetCurrentProcess().ProcessName;
+
+        Console.WriteLine("Usage:");
+        Console.WriteLine();
+        Console.WriteLine($"  {executableName} --repo {{org/repo1}}[,{{org/repo2}},...] --label-prefix {{label-prefix}} [options]");
+        Console.WriteLine();
+        Console.WriteLine("  Required arguments:");
+        Console.WriteLine("      --repo              The GitHub repositories in format org/repo (comma separated for multiple)");
+        Console.WriteLine("      --label-prefix      Prefix to filter GitHub labels");
+        Console.WriteLine();
+        Console.WriteLine("  Optional arguments:");
+        Console.WriteLine($"      --issue-data        Path to issue data file. Default: <current folder>/{DefaultIssuesFileName}");
+        Console.WriteLine("      --issue-limit       Maximum number of issues to download");
+        Console.WriteLine($"      --pull-data         Path to pull request data file. Default: <current folder>/{DefaultPullsFileName}");
+        Console.WriteLine("      --pull-limit        Maximum number of pull requests to download");
+        Console.WriteLine("      --page-size         Number of items per page in GitHub API requests");
+        Console.WriteLine("      --page-limit        Maximum number of pages to retrieve");
+        Console.WriteLine("      --retries           Comma-separated retry delays in seconds. Default: 30,30,300,300,3000,3000");
+        Console.WriteLine("      --token             GitHub access token. Default: read from GITHUB_TOKEN env var");
+        Console.WriteLine("      --verbose           Enable verbose output");
 
         Environment.Exit(1);
     }
