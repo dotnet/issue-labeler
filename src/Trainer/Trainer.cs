@@ -6,21 +6,20 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Transforms.Text;
 
-(
-    string? issueDataPath,
-    string? issueModelPath,
-    string? pullDataPath,
-    string? pullModelPath
-) = Args.Parse(args);
-
-if (issueDataPath is not null && issueModelPath is not null)
+var config = ConfigurationParser.Parse(args);
+if (config is not Configuration argsData)
 {
-    CreateModel(issueDataPath, issueModelPath, ModelType.Issue);
+    return;
 }
 
-if (pullDataPath is not null && pullModelPath is not null)
+if (argsData.IssueDataPath is not null && argsData.IssueModelPath is not null)
 {
-    CreateModel(pullDataPath, pullModelPath, ModelType.PullRequest);
+    CreateModel(argsData.IssueDataPath, argsData.IssueModelPath, ModelType.Issue);
+}
+
+if (argsData.PullDataPath is not null && argsData.PullModelPath is not null)
+{
+    CreateModel(argsData.PullDataPath, argsData.PullModelPath, ModelType.PullRequest);
 }
 
 static void CreateModel(string dataPath, string modelPath, ModelType type)
@@ -92,7 +91,7 @@ static void CreateModel(string dataPath, string modelPath, ModelType type)
 
     Console.WriteLine($"************************************************************");
 
-    Console.WriteLine("Saving model...");
+    Console.WriteLine($"Saving model to '{modelPath}'...");
     EnsureOutputDirectory(modelPath);
     mlContext.Model.Save(trainedModel, split.TrainSet.Schema, modelPath);
 }
