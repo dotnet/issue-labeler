@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text;
 using GraphQL;
@@ -11,35 +12,34 @@ namespace GitHubClient;
 
 public class GitHubApi
 {
-    private static GraphQLHttpClient CreateGraphQLClient(string githubToken)
-    {
-        GraphQLHttpClient client = new GraphQLHttpClient(
-            "https://api.github.com/graphql",
-            new SystemTextJsonSerializer()
-        );
+    private static ConcurrentDictionary<string, GraphQLHttpClient> _graphQLClients = new();
+    private static ConcurrentDictionary<string, HttpClient> _restClients = new();
 
-        client.HttpClient.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue(
+    private static GraphQLHttpClient GetGraphQLClient(string githubToken) =>
+        _graphQLClients.GetOrAdd(githubToken, token => {
+            GraphQLHttpClient client = new("https://api.github.com/graphql", new SystemTextJsonSerializer());
+            client.HttpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    scheme: "bearer",
+                    parameter: token);
+
+            client.HttpClient.Timeout = TimeSpan.FromMinutes(2);
+
+            return client;
+        });
+
+    private static HttpClient GetRestClient(string githubToken) =>
+        _restClients.GetOrAdd(githubToken, token => {
+            HttpClient client = new();
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
                 scheme: "bearer",
-                parameter: githubToken);
+                parameter: token);
+            client.DefaultRequestHeaders.Accept.Add(new("application/vnd.github+json"));
+            client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+            client.DefaultRequestHeaders.Add("User-Agent", "Issue-Labeler");
 
-        client.HttpClient.Timeout = TimeSpan.FromMinutes(2);
-
-        return client;
-    }
-
-    private static HttpClient CreateRestClient(string githubToken)
-    {
-        HttpClient client = new();
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
-            scheme: "bearer",
-            parameter: githubToken);
-        client.DefaultRequestHeaders.Accept.Add(new("application/vnd.github+json"));
-        client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
-        client.DefaultRequestHeaders.Add("User-Agent", "Issue-Labeler");
-
-        return client;
-    }
+            return client;
+        });
 
     public static async IAsyncEnumerable<(Issue Issue, string Label)> DownloadIssues(string githubToken, string org, string repo, Predicate<string> labelPredicate, int? issueLimit, int pageSize, int pageLimit, int[] retries, bool verbose = false)
     {
@@ -162,7 +162,7 @@ public class GitHubApi
 
     private static async Task<Page<T>> GetItemsPage<T>(string githubToken, string org, string repo, int pageSize, string? after, string itemQueryName) where T : Issue
     {
-        using GraphQLHttpClient client = CreateGraphQLClient(githubToken);
+        GraphQLHttpClient client = GetGraphQLClient(githubToken);
 
         string files = typeof(T) == typeof(PullRequest) ? "files (first: 100) { nodes { path } }" : "";
 
@@ -222,7 +222,7 @@ public class GitHubApi
 
     private static async Task<T?> GetItem<T>(string githubToken, string org, string repo, ulong number, string itemQueryName) where T : Issue
     {
-        using GraphQLHttpClient client = CreateGraphQLClient(githubToken);
+        GraphQLHttpClient client = GetGraphQLClient(githubToken);
 
         string files = typeof(T) == typeof(PullRequest) ? "files (first: 100) { nodes { path } }" : "";
 
@@ -257,7 +257,7 @@ public class GitHubApi
 
     public static async Task<string?> AddLabel(string githubToken, string org, string repo, string type, ulong number, string label)
     {
-        using var client = CreateRestClient(githubToken);
+        var client = GetRestClient(githubToken);
         int[] retries = [5, 10, 30];
         byte retry = 0;
 
@@ -286,7 +286,7 @@ public class GitHubApi
 
     public static async Task<string?> RemoveLabel(string githubToken, string org, string repo, string type, ulong number, string label)
     {
-        using var client = CreateRestClient(githubToken);
+        var client = GetRestClient(githubToken);
         int[] retries = [5, 10, 30];
         byte retry = 0;
 
