@@ -14,9 +14,9 @@ on:
 
 env:
   MODEL_PATH: labeler-cache/pull-model.zip
-  MODEL_CACHE_KEY: github-ml-labeler/pulls/model/${{ inputs.model_cache_key }}
-  PROMOTION_CACHE_KEY: github-ml-labeler/pulls/model/LIVE
-  BACKUP_CACHE_KEY: github-ml-labeler/pulls/model/${{ inputs.backup_cache_key }}
+  MODEL_CACHE_KEY: issue-labeler/pulls/model/${{ inputs.model_cache_key }}
+  PROMOTION_CACHE_KEY: issue-labeler/pulls/model/LIVE
+  BACKUP_CACHE_KEY: issue-labeler/pulls/model/${{ inputs.backup_cache_key }}
   GH_TOKEN: ${{ github.token }}
 
 permissions:

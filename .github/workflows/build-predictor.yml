@@ -8,7 +8,7 @@ on:
         type: boolean
 
 env:
-  BUILD_CACHE_KEY: "github-ml-labeler/predictor-app"
+  BUILD_CACHE_KEY: "issue-labeler/predictor-app"
   GH_TOKEN: ${{ github.token }}
 
 jobs:

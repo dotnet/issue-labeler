@@ -1,4 +1,4 @@
-# github-ml-labeler
+# issue-labeler
 Use a machine learning model to automatically label issues and pull requests.
 
 ## Downloader

@@ -41,8 +41,8 @@ permissions:
 
 env:
   DATA_PATH: labeler-cache/issue-data.tsv
-  DATA_CACHE_KEY: github-ml-labeler/issues/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}
-  BACKUP_CACHE_KEY: github-ml-labeler/issues/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}/${{ inputs.backup_cache_key }}
+  DATA_CACHE_KEY: issue-labeler/issues/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}
+  BACKUP_CACHE_KEY: issue-labeler/issues/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}/${{ inputs.backup_cache_key }}
   GH_TOKEN: ${{ github.token }}
 
 jobs:

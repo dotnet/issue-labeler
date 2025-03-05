@@ -29,7 +29,7 @@ on:
 
 env:
   MODEL_PATH: labeler-cache/issue-model.zip
-  MODEL_CACHE_KEY: github-ml-labeler/issues/model/${{ inputs.model_cache_key }}
+  MODEL_CACHE_KEY: issue-labeler/issues/model/${{ inputs.model_cache_key }}
 
 jobs:
   test-issues:

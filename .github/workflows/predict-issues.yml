@@ -29,8 +29,8 @@ permissions:
 
 env:
   MODEL_PATH: labeler-cache/issue-model.zip
-  MODEL_CACHE_KEY: github-ml-labeler/issues/model/${{ inputs.model_cache_key }}
-  BUILD_CACHE_KEY: "github-ml-labeler/predictor-app"
+  MODEL_CACHE_KEY: issue-labeler/issues/model/${{ inputs.model_cache_key }}
+  BUILD_CACHE_KEY: "issue-labeler/predictor-app"
 
 jobs:
   predict-issues:
