@@ -17,6 +17,10 @@ Perform a comparison test run over GitHub data, predicting labels and comparing 
 
 Consume the ML.NET model and make predictions for issues and pull requests.
 
+## Cache Retention
+
+Forces cache restores of the Predictor app and the prediction models, preventing cache eviction that would disrupt predictions.
+
 ## Reusable GitHub Workflows
 
 The `.github/workflows` folder exposes reusable workflows that can be used from other repositories to integrate automated labeling for issues and pull requests.
@@ -71,3 +75,7 @@ Predict labels for issues as they are opened in the repository. This workflow ca
 ### `labeler-predict-pulls.yml`
 
 Predict labels for pull requests as they are opened in the repository. This workflow can also be triggered manually to label ranges of pull request numbers.
+
+### `labeler-cache-retention.yml`
+
+Restores the Predictor app and the prediction models from cache, failing if any of the cache entries is missing. This workflow should be called on a daily cron schedule.

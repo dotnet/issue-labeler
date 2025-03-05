@@ -1,0 +1,44 @@
+name: "Cache Retention"
+
+on:
+  workflow_call:
+    inputs:
+      skip_issue_model:
+        description: "Skip cache retention of the issue model"
+        type: boolean
+      skip_pull_model:
+        description: "Skip cache retention of the pull model"
+        type: boolean
+
+jobs:
+  restore-predictor:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Check the cache for an existing build of the Predictor"
+        uses: actions/cache/restore@v4
+        with:
+          path: labeler-build/Predictor
+          key: issue-labeler/predictor-app
+          fail-on-cache-miss: true
+
+  restore-issue-model:
+    if: ${{ !inputs.skip_issue_model }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Restore issue model from cache"
+        uses: actions/cache/restore@v4
+        with:
+          path: labeler-cache/issue-model.zip
+          key: issue-labeler/issues/model/LIVE
+          fail-on-cache-miss: true
+
+  restore-pull-model:
+    if: ${{ !inputs.skip_pull_model }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Restore pull model from cache"
+        uses: actions/cache/restore@v4
+        with:
+          path: labeler-cache/pull-model.zip
+          key: issue-labeler/pulls/model/LIVE
+          fail-on-cache-miss: true
