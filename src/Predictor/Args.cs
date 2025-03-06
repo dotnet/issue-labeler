@@ -29,7 +29,7 @@ public struct Args
 
                 Required arguments:
                   --repo              GitHub repository in the format {org}/{repo}.
-                  --label-prefix      Prefix for label predictions.
+                  --label-prefix      Prefix for label predictions. Must end with a character other than a letter or number.
 
                 Required for predicting issue labels:
                   --issue-model       Path to existing issue prediction model file (ZIP file).

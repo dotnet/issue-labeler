@@ -30,7 +30,7 @@ public struct Args
 
               Required arguments:
                 --repo              The GitHub repositories in format org/repo (comma separated for multiple).
-                --label-prefix      Prefix for label predictions.
+                --label-prefix      Prefix for label predictions. Must end with a character other than a letter or number.
 
               Required for downloading issue data:
                 --issue-data        Path for issue data file to create (TSV file).

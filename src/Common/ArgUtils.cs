@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 public static class ArgUtils
 {
@@ -74,6 +75,21 @@ public static class ArgUtils
     {
         if (!TryDequeueString(args, showUsage, argName, out string? labelPrefix))
         {
+            labelPredicate = null;
+            return false;
+        }
+
+        // Require that the label prefix end in something other than a letter or number
+        // This promotes the pattern of prefixes that are clear, rather than a prefix that
+        // could be matched as the beginning of another word in the label
+        if (Regex.IsMatch(labelPrefix.AsSpan(^1),"[a-zA-Z0-9]"))
+        {
+            showUsage($"""
+                Argument '{argName}' must end in something other than a letter or number.
+
+                The recommended label prefix terminating character is '-'.
+                The recommended label prefix for applying area labels is 'area-'.
+                """);
             labelPredicate = null;
             return false;
         }
