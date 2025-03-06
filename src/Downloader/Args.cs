@@ -66,130 +66,84 @@ public struct Args
             switch (argument)
             {
                 case "--token":
-                    string? gitHubToken = ArgUtils.Dequeue(arguments);
-
-                    if (gitHubToken is null)
+                    if (!ArgUtils.TryDequeueString(arguments, ShowUsage, "--token", out string? token))
                     {
-                        ShowUsage("Argument '--token' has an empty value.");
                         return null;
                     }
-
-                    config.GithubToken = gitHubToken;
+                    config.GithubToken = token;
                     break;
 
                 case "--repo":
-                    string? orgRepos = ArgUtils.Dequeue(arguments);
-
-                    if (orgRepos is null)
+                    if (!ArgUtils.TryDequeueRepoList(arguments, ShowUsage, "--repo", out string? org, out List<string>? repos))
                     {
-                        ShowUsage("Argument '--repo' has an empty value.");
                         return null;
                     }
-
-                    foreach (var orgRepo in orgRepos.Split(',').Select(r => r.Trim()))
-                    {
-                        if (!orgRepo.Contains('/'))
-                        {
-                            ShowUsage($"Argument '--repo' is not in the format of '{{org}}/{{repo}}': {orgRepo}");
-                            return null;
-                        }
-
-                        string[] parts = orgRepo.Split('/');
-
-                        if (config.Org is not null && config.Org != parts[0])
-                        {
-                            ShowUsage("All '--repo' values must be from the same org.");
-                            return null;
-                        }
-
-                        config.Org ??= parts[0];
-                        config.Repos ??= [];
-                        config.Repos.Add(parts[1]);
-                    }
+                    config.Org = org;
+                    config.Repos = repos;
                     break;
 
                 case "--issue-data":
-                    config.IssueDataPath = ArgUtils.DequeuePath(arguments);
-
-                    if (config.IssueDataPath is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--issue-data", out string? issueDataPath))
                     {
-                        ShowUsage("Argument '--issue-data' has an empty value.");
                         return null;
                     }
+                    config.IssueDataPath = issueDataPath;
                     break;
 
                 case "--issue-limit":
-                    config.IssueLimit = ArgUtils.DequeueInt(arguments);
-
-                    if (config.IssueLimit is null)
+                    if (!ArgUtils.TryDequeueInt(arguments, ShowUsage, "--issue-limit", out int? issueLimit))
                     {
-                        ShowUsage("Argument '--issue-limit' has an empty or invalid value.");
                         return null;
                     }
+                    config.IssueLimit = issueLimit;
                     break;
 
                 case "--pull-data":
-                    config.PullDataPath = ArgUtils.DequeuePath(arguments);
-
-                    if (config.PullDataPath is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--pull-data", out string? pullDataPath))
                     {
-                        ShowUsage("Argument '--pull-data' has an empty value.");
                         return null;
                     }
+                    config.PullDataPath = pullDataPath;
                     break;
 
                 case "--pull-limit":
-                    config.PullLimit = ArgUtils.DequeueInt(arguments);
-
-                    if (config.PullLimit is null)
+                    if (!ArgUtils.TryDequeueInt(arguments, ShowUsage, "--pull-limit", out int? pullLimit))
                     {
-                        ShowUsage("Argument '--pull-limit' has an empty or invalid value.");
                         return null;
                     }
+                    config.PullLimit = pullLimit;
                     break;
 
                 case "--page-size":
-                    config.PageSize = ArgUtils.DequeueInt(arguments);
-
-                    if (config.PageSize is null)
+                    if (!ArgUtils.TryDequeueInt(arguments, ShowUsage, "--page-size", out int? pageSize))
                     {
-                        ShowUsage("Argument '--page-size' has an empty or invalid value.");
                         return null;
                     }
+                    config.PageSize = pageSize;
                     break;
 
                 case "--page-limit":
-                    config.PageLimit = ArgUtils.DequeueInt(arguments);
-
-                    if (config.PageLimit is null)
+                    if (!ArgUtils.TryDequeueInt(arguments, ShowUsage, "--page-limit", out int? pageLimit))
                     {
-                        ShowUsage("Argument '--page-limit' has an empty or invalid value.");
                         return null;
                     }
+                    config.PageLimit = pageLimit;
                     break;
 
                 case "--retries":
-                    string? retries = ArgUtils.Dequeue(arguments);
-
-                    if (retries is null)
+                    if (!ArgUtils.TryDequeueIntArray(arguments, ShowUsage, "--retries", out int[]? retries))
                     {
-                        ShowUsage("Argument '--retries' has an empty value.");
                         return null;
                     }
-
-                    config.Retries = retries.Split(',').Select(r => int.Parse(r)).ToArray();
+                    config.Retries = retries;
                     break;
 
                 case "--label-prefix":
-                    string? labelPrefix = ArgUtils.Dequeue(arguments);
-
-                    if (labelPrefix is null)
+                    if (!ArgUtils.TryDequeueLabelPrefix(arguments, ShowUsage, "--label-prefix", out Func<string, bool>? labelPredicate))
                     {
-                        ShowUsage("Argument '--label-prefix' has an empty value.");
                         return null;
                     }
-
-                    config.LabelPredicate = (label) => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
+                    config.LabelPredicate = new(labelPredicate);
                     break;
 
                 case "--verbose":

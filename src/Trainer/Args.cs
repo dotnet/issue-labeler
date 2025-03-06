@@ -47,35 +47,35 @@ public struct Args
             switch (argument)
             {
                 case "--issue-data":
-                    if ((config.IssueDataPath = ArgUtils.DequeuePath(arguments)) is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--issue-data", out string? issueDataPath))
                     {
-                        ShowUsage("Argument '--issue-data' has an empty value.");
                         return null;
                     }
+                    config.IssueDataPath = issueDataPath;
                     break;
 
                 case "--issue-model":
-                    if ((config.IssueModelPath = ArgUtils.DequeuePath(arguments)) is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--issue-model", out string? issueModelPath))
                     {
-                        ShowUsage("Argument '--issue-model' has an empty value.");
                         return null;
                     }
+                    config.IssueModelPath = issueModelPath;
                     break;
 
                 case "--pull-data":
-                    if ((config.PullDataPath = ArgUtils.DequeuePath(arguments)) is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--pull-data", out string? pullDataPath))
                     {
-                        ShowUsage("Argument '--pull-data' has an empty value.");
                         return null;
                     }
+                    config.PullDataPath = pullDataPath;
                     break;
 
                 case "--pull-model":
-                    if ((config.PullModelPath = ArgUtils.DequeuePath(arguments)) is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--pull-model", out string? pullModelPath))
                     {
-                        ShowUsage("Argument '--pull-model' has an empty value.");
                         return null;
                     }
+                    config.PullModelPath = pullModelPath;
                     break;
 
                 default:

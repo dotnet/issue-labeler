@@ -64,108 +64,76 @@ public struct Args
             switch (argument)
             {
                 case "--token":
-                    string? gitHubToken = ArgUtils.Dequeue(arguments);
-
-                    if (gitHubToken is null)
+                    if (!ArgUtils.TryDequeueString(arguments, ShowUsage, "--token", out string? token))
                     {
-                        ShowUsage("Argument '--token' has an empty value.");
                         return null;
                     }
-
-                    config.GithubToken = gitHubToken;
+                    config.GithubToken = token;
                     break;
 
                 case "--repo":
-                    string? orgRepo = ArgUtils.Dequeue(arguments);
-
-                    if (orgRepo is null || !orgRepo.Contains('/'))
+                    if (!ArgUtils.TryDequeueRepo(arguments, ShowUsage, "--repo", out string? org, out string? repo))
                     {
-                        ShowUsage($$"""Argument '--repo' is not in the format of '{org}/{repo}': {{orgRepo}}""");
                         return null;
                     }
-
-                    string[] parts = orgRepo.Split('/');
-                    config.Org = parts[0];
-                    config.Repo = parts[1];
+                    config.Org = org;
+                    config.Repo = repo;
                     break;
 
                 case "--issue-model":
-                    config.IssueModelPath = ArgUtils.Dequeue(arguments);
-
-                    if (config.IssueModelPath is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--issue-model", out string? issueModelPath))
                     {
-                        ShowUsage("Argument '--issue-model' has an empty value.");
                         return null;
                     }
+                    config.IssueModelPath = issueModelPath;
                     break;
 
                 case "--issue-numbers":
-                    string? issueNums = ArgUtils.Dequeue(arguments);
-
-                    if (issueNums is null)
+                    if (!ArgUtils.TryDequeueNumberRanges(arguments, ShowUsage, "--issue-numbers", out List<ulong>? issueNumbers))
                     {
-                        ShowUsage($"Argument '--issue-numbers' has an empty value.");
                         return null;
                     }
-
-                    config.IssueNumbers ??= new();
-                    config.IssueNumbers.AddRange(ParseNumbers(issueNums));
+                    config.IssueNumbers = issueNumbers;
                     break;
 
                 case "--pull-model":
-                    config.PullModelPath = ArgUtils.Dequeue(arguments);
-
-                    if (config.PullModelPath is null)
+                    if (!ArgUtils.TryDequeuePath(arguments, ShowUsage, "--pull-model", out string? pullModelPath))
                     {
-                        ShowUsage("Argument '--pull-model' has an empty value.");
                         return null;
                     }
+                    config.PullModelPath = pullModelPath;
                     break;
 
                 case "--pull-numbers":
-                    string? pullNums = ArgUtils.Dequeue(arguments);
-
-                    if (pullNums is null)
+                    if (!ArgUtils.TryDequeueNumberRanges(arguments, ShowUsage, "--pull-numbers", out List<ulong>? pullNumbers))
                     {
-                        ShowUsage($"Argument '--pull-numbers' has an empty value.");
                         return null;
                     }
-
-                    config.PullNumbers ??= new();
-                    config.PullNumbers.AddRange(ParseNumbers(pullNums));
+                    config.PullNumbers = pullNumbers;
                     break;
 
                 case "--label-prefix":
-                    string? labelPrefix = ArgUtils.Dequeue(arguments);
-
-                    if (labelPrefix is null)
+                    if (!ArgUtils.TryDequeueLabelPrefix(arguments, ShowUsage, "--label-prefix", out Func<string, bool>? labelPredicate))
                     {
-                        ShowUsage("Argument '--label-prefix' has an empty value.");
                         return null;
                     }
-
-                    config.LabelPredicate = (label) => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
+                    config.LabelPredicate = labelPredicate;
                     break;
 
                 case "--threshold":
-                    float? threshold = ArgUtils.DequeueFloat(arguments);
-
-                    if (threshold is null)
+                    if (!ArgUtils.TryDequeueFloat(arguments, ShowUsage, "--threshold", out float? threshold))
                     {
-                        ShowUsage($"Argument '--threshold' has an empty or invalid value.");
                         return null;
                     }
                     config.Threshold = threshold.Value;
                     break;
 
                 case "--default-label":
-                    config.DefaultLabel = ArgUtils.Dequeue(arguments);
-
-                    if (config.DefaultLabel is null)
+                    if (!ArgUtils.TryDequeueString(arguments, ShowUsage, "--default-label", out string? defaultLabel))
                     {
-                        ShowUsage("Argument '--default-label' has an empty value.");
                         return null;
                     }
+                    config.DefaultLabel = defaultLabel;
                     break;
 
                 case "--test":
@@ -211,37 +179,5 @@ public struct Args
         }
 
         return config;
-    }
-
-    private static ulong[] ParseNumbers(string argument)
-    {
-        List<ulong> numbers = new();
-
-        foreach (var range in argument.Split(','))
-        {
-            var beginEnd = range.Split('-');
-
-            if (beginEnd.Length == 1)
-            {
-                numbers.Add(ulong.Parse(beginEnd[0]));
-            }
-            else if (beginEnd.Length == 2)
-            {
-                var begin = ulong.Parse(beginEnd[0]);
-                var end = ulong.Parse(beginEnd[1]);
-
-                for (var number = begin; number <= end; number++)
-                {
-                    numbers.Add(number);
-                }
-            }
-            else
-            {
-                ShowUsage($"Issue and pull numbers must be comma-separated lists of numbers or dash-separated ranges.");
-                return [];
-            }
-        }
-
-        return numbers.ToArray();
     }
 }
