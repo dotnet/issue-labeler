@@ -111,7 +111,7 @@ jobs:
 
   labeler-test-pulls:
     needs: [labeler-download-pulls, labeler-train-pulls]
-    if: ${{ inputs.test_pulls && always() && (needs.labeler-download-pulls.result == 'success' || needs.labeler-download-pulls.result == 'skipped') && (needs.labeler-train-pulls.result == 'success' || needs.labeler-train-issues.result == 'skipped') }}
+    if: ${{ inputs.test_pulls && always() && (needs.labeler-download-pulls.result == 'success' || needs.labeler-download-pulls.result == 'skipped') && (needs.labeler-train-pulls.result == 'success' || needs.labeler-train-pulls.result == 'skipped') }}
     uses: dotnet/issue-labeler/.github/workflows/test-pulls.yml@main
     with:
       github_token: ${{ inputs.github_token || github.token }}
