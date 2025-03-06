@@ -4,23 +4,23 @@
 using static DataFileUtils;
 using GitHubClient;
 
-if (ConfigurationParser.Parse(args) is not Configuration argsData)
+if (Args.Parse(args) is not Args argsData)
 {
     return;
 }
 
 List<Task> tasks = [];
 
-if (!string.IsNullOrEmpty(argsData.IssuesPath))
+if (!string.IsNullOrEmpty(argsData.IssueDataPath))
 {
-    EnsureOutputDirectory(argsData.IssuesPath);
-    tasks.Add(Task.Run(() => DownloadIssues(argsData.IssuesPath)));
+    EnsureOutputDirectory(argsData.IssueDataPath);
+    tasks.Add(Task.Run(() => DownloadIssues(argsData.IssueDataPath)));
 }
 
-if (!string.IsNullOrEmpty(argsData.PullsPath))
+if (!string.IsNullOrEmpty(argsData.PullDataPath))
 {
-    EnsureOutputDirectory(argsData.PullsPath);
-    tasks.Add(Task.Run(() => DownloadPullRequests(argsData.PullsPath)));
+    EnsureOutputDirectory(argsData.PullDataPath);
+    tasks.Add(Task.Run(() => DownloadPullRequests(argsData.PullDataPath)));
 }
 
 await Task.WhenAll(tasks);

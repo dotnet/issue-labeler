@@ -5,8 +5,8 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using GitHubClient;
 
-var config = ConfigurationParser.Parse(args);
-if (config is not Configuration argsData) return;
+var config = Args.Parse(args);
+if (config is not Args argsData) return;
 
 List<Task<(ModelType Type, ulong Number, bool Success, string[] Output)>> tasks = new();
 
@@ -24,7 +24,7 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
 
         if (result is null)
         {
-            Console.WriteLine($"[Issue #{issueNumber}] Issue not found.");
+            Console.WriteLine($"[Issue #{issueNumber}] Not found. Skipped.");
             continue;
         }
 
@@ -37,6 +37,8 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
             ModelType.Issue,
             argsData.Test
         )));
+
+        Console.WriteLine($"[Issue #{issueNumber}] Queued for prediction.");
     }
 }
 
@@ -54,7 +56,7 @@ if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
 
         if (result is null)
         {
-            Console.WriteLine($"[Pull Request #{pullNumber}] Pull request not found.");
+            Console.WriteLine($"[Pull Request #{pullNumber}] Not found.");
             continue;
         }
 
@@ -67,6 +69,8 @@ if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
             ModelType.PullRequest,
             argsData.Test
         )));
+
+        Console.WriteLine($"[Pull Request #{pullNumber}] Queued for prediction.");
     }
 }
 

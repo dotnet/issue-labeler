@@ -6,8 +6,8 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using Microsoft.ML.Transforms.Text;
 
-var config = ConfigurationParser.Parse(args);
-if (config is not Configuration argsData)
+var config = Args.Parse(args);
+if (config is not Args argsData)
 {
     return;
 }

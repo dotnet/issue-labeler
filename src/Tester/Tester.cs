@@ -5,8 +5,8 @@ using Microsoft.ML;
 using Microsoft.ML.Data;
 using GitHubClient;
 
-var config = ConfigurationParser.Parse(args);
-if (config is not Configuration argsData) return;
+var config = Args.Parse(args);
+if (config is not Args argsData) return;
 
 List<Task> tasks = [];
 
