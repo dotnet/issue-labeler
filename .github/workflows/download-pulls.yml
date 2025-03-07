@@ -1,0 +1,121 @@
+name: "Download Pulls"
+
+on:
+  workflow_call:
+    inputs:
+      github_token:
+        description: "The GitHub token (defaults to action token)"
+        type: string
+      repository:
+        description: "The org/repo to download data from (defaults to current repository)"
+        type: string
+
+      label_prefix:
+        description: "Label prefix"
+        type: string
+        required: true
+
+      pull_limit:
+        description: "Max number of items to include in the model"
+        type: number
+      page_size:
+        description: "The number of items to include on each request (max 100)"
+        type: number
+      page_limit:
+        description: "Max pages of items to download"
+        type: number
+      retries:
+        description: "Comma-separated list of retry delays in seconds"
+        type: string
+      data_cache_key:
+        description: "The optional cache key suffix to use for saving the data"
+        type: string
+      backup_cache_key:
+        description: "The cache key suffix to use for backing up the last downloaded data"
+        type: string
+        default: "backup"
+
+permissions:
+  pull-requests: read
+  actions: write
+
+env:
+  DATA_PATH: labeler-cache/pull-data.tsv
+  DATA_CACHE_KEY: issue-labeler/pulls/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}
+  BACKUP_CACHE_KEY: issue-labeler/pulls/data${{ inputs.data_cache_key && format('/{0}', inputs.data_cache_key) }}/${{ inputs.backup_cache_key }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  download-pulls:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Restore existing data from cache"
+        id: check-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DATA_PATH }}
+          key: ${{ env.DATA_CACHE_KEY }}
+          fail-on-cache-miss: false
+
+      - name: "Check for existing backup cache entry"
+        id: check-backup
+        if: ${{ steps.check-cache.outputs.cache-hit == 'true' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.DATA_PATH }}
+          key: ${{ env.BACKUP_CACHE_KEY }}
+          lookup-only: true
+          fail-on-cache-miss: false
+
+      - name: "Abort if backup cache entry already exists"
+        if: ${{ steps.check-backup.outputs.cache-hit == 'true' }}
+        run: |
+            echo "Cannot save backup of existing data. Backup cache key already exists."
+            echo "Key: ${{ env.BACKUP_CACHE_KEY }}"
+
+            exit 1
+
+      - name: "Cache backup of existing data"
+        if: ${{ steps.check-cache.outputs.cache-hit == 'true' }}
+        id: backup-data
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DATA_PATH }}
+          key: ${{ env.BACKUP_CACHE_KEY }}
+
+      - name: "Delete existing cache entry"
+        if: ${{ steps.check-cache.outputs.cache-hit == 'true' }}
+        run: |
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /repos/${{ github.repository }}/actions/caches?key=${{ env.DATA_CACHE_KEY }}
+
+            rm ${{ env.DATA_PATH }}
+
+      - name: "Check out the 'dotnet/issue-labeler' repo"
+        uses: actions/checkout@v4
+        with:
+          repository: dotnet/issue-labeler
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: "Run Downloader"
+        run: |
+          dotnet run -c Release --project ./src/Downloader --  \
+            ${{ format('--token "{0}"', inputs.github_token || secrets.GITHUB_TOKEN) }} \
+            ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
+            ${{ format('--pull-data "{0}"', env.DATA_PATH) }} \
+            ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
+            ${{ inputs.retries && format('--retries "{0}"', inputs.retries) }} \
+            ${{ inputs.pull_limit && format('--pull-limit {0}', inputs.pull_limit) || '' }} \
+            ${{ inputs.page_size && format('--page-size {0}', inputs.page_size) || '' }} \
+            ${{ inputs.page_limit && format('--page-limit {0}', inputs.page_limit) || '' }}
+
+      - name: "Save data to cache"
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.DATA_PATH }}
+          key: ${{ env.DATA_CACHE_KEY }}

@@ -1,0 +1,121 @@
+name: "Train Models"
+
+on:
+  workflow_call:
+    inputs:
+      download_issues:
+        description: "Issues: Download Data"
+        type: boolean
+      train_issues:
+        description: "Issues: Train Model"
+        type: boolean
+      test_issues:
+        description: "Issues: Test Model"
+        type: boolean
+      download_pulls:
+        description: "Pulls: Download Data"
+        type: boolean
+      train_pulls:
+        description: "Pulls: Train Model"
+        type: boolean
+      test_pulls:
+        description: "Pulls: Test Model"
+        type: boolean
+
+      label_prefix:
+        description: "Label Prefix"
+        type: string
+        required: true
+      threshold:
+        description: "The minimum confidence score for a label prediction"
+        type: number
+        required: true
+
+      data_limit:
+        description: "Max number of items to include in the model"
+        type: number
+
+      github_token:
+        description: "The GitHub token (defaults to action token)"
+        type: string
+      repository:
+        description: "The org/repo to download data from (defaults to current repository)"
+        type: string
+      cache_key_suffix:
+        description: "The cache key suffix to use for staging data/models (use 'LIVE' to bypass staging)"
+        type: string
+        required: true
+
+jobs:
+  build-predictor:
+    uses: dotnet/issue-labeler/.github/workflows/build-predictor.yml@main
+
+  labeler-download-issues:
+    needs: build-predictor
+    if: ${{ inputs.download_issues }}
+    permissions:
+      issues: read
+      actions: write
+    uses: dotnet/issue-labeler/.github/workflows/download-issues.yml@main
+    with:
+      github_token: ${{ inputs.github_token || github.token }}
+      repository: ${{ inputs.repository || github.repository }}
+      data_cache_key: ${{ inputs.cache_key_suffix }}
+      issue_limit: ${{ inputs.data_limit && fromJSON(inputs.data_limit) || 0 }}
+      label_prefix: ${{ inputs.label_prefix }}
+
+  labeler-train-issues:
+    needs: labeler-download-issues
+    if: ${{ inputs.train_issues && always() && (needs.labeler-download-issues.result == 'success' || needs.labeler-download-issues.result == 'skipped') }}
+    permissions:
+      actions: write
+    uses: dotnet/issue-labeler/.github/workflows/train-issues.yml@main
+    with:
+      data_cache_key: ${{ inputs.cache_key_suffix }}
+      model_cache_key: ${{ inputs.cache_key_suffix }}
+
+  labeler-test-issues:
+    needs: [labeler-download-issues, labeler-train-issues]
+    if: ${{ inputs.test_issues && always() && (needs.labeler-download-issues.result == 'success' || needs.labeler-download-issues.result == 'skipped') && (needs.labeler-train-issues.result == 'success' || needs.labeler-train-issues.result == 'skipped') }}
+    uses: dotnet/issue-labeler/.github/workflows/test-issues.yml@main
+    with:
+      github_token: ${{ inputs.github_token || github.token }}
+      repository: ${{ inputs.repository || github.repository }}
+      model_cache_key: ${{ inputs.cache_key_suffix }}
+      label_prefix: ${{ inputs.label_prefix }}
+      threshold: ${{ inputs.threshold }}
+
+  labeler-download-pulls:
+    needs: build-predictor
+    if: ${{ inputs.download_pulls }}
+    permissions:
+      pull-requests: read
+      actions: write
+    uses: dotnet/issue-labeler/.github/workflows/download-pulls.yml@main
+    with:
+      github_token: ${{ inputs.github_token || github.token }}
+      repository: ${{ inputs.repository || github.repository }}
+      data_cache_key: ${{ inputs.cache_key_suffix }}
+      pull_limit: ${{ inputs.data_limit && fromJSON(inputs.data_limit) || 0 }}
+      label_prefix: ${{ inputs.label_prefix }}
+
+  labeler-train-pulls:
+    needs: labeler-download-pulls
+    if: ${{ inputs.train_pulls && always() && (needs.labeler-download-pulls.result == 'success' || needs.labeler-download-pulls.result == 'skipped') }}
+    permissions:
+      actions: write
+    uses: dotnet/issue-labeler/.github/workflows/train-pulls.yml@main
+    with:
+      data_cache_key: ${{ inputs.cache_key_suffix }}
+      model_cache_key: ${{ inputs.cache_key_suffix }}
+
+  labeler-test-pulls:
+    needs: [labeler-download-pulls, labeler-train-pulls]
+    if: ${{ inputs.test_pulls && always() && (needs.labeler-download-pulls.result == 'success' || needs.labeler-download-pulls.result == 'skipped') && (needs.labeler-train-pulls.result == 'success' || needs.labeler-train-pulls.result == 'skipped') }}
+    uses: dotnet/issue-labeler/.github/workflows/test-pulls.yml@main
+    with:
+      github_token: ${{ inputs.github_token || github.token }}
+      repository: ${{ inputs.repository || github.repository }}
+      model_cache_key: ${{ inputs.cache_key_suffix }}
+      label_prefix: ${{ inputs.label_prefix }}
+      threshold: ${{ inputs.threshold }}

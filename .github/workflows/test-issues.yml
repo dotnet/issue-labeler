@@ -1,0 +1,65 @@
+name: "Test Issues Model"
+
+on:
+  workflow_call:
+    inputs:
+      github_token:
+        description: "The GitHub token (defaults to action token)"
+        type: string
+      repository:
+        description: "The org/repo to download data from (defaults to current repository)"
+        type: string
+
+      label_prefix:
+        description: "Label Prefix"
+        type: string
+        required: true
+      threshold:
+        description: "The minimum confidence score for a label prediction"
+        type: number
+        required: true
+
+      issue_limit:
+        description: "Max number of items to include in the test"
+        type: number
+      model_cache_key:
+        description: "The cache key suffix to use for loading the model"
+        type: string
+        required: true
+
+env:
+  MODEL_PATH: labeler-cache/issue-model.zip
+  MODEL_CACHE_KEY: issue-labeler/issues/model/${{ inputs.model_cache_key }}
+
+jobs:
+  test-issues:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: "Check out the 'dotnet/issue-labeler' repo"
+        uses: actions/checkout@v4
+        with:
+          repository: dotnet/issue-labeler
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      # Restore from cache after checkout out the repo to prevent
+      # the restored files from getting removed during checkout
+      - name: "Restore model from cache"
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.MODEL_PATH }}
+          key: ${{ env.MODEL_CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Run Tester"
+        run: |
+          dotnet run -c Release --project ./src/Tester --  \
+            ${{ format('--token "{0}"', inputs.github_token || secrets.GITHUB_TOKEN) }} \
+            ${{ format('--repo "{0}"',inputs.repository || github.repository) }} \
+            ${{ format('--issue-model "{0}"', env.MODEL_PATH) }} \
+            ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
+            ${{ format('--threshold {0}', inputs.threshold) }} \
+            ${{ inputs.issue_limit && format('--issue-limit {0}', inputs.issue_limit) || '' }}
