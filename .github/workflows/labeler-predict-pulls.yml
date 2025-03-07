@@ -32,7 +32,7 @@ jobs:
     if: ${{ github.repository_owner == 'dotnet' && (inputs.pull_numbers || github.event.number) }}
     permissions:
       pull-requests: write
-    uses: dotnet/issue-labeler/.github/workflows/predict-pulls.yml@main
+    uses: dotnet/issue-labeler/.github/workflows/predict-pulls.yml@596dc78 # v1.0.0
     with:
       model_cache_key: ${{ inputs.model_cache_key }}
       pull_numbers: ${{ inputs.pull_numbers || github.event.number }}

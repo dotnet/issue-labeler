@@ -52,7 +52,7 @@ jobs:
       issues: read
       pull-requests: read
       actions: write
-    uses: dotnet/issue-labeler/.github/workflows/train.yml@main
+    uses: dotnet/issue-labeler/.github/workflows/train.yml@596dc78 # v1.0.0
     with:
       download_issues: ${{ inputs.download_issues }}
       train_issues: ${{ inputs.train_issues }}
