@@ -10,4 +10,4 @@ jobs:
   cache-retention:
     # Do not run the workflow on forks outside the 'dotnet' org
     if: ${{ github.repository_owner == 'dotnet' }}
-    uses: dotnet/issue-labeler/.github/workflows/cache-retention.yml@596dc78 # v1.0.0
+    uses: dotnet/issue-labeler/.github/workflows/cache-retention.yml@596dc78dcf246d381a6df15fd63b9468798a03cd # Staging v1.0.0
