@@ -141,6 +141,7 @@ async Task TestPredictions<T>(IAsyncEnumerable<T> results, string modelPath) whe
     var context = new MLContext();
     var model = context.Model.Load(modelPath, out _);
     var predictor = context.Model.CreatePredictionEngine<T, LabelPrediction>(model);
+    var itemType = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
 
     int matches = 0;
     int mismatches = 0;
@@ -155,8 +156,7 @@ async Task TestPredictions<T>(IAsyncEnumerable<T> results, string modelPath) whe
         (string? predictedLabel, float? score) = GetPrediction(
             predictor,
             result,
-            argsData.Threshold,
-            "Issue");
+            argsData.Threshold);
 
         if (predictedLabel is null && result.Label is not null)
         {
@@ -186,7 +186,7 @@ async Task TestPredictions<T>(IAsyncEnumerable<T> results, string modelPath) whe
         }
 
         float total = matches + mismatches + noPrediction + noExisting;
-        Console.WriteLine($"Issue #{result.Number} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(result.Label ?? "<NONE>")}");
+        Console.WriteLine($"{itemType} #{result.Number} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(result.Label ?? "<NONE>")}");
         Console.WriteLine($"  Matches      : {matches} ({(float)matches / total:P2}) - Min | Avg | Max | StdDev: {GetStats(matchScores)}");
         Console.WriteLine($"  Mismatches   : {mismatches} ({(float)mismatches / total:P2}) - Min | Avg | Max | StdDev: {GetStats(mismatchScores)}");
         Console.WriteLine($"  No Prediction: {noPrediction} ({(float)noPrediction / total:P2})");
@@ -196,9 +196,10 @@ async Task TestPredictions<T>(IAsyncEnumerable<T> results, string modelPath) whe
     Console.WriteLine("Test Complete");
 }
 
-(string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold, string itemType) where T : Issue
+(string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold) where T : Issue
 {
     var prediction = predictor.Predict(issueOrPull);
+    var itemType = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
 
     if (prediction.Score is null || prediction.Score.Length == 0)
     {
