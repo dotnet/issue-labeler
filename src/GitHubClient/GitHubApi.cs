@@ -214,16 +214,15 @@ public class GitHubApi
         return response.Data.Repository.Result;
     }
 
-    public static async Task<Issue?> GetIssue(string githubToken, string org, string repo, ulong number) =>
-        await GetItem<Issue>(githubToken, org, repo, number, "issue");
+    public static async Task<Issue?> GetIssue(string githubToken, string org, string repo, ulong number, int[] retries, bool verbose) =>
+        await GetItem<Issue>(githubToken, org, repo, number, retries, verbose, "issue");
 
-    public static async Task<PullRequest?> GetPullRequest(string githubToken, string org, string repo, ulong number) =>
-        await GetItem<PullRequest>(githubToken, org, repo, number, "pullRequest");
+    public static async Task<PullRequest?> GetPullRequest(string githubToken, string org, string repo, ulong number, int[] retries, bool verbose) =>
+        await GetItem<PullRequest>(githubToken, org, repo, number, retries, verbose, "pullRequest");
 
-    private static async Task<T?> GetItem<T>(string githubToken, string org, string repo, ulong number, string itemQueryName) where T : Issue
+    private static async Task<T?> GetItem<T>(string githubToken, string org, string repo, ulong number, int[] retries, bool verbose, string itemQueryName) where T : Issue
     {
         GraphQLHttpClient client = GetGraphQLClient(githubToken);
-
         string files = typeof(T) == typeof(PullRequest) ? "files (first: 100) { nodes { path } }" : "";
 
         GraphQLRequest query = new GraphQLRequest
@@ -252,13 +251,85 @@ public class GitHubApi
             }
         };
 
-        return (await client.SendQueryAsync<RepositoryQuery<T>>(query)).Data.Repository.Result;
+        byte retry = 0;
+
+        while (retry < retries.Length)
+        {
+            try
+            {
+                var response = await client.SendQueryAsync<RepositoryQuery<T>>(query);
+
+                if (!(response.Errors?.Any() ?? false) && response.Data?.Repository?.Result is not null)
+                {
+                    return response.Data.Repository.Result;
+                }
+
+                if (response.Errors?.Any() ?? false)
+                {
+                    // These errors occur when an issue/pull does not exist or when the API rate limit has been exceeded
+                    if (response.Errors.Any(e => e.Message.StartsWith("API rate limit exceeded")))
+                    {
+                        Console.WriteLine($"""
+                            [{itemQueryName} #{number}] Failed to retrieve data.
+                                Rate limit has been reached.
+                                {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                            """);
+                    }
+                    else
+                    {
+                        // Could not detect this as a rate limit issue. Do not retry.
+
+                        string errors = string.Join("\n\n", response.Errors.Select((e, i) => $"{i + 1}. {e.Message}").ToArray());
+
+                        Console.WriteLine($"""
+                            [{itemQueryName} #{number}] Failed to retrieve data.
+                                GraphQL request returned errors:
+
+                                {errors}
+                            """);
+
+                        return null;
+                    }
+                }
+                else
+                {
+                    // Do not retry as these errors are not recoverable
+                    // This is usually a bug during development when the query/response model is incorrect
+                    Console.WriteLine($"""
+                        [{itemQueryName} #{number}] Failed to retrieve data.
+                            GraphQL response did not include the repository result data.
+                        """);
+
+                    return null;
+                }
+            }
+            catch (Exception ex) when (
+                ex is HttpIOException ||
+                ex is HttpRequestException ||
+                ex is GraphQLHttpRequestException ||
+                ex is TaskCanceledException
+            )
+            {
+                // Retry on exceptions as they can be temporary network issues
+                Console.WriteLine($"""
+                    [{itemQueryName} #{number}] Failed to retrieve data.
+                        Exception caught during query.
+
+                        {ex.Message}
+
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+
+            await Task.Delay(retries[retry++] * 1000);
+        }
+
+        return null;
     }
 
-    public static async Task<string?> AddLabel(string githubToken, string org, string repo, string type, ulong number, string label)
+    public static async Task<string?> AddLabel(string githubToken, string org, string repo, string type, ulong number, string label, int[] retries)
     {
         var client = GetRestClient(githubToken);
-        int[] retries = [5, 10, 30];
         byte retry = 0;
 
         while (retry < retries.Length)
@@ -284,10 +355,9 @@ public class GitHubApi
         return $"Failed to add label '{label}' after {retries.Length} retries.";
     }
 
-    public static async Task<string?> RemoveLabel(string githubToken, string org, string repo, string type, ulong number, string label)
+    public static async Task<string?> RemoveLabel(string githubToken, string org, string repo, string type, ulong number, string label, int[] retries)
     {
         var client = GetRestClient(githubToken);
-        int[] retries = [5, 10, 30];
         byte retry = 0;
 
         while (retry < retries.Length)

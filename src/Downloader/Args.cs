@@ -53,7 +53,7 @@ public struct Args
 
     public static Args? Parse(string[] args)
     {
-        Args config = new()
+        Args argsData = new()
         {
             Retries = [30, 30, 300, 300, 3000, 3000]
         };
@@ -70,7 +70,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.GithubToken = token;
+                    argsData.GithubToken = token;
                     break;
 
                 case "--repo":
@@ -78,8 +78,8 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Org = org;
-                    config.Repos = repos;
+                    argsData.Org = org;
+                    argsData.Repos = repos;
                     break;
 
                 case "--issue-data":
@@ -87,7 +87,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueDataPath = issueDataPath;
+                    argsData.IssueDataPath = issueDataPath;
                     break;
 
                 case "--issue-limit":
@@ -95,7 +95,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueLimit = issueLimit;
+                    argsData.IssueLimit = issueLimit;
                     break;
 
                 case "--pull-data":
@@ -103,7 +103,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullDataPath = pullDataPath;
+                    argsData.PullDataPath = pullDataPath;
                     break;
 
                 case "--pull-limit":
@@ -111,7 +111,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullLimit = pullLimit;
+                    argsData.PullLimit = pullLimit;
                     break;
 
                 case "--page-size":
@@ -119,7 +119,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PageSize = pageSize;
+                    argsData.PageSize = pageSize;
                     break;
 
                 case "--page-limit":
@@ -127,7 +127,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PageLimit = pageLimit;
+                    argsData.PageLimit = pageLimit;
                     break;
 
                 case "--retries":
@@ -135,7 +135,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Retries = retries;
+                    argsData.Retries = retries;
                     break;
 
                 case "--label-prefix":
@@ -143,11 +143,11 @@ public struct Args
                     {
                         return null;
                     }
-                    config.LabelPredicate = new(labelPredicate);
+                    argsData.LabelPredicate = new(labelPredicate);
                     break;
 
                 case "--verbose":
-                    config.Verbose = true;
+                    argsData.Verbose = true;
                     break;
                 default:
                     ShowUsage($"Unrecognized argument: {argument}");
@@ -155,14 +155,14 @@ public struct Args
             }
         }
 
-        if (config.Org is null || config.Repos is null || config.LabelPredicate is null ||
-            (config.IssueDataPath is null && config.PullDataPath is null))
+        if (argsData.Org is null || argsData.Repos is null || argsData.LabelPredicate is null ||
+            (argsData.IssueDataPath is null && argsData.PullDataPath is null))
         {
             ShowUsage();
             return null;
         }
 
-        if (config.GithubToken is null)
+        if (argsData.GithubToken is null)
         {
             string? token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
 
@@ -172,9 +172,9 @@ public struct Args
                 return null;
             }
 
-            config.GithubToken = token;
+            argsData.GithubToken = token;
         }
 
-        return config;
+        return argsData;
     }
 }

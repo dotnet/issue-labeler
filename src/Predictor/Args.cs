@@ -15,6 +15,8 @@ public struct Args
     public float Threshold { get; set; }
     public Func<string, bool> LabelPredicate { get; set; }
     public string? DefaultLabel { get; set; }
+    public int[] Retries { get; set; }
+    public bool Verbose { get; set; }
     public bool Test { get; set; }
 
     static void ShowUsage(string? message = null)
@@ -42,8 +44,10 @@ public struct Args
                 Optional arguments:
                   --default-label     Default label to use if no label is predicted.
                   --threshold         Minimum prediction confidence threshold. Range (0,1]. Default 0.4.
+                  --retries           Comma-separated retry delays in seconds. Default: 30,30,300,300,3000,3000.
                   --token             GitHub token. Default: read from GITHUB_TOKEN env var.
                   --test              Run in test mode, outputting predictions without applying labels.
+                  --verbose           Enable verbose output.
             """);
 
         Environment.Exit(1);
@@ -51,9 +55,10 @@ public struct Args
 
     public static Args? Parse(string[] args)
     {
-        Args config = new()
+        Args argsData = new()
         {
             Threshold = 0.4f,
+            Retries = [30, 30, 300, 300, 3000, 3000]
         };
 
         Queue<string> arguments = new(args);
@@ -68,7 +73,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.GithubToken = token;
+                    argsData.GithubToken = token;
                     break;
 
                 case "--repo":
@@ -76,8 +81,8 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Org = org;
-                    config.Repo = repo;
+                    argsData.Org = org;
+                    argsData.Repo = repo;
                     break;
 
                 case "--issue-model":
@@ -85,7 +90,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueModelPath = issueModelPath;
+                    argsData.IssueModelPath = issueModelPath;
                     break;
 
                 case "--issue-numbers":
@@ -93,7 +98,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueNumbers = issueNumbers;
+                    argsData.IssueNumbers = issueNumbers;
                     break;
 
                 case "--pull-model":
@@ -101,7 +106,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullModelPath = pullModelPath;
+                    argsData.PullModelPath = pullModelPath;
                     break;
 
                 case "--pull-numbers":
@@ -109,7 +114,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullNumbers = pullNumbers;
+                    argsData.PullNumbers = pullNumbers;
                     break;
 
                 case "--label-prefix":
@@ -117,7 +122,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.LabelPredicate = labelPredicate;
+                    argsData.LabelPredicate = labelPredicate;
                     break;
 
                 case "--threshold":
@@ -125,7 +130,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Threshold = threshold.Value;
+                    argsData.Threshold = threshold.Value;
                     break;
 
                 case "--default-label":
@@ -133,11 +138,23 @@ public struct Args
                     {
                         return null;
                     }
-                    config.DefaultLabel = defaultLabel;
+                    argsData.DefaultLabel = defaultLabel;
+                    break;
+
+                case "--retries":
+                    if (!ArgUtils.TryDequeueIntArray(arguments, ShowUsage, "--retries", out int[]? retries))
+                    {
+                        return null;
+                    }
+                    argsData.Retries = retries;
                     break;
 
                 case "--test":
-                    config.Test = true;
+                    argsData.Test = true;
+                    break;
+
+                case "--verbose":
+                    argsData.Verbose = true;
                     break;
 
                 default:
@@ -146,7 +163,7 @@ public struct Args
             }
         }
 
-        // Check if any required configuration properties are missing or invalid.
+        // Check if any required argsDatauration properties are missing or invalid.
         // The conditions are:
         // - Org is null
         // - Repo is null
@@ -156,16 +173,16 @@ public struct Args
         // - IssueModelPath is null while IssueNumbers is not null, or vice versa
         // - PullModelPath is null while PullNumbers is not null, or vice versa
         // - Both IssueModelPath and PullModelPath are null
-        if (config.Org is null || config.Repo is null || config.Threshold == 0 || config.LabelPredicate is null ||
-            (config.IssueModelPath is null != config.IssueNumbers is null) ||
-            (config.PullModelPath is null != config.PullNumbers is null) ||
-            (config.IssueModelPath is null && config.PullModelPath is null))
+        if (argsData.Org is null || argsData.Repo is null || argsData.Threshold == 0 || argsData.LabelPredicate is null ||
+            (argsData.IssueModelPath is null != argsData.IssueNumbers is null) ||
+            (argsData.PullModelPath is null != argsData.PullNumbers is null) ||
+            (argsData.IssueModelPath is null && argsData.PullModelPath is null))
         {
             ShowUsage();
             return null;
         }
 
-        if (config.GithubToken is null)
+        if (argsData.GithubToken is null)
         {
             string? token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
 
@@ -175,9 +192,9 @@ public struct Args
                 return null;
             }
 
-            config.GithubToken = token;
+            argsData.GithubToken = token;
         }
 
-        return config;
+        return argsData;
     }
 }
