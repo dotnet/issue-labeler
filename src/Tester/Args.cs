@@ -16,6 +16,7 @@ public struct Args
     public int? PullLimit { get; set; }
     public float? Threshold { get; set; }
     public Predicate<string> LabelPredicate { get; set; }
+    public string[]? ExcludedAuthors { get; set; }
 
     static void ShowUsage(string? message = null)
     {
@@ -49,6 +50,7 @@ public struct Args
                   --threshold         Minimum prediction confidence threshold. Range (0,1]. Default 0.4.
                   --issue-limit       Maximum number of issues to download. Default: No limit.
                   --pull-limit        Maximum number of pull requests to download. Default: No limit.
+                  --excluded-authors  Comma-separated list of authors to exclude.
                   --token             GitHub access token. Default: read from GITHUB_TOKEN env var.
             """);
 
@@ -149,6 +151,14 @@ public struct Args
                         return null;
                     }
                     argsData.Threshold = threshold.Value;
+                    break;
+
+                case "--excluded-authors":
+                    if (!ArgUtils.TryDequeueStringArray(arguments, ShowUsage, "--excluded-authors", out string[]? excludedAuthors))
+                    {
+                        return null;
+                    }
+                    argsData.ExcludedAuthors = excludedAuthors;
                     break;
 
                 default:

@@ -1,9 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+/// <summary>
+/// Provides utility methods for handling data files.
+/// </summary>
 public static class DataFileUtils
 {
-    // Create an output file's directory (recursively)
+    /// <summary>
+    /// Ensures that the directory for the specified output file exists, recursively creating it if necessary.
+    /// </summary>
+    /// <param name="outputFile">The path of the output file.</param>
     public static void EnsureOutputDirectory(string outputFile)
     {
         string? outputDir = Path.GetDirectoryName(outputFile);
@@ -14,29 +20,54 @@ public static class DataFileUtils
         }
     }
 
-    // Ensure text written into tab-separated format is collapsed onto a single line
-    // without any false-positive matches for tabs, and ensuring quotes don't lead
-    // to the tab separator characters being unrecognized.
-    public static string SanitizeText(string text) => text
+    /// <summary>
+    /// Sanitizes the specified text by replacing certain characters to ensure it is collapsed onto a single line and compatible with tab-separated values.
+    /// </summary>
+    /// <param name="text">The text to sanitize.</param>
+    /// <returns>The sanitized text.</returns>
+    public static string SanitizeText(string text)
+        => text
         .Replace('\r', ' ')
         .Replace('\n', ' ')
         .Replace('\t', ' ')
-        .Replace('"', '`');
+        .Replace('"', '`')
+        .Trim();
 
-    // Turn arrays of strings into space-separated values
-    public static string SanitizeTextArray(string[] texts) => string.Join(" ", texts.Select(SanitizeText));
+    /// <summary>
+    /// Sanitizes an array of strings by joining them into a single space-separated string.
+    /// </summary>
+    /// <param name="texts">The array of strings to sanitize.</param>
+    /// <returns>The sanitized text.</returns>
+    public static string SanitizeTextArray(string[] texts)
+        => string.Join(" ", texts.Select(SanitizeText));
 
-    // Format an issue record into tab-separated format
-    public static string FormatIssueRecord(string label, string title, string body) =>
-        string.Join('\t', [
+    /// <summary>
+    /// Formats an issue record into a tab-separated string.
+    /// </summary>
+    /// <param name="label">The label of the issue.</param>
+    /// <param name="title">The title of the issue.</param>
+    /// <param name="body">The body of the issue.</param>
+    /// <returns>The formatted issue record.</returns>
+    public static string FormatIssueRecord(string label, string title, string body)
+        => string.Join('\t',
+        [
             SanitizeText(label),
             SanitizeText(title),
             SanitizeText(body)
         ]);
 
-    // Format a pull request record into tab-separated format
-    public static string FormatPullRequestRecord(string label, string title, string body, string[] fileNames, string[] folderNames) =>
-        string.Join('\t', [
+    /// <summary>
+    /// Formats a pull request record into a tab-separated string.
+    /// </summary>
+    /// <param name="label">The label of the pull request.</param>
+    /// <param name="title">The title of the pull request.</param>
+    /// <param name="body">The body of the pull request.</param>
+    /// <param name="fileNames">The array of file names associated with the pull request.</param>
+    /// <param name="folderNames">The array of folder names associated with the pull request.</param>
+    /// <returns>The formatted pull request record.</returns>
+    public static string FormatPullRequestRecord(string label, string title, string body, string[] fileNames, string[] folderNames)
+        => string.Join('\t',
+        [
             SanitizeText(label),
             SanitizeText(title),
             SanitizeText(body),

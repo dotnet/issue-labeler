@@ -113,6 +113,18 @@ public static class ArgUtils
         return true;
     }
 
+    public static bool TryDequeueStringArray(Queue<string> args, Action<string> showUsage, string argName, [NotNullWhen(true)] out string[]? argValues)
+    {
+        if (TryDequeueString(args, showUsage, argName, out string? argString))
+        {
+            argValues = argString.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            return true;
+        }
+
+        argValues = null;
+        return false;
+    }
+
     public static bool TryDequeueInt(Queue<string> args, Action<string> showUsage, string argName, [NotNullWhen(true)] out int? argValue)
     {
         if (TryDequeueString(args, showUsage, argName, out string? argString) && int.TryParse(argString, out int parsedValue))

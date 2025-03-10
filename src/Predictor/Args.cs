@@ -17,6 +17,7 @@ public struct Args
     public string? DefaultLabel { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
+    public string[]? ExcludedAuthors { get; set; }
     public bool Test { get; set; }
 
     static void ShowUsage(string? message = null)
@@ -45,6 +46,7 @@ public struct Args
                   --default-label     Default label to use if no label is predicted.
                   --threshold         Minimum prediction confidence threshold. Range (0,1]. Default 0.4.
                   --retries           Comma-separated retry delays in seconds. Default: 30,30,300,300,3000,3000.
+                  --excluded-authors  Comma-separated list of authors to exclude.
                   --token             GitHub token. Default: read from GITHUB_TOKEN env var.
                   --test              Run in test mode, outputting predictions without applying labels.
                   --verbose           Enable verbose output.
@@ -147,6 +149,14 @@ public struct Args
                         return null;
                     }
                     argsData.Retries = retries;
+                    break;
+
+                case "--excluded-authors":
+                    if (!ArgUtils.TryDequeueStringArray(arguments, ShowUsage, "--excluded-authors", out string[]? excludedAuthors))
+                    {
+                        return null;
+                    }
+                    argsData.ExcludedAuthors = excludedAuthors;
                     break;
 
                 case "--test":

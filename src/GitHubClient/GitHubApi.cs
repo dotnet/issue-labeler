@@ -3,7 +3,6 @@
 
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
-using System.Text;
 using GraphQL;
 using GraphQL.Client.Http;
 using GraphQL.Client.Serializer.SystemTextJson;
@@ -16,7 +15,8 @@ public class GitHubApi
     private static ConcurrentDictionary<string, HttpClient> _restClients = new();
 
     private static GraphQLHttpClient GetGraphQLClient(string githubToken) =>
-        _graphQLClients.GetOrAdd(githubToken, token => {
+        _graphQLClients.GetOrAdd(githubToken, token =>
+        {
             GraphQLHttpClient client = new("https://api.github.com/graphql", new SystemTextJsonSerializer());
             client.HttpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
@@ -29,7 +29,8 @@ public class GitHubApi
         });
 
     private static HttpClient GetRestClient(string githubToken) =>
-        _restClients.GetOrAdd(githubToken, token => {
+        _restClients.GetOrAdd(githubToken, token =>
+        {
             HttpClient client = new();
             client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue(
                 scheme: "bearer",
@@ -41,17 +42,36 @@ public class GitHubApi
             return client;
         });
 
-    public static async IAsyncEnumerable<(Issue Issue, string Label)> DownloadIssues(string githubToken, string org, string repo, Predicate<string> labelPredicate, int? issueLimit, int pageSize, int pageLimit, int[] retries, bool verbose = false)
+    public static async IAsyncEnumerable<(Issue Issue, string Label)> DownloadIssues(
+        string githubToken,
+        string org, string repo,
+        Predicate<string> labelPredicate,
+        int? issueLimit,
+        int pageSize,
+        int pageLimit,
+        int[] retries,
+        string[] excludedAuthors,
+        bool verbose = false)
     {
-        await foreach (var item in DownloadItems<Issue>("issues", githubToken, org, repo, labelPredicate, issueLimit, pageSize, pageLimit, retries, verbose))
+        await foreach (var item in DownloadItems<Issue>("issues", githubToken, org, repo, labelPredicate, issueLimit, pageSize, pageLimit, retries, excludedAuthors, verbose))
         {
             yield return (item.Item, item.Label);
         }
     }
 
-    public static async IAsyncEnumerable<(PullRequest PullRequest, string Label)> DownloadPullRequests(string githubToken, string org, string repo, Predicate<string> labelPredicate, int? pullLimit, int pageSize, int pageLimit, int[] retries, bool verbose = false)
+    public static async IAsyncEnumerable<(PullRequest PullRequest, string Label)> DownloadPullRequests(
+        string githubToken,
+        string org,
+        string repo,
+        Predicate<string> labelPredicate,
+        int? pullLimit,
+        int pageSize,
+        int pageLimit,
+        int[] retries,
+        string[] excludedAuthors,
+        bool verbose = false)
     {
-        var items = DownloadItems<PullRequest>("pullRequests", githubToken, org, repo, labelPredicate, pullLimit, pageSize, pageLimit, retries, verbose);
+        var items = DownloadItems<PullRequest>("pullRequests", githubToken, org, repo, labelPredicate, pullLimit, pageSize, pageLimit, retries, excludedAuthors, verbose);
 
         await foreach (var item in items)
         {
@@ -59,7 +79,18 @@ public class GitHubApi
         }
     }
 
-    private static async IAsyncEnumerable<(T Item, string Label)> DownloadItems<T>(string itemQueryName, string githubToken, string org, string repo, Predicate<string> labelPredicate, int? itemLimit, int pageSize, int pageLimit, int[] retries, bool verbose) where T : Issue
+    private static async IAsyncEnumerable<(T Item, string Label)> DownloadItems<T>(
+        string itemQueryName,
+        string githubToken,
+        string org,
+        string repo,
+        Predicate<string> labelPredicate,
+        int? itemLimit,
+        int pageSize,
+        int pageLimit,
+        int[] retries,
+        string[] excludedAuthors,
+        bool verbose) where T : Issue
     {
         pageSize = Math.Min(pageSize, 100);
 
@@ -80,7 +111,7 @@ public class GitHubApi
 
             try
             {
-                page = await GetItemsPage<T>(githubToken, org, repo, pageSize, after, itemQueryName);
+                page = await GetItemsPage<T>(githubToken, org, repo, pageSize, after, itemQueryName, excludedAuthors);
             }
             catch (Exception ex) when (
                 ex is HttpIOException ||
@@ -121,6 +152,12 @@ public class GitHubApi
 
             foreach (T item in page.Nodes)
             {
+                if (excludedAuthors.Contains(item.Author.Login))
+                {
+                    if (verbose) Console.WriteLine($"{itemQueryName} {org}/{repo}#{item.Number} - Excluded from output. Author '{item.Author.Login}' is in excluded list.");
+                    continue;
+                }
+
                 // If there are more labels, there might be other applicable
                 // labels that were not loaded and the model is incomplete.
                 if (item.Labels.HasNextPage)
@@ -160,7 +197,7 @@ public class GitHubApi
         while (!finished);
     }
 
-    private static async Task<Page<T>> GetItemsPage<T>(string githubToken, string org, string repo, int pageSize, string? after, string itemQueryName) where T : Issue
+    private static async Task<Page<T>> GetItemsPage<T>(string githubToken, string org, string repo, int pageSize, string? after, string itemQueryName, string[] excludedAuthors) where T : Issue
     {
         GraphQLHttpClient client = GetGraphQLClient(githubToken);
 
@@ -175,6 +212,7 @@ public class GitHubApi
                             nodes {
                                 number
                                 title
+                                author { login }
                                 body: bodyText
                                 labels (first: 25) {
                                     nodes { name },
@@ -233,6 +271,7 @@ public class GitHubApi
                         result:{{itemQueryName}} (number: $number) {
                             number
                             title
+                            author { login }
                             body: bodyText
                             labels (first: 25) {
                                 nodes { name },

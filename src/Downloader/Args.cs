@@ -15,6 +15,7 @@ public struct Args
     public int? PageSize { get; set; }
     public int? PageLimit { get; set; }
     public int[] Retries { get; set; }
+    public string[]? ExcludedAuthors { get; set; }
     public Predicate<string> LabelPredicate { get; set; }
     public bool Verbose { get; set; }
 
@@ -43,6 +44,7 @@ public struct Args
                 --pull-limit        Maximum number of pull requests to download.
                 --page-size         Number of items per page in GitHub API requests.
                 --page-limit        Maximum number of pages to retrieve.
+                --excluded-authors  Comma-separated list of authors to exclude.
                 --retries           Comma-separated retry delays in seconds. Default: 30,30,300,300,3000,3000.
                 --token             GitHub access token. Default: Read from GITHUB_TOKEN env var.
                 --verbose           Enable verbose output.
@@ -128,6 +130,14 @@ public struct Args
                         return null;
                     }
                     argsData.PageLimit = pageLimit;
+                    break;
+
+                case "--excluded-authors":
+                    if (!ArgUtils.TryDequeueStringArray(arguments, ShowUsage, "--excluded-authors", out string[]? excludedAuthors))
+                    {
+                        return null;
+                    }
+                    argsData.ExcludedAuthors = excludedAuthors;
                     break;
 
                 case "--retries":

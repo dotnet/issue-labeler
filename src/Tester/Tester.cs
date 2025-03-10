@@ -49,7 +49,7 @@ async IAsyncEnumerable<T> ReadData<T>(string dataPath, Func<ulong, string[], T> 
 
 async IAsyncEnumerable<Issue> DownloadIssues(string githubToken, string org, string repo)
 {
-    await foreach (var result in GitHubApi.DownloadIssues(githubToken, org, repo, argsData.LabelPredicate, argsData.IssueLimit, 100, 1000, [30, 30, 30]))
+    await foreach (var result in GitHubApi.DownloadIssues(githubToken, org, repo, argsData.LabelPredicate, argsData.IssueLimit, 100, 1000, [30, 30, 30], argsData.ExcludedAuthors ?? []))
     {
         yield return new(result.Issue, argsData.LabelPredicate);
     }
@@ -85,7 +85,7 @@ async Task TestIssues()
 
 async IAsyncEnumerable<PullRequest> DownloadPullRequests(string githubToken, string org, string repo)
 {
-    await foreach (var result in GitHubApi.DownloadPullRequests(githubToken, org, repo, argsData.LabelPredicate, argsData.PullLimit, 25, 4000, [30, 30, 30]))
+    await foreach (var result in GitHubApi.DownloadPullRequests(githubToken, org, repo, argsData.LabelPredicate, argsData.PullLimit, 25, 4000, [30, 30, 30], argsData.ExcludedAuthors ?? []))
     {
         yield return new(result.PullRequest, argsData.LabelPredicate);
     }
