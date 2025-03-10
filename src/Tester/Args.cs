@@ -58,7 +58,7 @@ public struct Args
 
     public static Args? Parse(string[] args)
     {
-        Args config = new()
+        Args argsData = new()
         {
             Threshold = 0.4f
         };
@@ -75,7 +75,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.GithubToken = token;
+                    argsData.GithubToken = token;
                     break;
 
                 case "--repo":
@@ -83,8 +83,8 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Org = org;
-                    config.Repos = repos;
+                    argsData.Org = org;
+                    argsData.Repos = repos;
                     break;
 
                 case "--issue-data":
@@ -92,7 +92,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueDataPath = issueDataPath;
+                    argsData.IssueDataPath = issueDataPath;
                     break;
 
                 case "--issue-model":
@@ -100,7 +100,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueModelPath = issueModelPath;
+                    argsData.IssueModelPath = issueModelPath;
                     break;
 
                 case "--issue-limit":
@@ -108,7 +108,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueLimit = issueLimit;
+                    argsData.IssueLimit = issueLimit;
                     break;
 
                 case "--pull-data":
@@ -116,7 +116,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullDataPath = pullDataPath;
+                    argsData.PullDataPath = pullDataPath;
                     break;
 
                 case "--pull-model":
@@ -124,7 +124,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullModelPath = pullModelPath;
+                    argsData.PullModelPath = pullModelPath;
                     break;
 
                 case "--pull-limit":
@@ -132,7 +132,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullLimit = pullLimit;
+                    argsData.PullLimit = pullLimit;
                     break;
 
                 case "--label-prefix":
@@ -140,7 +140,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.LabelPredicate = new(labelPredicate);
+                    argsData.LabelPredicate = new(labelPredicate);
                     break;
 
                 case "--threshold":
@@ -148,7 +148,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.Threshold = threshold.Value;
+                    argsData.Threshold = threshold.Value;
                     break;
 
                 default:
@@ -157,18 +157,18 @@ public struct Args
             }
         }
 
-        if (config.LabelPredicate is null ||
+        if (argsData.LabelPredicate is null ||
             (
-                config.IssueDataPath is null && config.PullDataPath is null &&
-                (config.Org is null || config.Repos.Count == 0 || config.GithubToken is null)
+                argsData.IssueDataPath is null && argsData.PullDataPath is null &&
+                (argsData.Org is null || argsData.Repos.Count == 0 || argsData.GithubToken is null)
             ) ||
-            (config.IssueModelPath is null && config.PullModelPath is null)
+            (argsData.IssueModelPath is null && argsData.PullModelPath is null)
         )
         {
             ShowUsage();
             return null;
         }
 
-        return config;
+        return argsData;
     }
 }

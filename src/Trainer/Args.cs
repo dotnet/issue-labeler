@@ -37,7 +37,7 @@ public struct Args
 
     public static Args? Parse(string[] args)
     {
-        Args config = new();
+        Args argsData = new();
 
         Queue<string> arguments = new(args);
         while (arguments.Count > 0)
@@ -51,7 +51,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueDataPath = issueDataPath;
+                    argsData.IssueDataPath = issueDataPath;
                     break;
 
                 case "--issue-model":
@@ -59,7 +59,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.IssueModelPath = issueModelPath;
+                    argsData.IssueModelPath = issueModelPath;
                     break;
 
                 case "--pull-data":
@@ -67,7 +67,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullDataPath = pullDataPath;
+                    argsData.PullDataPath = pullDataPath;
                     break;
 
                 case "--pull-model":
@@ -75,7 +75,7 @@ public struct Args
                     {
                         return null;
                     }
-                    config.PullModelPath = pullModelPath;
+                    argsData.PullModelPath = pullModelPath;
                     break;
 
                 default:
@@ -84,14 +84,14 @@ public struct Args
             }
         }
 
-        if ((config.IssueDataPath is null != config.IssueModelPath is null) ||
-            (config.PullDataPath is null != config.PullModelPath is null) ||
-            (config.IssueModelPath is null && config.PullModelPath is null))
+        if ((argsData.IssueDataPath is null != argsData.IssueModelPath is null) ||
+            (argsData.PullDataPath is null != argsData.PullModelPath is null) ||
+            (argsData.IssueModelPath is null && argsData.PullModelPath is null))
         {
             ShowUsage();
             return null;
         }
 
-        return config;
+        return argsData;
     }
 }

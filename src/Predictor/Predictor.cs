@@ -20,11 +20,11 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
 
     foreach (ulong issueNumber in argsData.IssueNumbers)
     {
-        var result = await GitHubApi.GetIssue(argsData.GithubToken, argsData.Org, argsData.Repo, issueNumber);
+        var result = await GitHubApi.GetIssue(argsData.GithubToken, argsData.Org, argsData.Repo, issueNumber, argsData.Retries, argsData.Verbose);
 
         if (result is null)
         {
-            Console.WriteLine($"[Issue #{issueNumber}] Not found. Skipped.");
+            Console.WriteLine($"[Issue #{issueNumber}] could not be found or downloaded. Skipped.");
             continue;
         }
 
@@ -35,6 +35,7 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
             argsData.LabelPredicate,
             argsData.DefaultLabel,
             ModelType.Issue,
+            argsData.Retries,
             argsData.Test
         )));
 
@@ -52,11 +53,11 @@ if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
 
     foreach (ulong pullNumber in argsData.PullNumbers)
     {
-        var result = await GitHubApi.GetPullRequest(argsData.GithubToken, argsData.Org, argsData.Repo, pullNumber);
+        var result = await GitHubApi.GetPullRequest(argsData.GithubToken, argsData.Org, argsData.Repo, pullNumber, argsData.Retries, argsData.Verbose);
 
         if (result is null)
         {
-            Console.WriteLine($"[Pull Request #{pullNumber}] Not found.");
+            Console.WriteLine($"[Pull Request #{pullNumber}] could not be found or downloaded. Skipped.");
             continue;
         }
 
@@ -67,6 +68,7 @@ if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
             argsData.LabelPredicate,
             argsData.DefaultLabel,
             ModelType.PullRequest,
+            argsData.Retries,
             argsData.Test
         )));
 
@@ -91,7 +93,7 @@ foreach (var prediction in allTasks.Result)
         """);
 }
 
-async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, bool test) where T : Issue
+async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, int[] retries, bool test) where T : Issue
 {
     List<string> output = new();
     string? error = null;
@@ -116,7 +118,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel, argsData.Retries);
             }
 
             output.Add(error ?? $"Removed default label '{defaultLabel}'.");
@@ -160,7 +162,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
     {
         if (!test)
         {
-            error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, bestScore.Label);
+            error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, bestScore.Label, retries);
         }
 
         output.Add(error ?? $"Added label '{bestScore.Label}'");
@@ -174,7 +176,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.RemoveLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel, retries);
             }
 
             output.Add(error ?? $"Removed default label '{defaultLabel}'");
@@ -193,7 +195,7 @@ async Task<(ModelType, ulong, bool, string[])> ProcessPrediction<T>(PredictionEn
         {
             if (!test)
             {
-                error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel);
+                error = await GitHubApi.AddLabel(argsData.GithubToken, argsData.Org, argsData.Repo, type.ToString(), number, defaultLabel, argsData.Retries);
             }
 
             output.Add(error ?? $"Applied default label '{defaultLabel}'.");
