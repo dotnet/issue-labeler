@@ -28,7 +28,7 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
             continue;
         }
 
-        if (argsData.ExcludedAuthors is not null && argsData.ExcludedAuthors.Contains(result.Author.Login))
+        if (argsData.ExcludedAuthors is not null && argsData.ExcludedAuthors.Contains(result.Author.Login, StringComparer.CurrentCultureIgnoreCase))
         {
             Console.WriteLine($"[Issue #{issueNumber}] Author '{result.Author.Login}' is in excluded list. Skipped.");
             continue;

@@ -152,7 +152,7 @@ public class GitHubApi
 
             foreach (T item in page.Nodes)
             {
-                if (excludedAuthors.Contains(item.Author.Login))
+                if (excludedAuthors.Contains(item.Author.Login, StringComparer.CurrentCultureIgnoreCase))
                 {
                     if (verbose) Console.WriteLine($"{itemQueryName} {org}/{repo}#{item.Number} - Excluded from output. Author '{item.Author.Login}' is in excluded list.");
                     continue;

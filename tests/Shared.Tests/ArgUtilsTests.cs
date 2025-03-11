@@ -13,11 +13,11 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueString_ShouldReturnTrue_WhenValueIsPresent()
     {
-        var args = new Queue<string>(new[] { "value" });
+        var args = new Queue<string>(["value"]);
         var showUsage = Substitute.For<Action<string>>();
         string? argValue;
 
-        var result = ArgUtils.TryDequeueString(args, showUsage, "argName", out argValue);
+        var result = ArgUtils.TryDequeueString(args, showUsage, "test-arg-name", out argValue);
 
         Assert.IsTrue(result);
         Assert.AreEqual("value", argValue);
@@ -27,26 +27,26 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueString_ShouldReturnFalse_WhenValueIsNull()
     {
-        var args = new Queue<string>(new[] { "" });
+        var args = new Queue<string>([""]);
         var showUsage = Substitute.For<Action<string>>();
         string? argValue;
 
-        var result = ArgUtils.TryDequeueString(args, showUsage, "argName", out argValue);
+        var result = ArgUtils.TryDequeueString(args, showUsage, "test-arg-name", out argValue);
 
         Assert.IsFalse(result);
         Assert.IsNull(argValue);
-        showUsage.Received(1).Invoke("Argument 'argName' has an empty value.");
+        showUsage.Received(1).Invoke("Argument 'test-arg-name' has an empty value.");
     }
 
     [TestMethod]
     public void TryDequeueRepo_ShouldReturnTrue_WhenValueIsValid()
     {
-        var args = new Queue<string>(new[] { "org/repo" });
+        var args = new Queue<string>(["org/repo"]);
         var showUsage = Substitute.For<Action<string>>();
         string? org;
         string? repo;
 
-        var result = ArgUtils.TryDequeueRepo(args, showUsage, "argName", out org, out repo);
+        var result = ArgUtils.TryDequeueRepo(args, showUsage, "test-arg-name", out org, out repo);
 
         Assert.IsTrue(result);
         Assert.AreEqual("org", org);
@@ -57,28 +57,28 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueRepo_ShouldReturnFalse_WhenValueIsInvalid()
     {
-        var args = new Queue<string>(new[] { "invalid" });
+        var args = new Queue<string>(["invalid"]);
         var showUsage = Substitute.For<Action<string>>();
         string? org;
         string? repo;
 
-        var result = ArgUtils.TryDequeueRepo(args, showUsage, "argName", out org, out repo);
+        var result = ArgUtils.TryDequeueRepo(args, showUsage, "test-arg-name", out org, out repo);
 
         Assert.IsFalse(result);
         Assert.IsNull(org);
         Assert.IsNull(repo);
-        showUsage.Received(1).Invoke("Argument 'argName' has an empty value or is not in the format of '{org}/{repo}'.");
+        showUsage.Received(1).Invoke("Argument 'test-arg-name' has an empty value or is not in the format of '{org}/{repo}'.");
     }
 
     [TestMethod]
     public void TryDequeueRepoList_ShouldReturnTrue_WhenValuesAreValid()
     {
-        var args = new Queue<string>(new[] { "org/repo1,org/repo2" });
+        var args = new Queue<string>(["org/repo1,org/repo2"]);
         var showUsage = Substitute.For<Action<string>>();
         string? org;
         List<string>? repos;
 
-        var result = ArgUtils.TryDequeueRepoList(args, showUsage, "argName", out org, out repos);
+        var result = ArgUtils.TryDequeueRepoList(args, showUsage, "test-arg-name", out org, out repos);
 
         Assert.IsTrue(result);
         Assert.AreEqual("org", org);
@@ -89,12 +89,12 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueRepoList_ShouldReturnFalse_WhenValuesAreInvalid()
     {
-        var args = new Queue<string>(new[] { "invalid" });
+        var args = new Queue<string>(["invalid"]);
         var showUsage = Substitute.For<Action<string>>();
         string? org;
         List<string>? repos;
 
-        var result = ArgUtils.TryDequeueRepoList(args, showUsage, "argName", out org, out repos);
+        var result = ArgUtils.TryDequeueRepoList(args, showUsage, "test-arg-name", out org, out repos);
 
         Assert.IsFalse(result);
         Assert.IsNull(org);
@@ -105,11 +105,11 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueLabelPrefix_ShouldReturnTrue_WhenValueIsValid()
     {
-        var args = new Queue<string>(new[] { "area-" });
+        var args = new Queue<string>(["area-"]);
         var showUsage = Substitute.For<Action<string>>();
         Func<string, bool>? labelPredicate;
 
-        var result = ArgUtils.TryDequeueLabelPrefix(args, showUsage, "argName", out labelPredicate);
+        var result = ArgUtils.TryDequeueLabelPrefix(args, showUsage, "test-arg-name", out labelPredicate);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(labelPredicate);
@@ -120,25 +120,25 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueLabelPrefix_ShouldReturnFalse_WhenValueIsInvalid()
     {
-        var args = new Queue<string>(new[] { "area" });
+        var args = new Queue<string>(["area"]);
         var showUsage = Substitute.For<Action<string>>();
         Func<string, bool>? labelPredicate;
 
-        var result = ArgUtils.TryDequeueLabelPrefix(args, showUsage, "argName", out labelPredicate);
+        var result = ArgUtils.TryDequeueLabelPrefix(args, showUsage, "test-arg-name", out labelPredicate);
 
         Assert.IsFalse(result);
         Assert.IsNull(labelPredicate);
-        showUsage.Received(1).Invoke(Arg.Is<string>(s => s.Contains("Argument 'argName' must end in something other than a letter or number.")));
+        showUsage.Received(1).Invoke(Arg.Is<string>(s => s.Contains("Argument 'test-arg-name' must end in something other than a letter or number.")));
     }
 
     [TestMethod]
     public void TryDequeuePath_ShouldReturnTrue_WhenValueIsValid()
     {
-        var args = new Queue<string>(new[] { "C:\\path\\to\\file" });
+        var args = new Queue<string>(["C:\\path\\to\\file"]);
         var showUsage = Substitute.For<Action<string>>();
         string? path;
 
-        var result = ArgUtils.TryDequeuePath(args, showUsage, "argName", out path);
+        var result = ArgUtils.TryDequeuePath(args, showUsage, "test-arg-name", out path);
 
         Assert.IsTrue(result);
         Assert.AreEqual("C:\\path\\to\\file", path);
@@ -148,23 +148,23 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeuePath_ShouldReturnFalse_WhenValueIsInvalid()
     {
-        var args = new Queue<string>(new[] { "" });
+        var args = new Queue<string>([""]);
         var showUsage = Substitute.For<Action<string>>();
         string? path;
 
-        var result = ArgUtils.TryDequeuePath(args, showUsage, "argName", out path);
+        var result = ArgUtils.TryDequeuePath(args, showUsage, "test-arg-name", out path);
 
         Assert.IsFalse(result);
         Assert.IsNull(path);
-        showUsage.Received(1).Invoke("Argument 'argName' has an empty value.");
+        showUsage.Received(1).Invoke("Argument 'test-arg-name' has an empty value.");
     }
 
     [TestMethod]
     public void TryDequeueStringArray_ValidInput_ReturnsTrue()
     {
-        var args = new Queue<string>(new[] { "value1,value2,value3" });
+        var args = new Queue<string>(["value1,value2,value3"]);
         var showUsage = Substitute.For<Action<string>>();
-        bool result = ArgUtils.TryDequeueStringArray(args, showUsage, "argName", out string[]? argValues);
+        bool result = ArgUtils.TryDequeueStringArray(args, showUsage, "test-arg-name", out string[]? argValues);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(argValues);
@@ -178,9 +178,9 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueInt_ValidInput_ReturnsTrue()
     {
-        var args = new Queue<string>(new[] { "123" });
+        var args = new Queue<string>(["123"]);
         var showUsage = Substitute.For<Action<string>>();
-        bool result = ArgUtils.TryDequeueInt(args, showUsage, "argName", out int? argValue);
+        bool result = ArgUtils.TryDequeueInt(args, showUsage, "test-arg-name", out int? argValue);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(argValue);
@@ -191,9 +191,9 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueIntArray_ValidInput_ReturnsTrue()
     {
-        var args = new Queue<string>(new[] { "1,2,3" });
+        var args = new Queue<string>(["1,2,3"]);
         var showUsage = Substitute.For<Action<string>>();
-        bool result = ArgUtils.TryDequeueIntArray(args, showUsage, "argName", out int[]? argValues);
+        bool result = ArgUtils.TryDequeueIntArray(args, showUsage, "test-arg-name", out int[]? argValues);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(argValues);
@@ -207,9 +207,9 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueFloat_ValidInput_ReturnsTrue()
     {
-        var args = new Queue<string>(new[] { "123.45" });
+        var args = new Queue<string>(["123.45"]);
         var showUsage = Substitute.For<Action<string>>();
-        bool result = ArgUtils.TryDequeueFloat(args, showUsage, "argName", out float? argValue);
+        bool result = ArgUtils.TryDequeueFloat(args, showUsage, "test-arg-name", out float? argValue);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(argValue);
@@ -220,9 +220,9 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeueNumberRanges_ValidInput_ReturnsTrue()
     {
-        var args = new Queue<string>(new[] { "1-3,5,7-9" });
+        var args = new Queue<string>(["1-3,5,7-9"]);
         var showUsage = Substitute.For<Action<string>>();
-        bool result = ArgUtils.TryDequeueNumberRanges(args, showUsage, "argName", out List<ulong>? argValues);
+        bool result = ArgUtils.TryDequeueNumberRanges(args, showUsage, "test-arg-name", out List<ulong>? argValues);
 
         Assert.IsTrue(result);
         Assert.IsNotNull(argValues);
