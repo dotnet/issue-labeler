@@ -134,14 +134,14 @@ public class ArgUtilsTests
     [TestMethod]
     public void TryDequeuePath_ShouldReturnTrue_WhenValueIsValid()
     {
-        var args = new Queue<string>(["C:\\path\\to\\file"]);
+        var args = new Queue<string>(new[] { "/mnt/c/path/to/file" });
         var showUsage = Substitute.For<Action<string>>();
         string? path;
 
         var result = ArgUtils.TryDequeuePath(args, showUsage, "test-arg-name", out path);
 
         Assert.IsTrue(result);
-        Assert.AreEqual("C:\\path\\to\\file", path);
+        Assert.AreEqual("/mnt/c/path/to/file", path);
         showUsage.DidNotReceive().Invoke(Arg.Any<string>());
     }
 
