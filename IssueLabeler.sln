@@ -29,6 +29,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{43E392F7-70F3-471D-A96A-E413E4387CA6}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build-predictor.yml = .github\workflows\build-predictor.yml
+		.github\workflows\build.yml = .github\workflows\build.yml
 		.github\workflows\download-issues.yml = .github\workflows\download-issues.yml
 		.github\workflows\download-pulls.yml = .github\workflows\download-pulls.yml
 		.github\workflows\labeler-build-predictor.yml = .github\workflows\labeler-build-predictor.yml
