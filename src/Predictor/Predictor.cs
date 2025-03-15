@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.ML;
@@ -25,6 +25,12 @@ if (argsData.IssueModelPath is not null && argsData.IssueNumbers is not null)
         if (result is null)
         {
             Console.WriteLine($"[Issue #{issueNumber}] could not be found or downloaded. Skipped.");
+            continue;
+        }
+
+        if (argsData.ExcludedAuthors is not null && argsData.ExcludedAuthors.Contains(result.Author.Login, StringComparer.InvariantCultureIgnoreCase))
+        {
+            Console.WriteLine($"[Issue #{issueNumber}] Author '{result.Author.Login}' is in excluded list. Skipped.");
             continue;
         }
 
@@ -58,6 +64,12 @@ if (argsData.PullModelPath is not null && argsData.PullNumbers is not null)
         if (result is null)
         {
             Console.WriteLine($"[Pull Request #{pullNumber}] could not be found or downloaded. Skipped.");
+            continue;
+        }
+
+        if (argsData.ExcludedAuthors is not null && argsData.ExcludedAuthors.Contains(result.Author.Login))
+        {
+            Console.WriteLine($"[Pull Request #{pullNumber}] Author '{result.Author.Login}' is in excluded list. Skipped.");
             continue;
         }
 

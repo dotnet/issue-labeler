@@ -22,10 +22,14 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "4. Predictor", "4. Predictor", "{79FFE9CC-3518-4A4E-8FAB-DB121EE93AB8}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{A2C54AC3-3D94-4CD3-885E-D1892063CC58}"
+	ProjectSection(SolutionItems) = preProject
+		.github\copilot-instructions.md = .github\copilot-instructions.md
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{43E392F7-70F3-471D-A96A-E413E4387CA6}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\build-predictor.yml = .github\workflows\build-predictor.yml
+		.github\workflows\build.yml = .github\workflows\build.yml
 		.github\workflows\download-issues.yml = .github\workflows\download-issues.yml
 		.github\workflows\download-pulls.yml = .github\workflows\download-pulls.yml
 		.github\workflows\labeler-build-predictor.yml = .github\workflows\labeler-build-predictor.yml
@@ -43,6 +47,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{
 		.github\workflows\train-pulls.yml = .github\workflows\train-pulls.yml
 		.github\workflows\train.yml = .github\workflows\train.yml
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared.Tests", "tests\Shared.Tests\Shared.Tests.csproj", "{DCE6AA73-1E8A-4EB1-989C-235C11E5ECA4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -70,6 +76,10 @@ Global
 		{57F2D1DC-DA30-40CA-AE1A-2EFD8139AF25}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{57F2D1DC-DA30-40CA-AE1A-2EFD8139AF25}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{57F2D1DC-DA30-40CA-AE1A-2EFD8139AF25}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCE6AA73-1E8A-4EB1-989C-235C11E5ECA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCE6AA73-1E8A-4EB1-989C-235C11E5ECA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCE6AA73-1E8A-4EB1-989C-235C11E5ECA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCE6AA73-1E8A-4EB1-989C-235C11E5ECA4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

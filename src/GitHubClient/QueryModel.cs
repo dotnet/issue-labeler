@@ -13,10 +13,16 @@ public class RepositoryQuery<T>
     }
 }
 
+public class Author
+{
+    public required string Login { get; init; }
+}
+
 public class Issue
 {
     public required ulong Number { get; init; }
     public required string Title { get; init; }
+    public required Author Author { get; init; }
     public required string Body { get; init; }
     public required Page<Label> Labels { get; init; }
 

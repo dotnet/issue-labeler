@@ -36,7 +36,9 @@ async Task DownloadIssues(string outputPath)
 
     foreach (var repo in argsData.Repos)
     {
-        await foreach (var result in GitHubApi.DownloadIssues(argsData.GithubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.IssueLimit, argsData.PageSize ?? 100, argsData.PageLimit ?? 1000, argsData.Retries, argsData.Verbose))
+        await foreach (var result in GitHubApi.DownloadIssues(argsData.GithubToken, argsData.Org, repo, argsData.LabelPredicate,
+                                                              argsData.IssueLimit, argsData.PageSize ?? 100, argsData.PageLimit ?? 1000,
+                                                              argsData.Retries, argsData.ExcludedAuthors ?? [], argsData.Verbose))
         {
             writer.WriteLine(FormatIssueRecord(result.Label, result.Issue.Title, result.Issue.Body));
 
@@ -62,7 +64,9 @@ async Task DownloadPullRequests(string outputPath)
 
     foreach (var repo in argsData.Repos)
     {
-        await foreach (var result in GitHubApi.DownloadPullRequests(argsData.GithubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.PullLimit, argsData.PageSize ?? 25, argsData.PageLimit ?? 4000, argsData.Retries, argsData.Verbose))
+        await foreach (var result in GitHubApi.DownloadPullRequests(argsData.GithubToken, argsData.Org, repo, argsData.LabelPredicate,
+                                                                    argsData.PullLimit, argsData.PageSize ?? 25, argsData.PageLimit ?? 4000,
+                                                                    argsData.Retries, argsData.ExcludedAuthors ?? [], argsData.Verbose))
         {
             writer.WriteLine(FormatPullRequestRecord(result.Label, result.PullRequest.Title, result.PullRequest.Body, result.PullRequest.FileNames, result.PullRequest.FolderNames));
 

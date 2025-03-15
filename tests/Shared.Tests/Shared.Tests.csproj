@@ -1,0 +1,16 @@
+﻿<Project Sdk="MSTest.Sdk/3.6.4">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\Common\**\*.cs" LinkBase="Source" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+
+</Project>
