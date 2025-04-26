@@ -11,9 +11,5 @@
   <!-- Container Properties -->
   <PropertyGroup>
     <ContainerUser>root</ContainerUser>
-    <ContainerAuthors>Microsoft</ContainerAuthors>
-    <ContainerInformationUrl>https://github.com/dotnet/issue-labeler</ContainerInformationUrl>
-    <ContainerDocumentationUrl>https://github.com/dotnet/issue-labeler/wiki</ContainerDocumentationUrl>
-    <ContainerLicenseExpression>https://github.com/dotnet/issue-labeler/blob/main/LICENSE.TXT</ContainerLicenseExpression>
   </PropertyGroup>
 </Project>
