@@ -1,5 +1,5 @@
+# Predict labels for Pull Requests using a trained model
 name: "Labeler: Predict (Pulls)"
-description: "Predict labels for Pull Requests using a trained model."
 
 on:
   # Per to the following documentation:

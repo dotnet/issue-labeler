@@ -1,5 +1,5 @@
+# Create a new release of the Issue Labeler, publishing the predictor Docker container image to the GitHub container registry
 name: "Release"
-description: "Create a new release of the Issue Labeler, publishing the predictor Docker container image to the GitHub container registry."
 
 on:
   workflow_dispatch:

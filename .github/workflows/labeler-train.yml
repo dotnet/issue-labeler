@@ -1,5 +1,5 @@
+# Train the Issues and Pull Requests models for label prediction
 name: "Labeler: Training"
-description: "Train the Issues and Pull Requests models for label prediction."
 
 on:
   workflow_dispatch:

@@ -1,5 +1,5 @@
+# CI Build and Test of the IssueLabeler solution
 name: "CI Build"
-description: "Build the IssueLabeler solution"
 
 on:
   push:

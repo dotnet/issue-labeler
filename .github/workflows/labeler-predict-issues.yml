@@ -1,5 +1,5 @@
+# Predict labels for Issues using a trained model
 name: "Labeler: Predict (Issues)"
-description: "Predict labels for Issues using a trained model."
 
 on:
   # Only automatically predict area labels when issues are first opened
