@@ -24,6 +24,7 @@ env:
   LABEL_PREFIX: "area-"
   THRESHOLD: 0.40
   DEFAULT_LABEL: "needs-area-label"
+  MAX_LABELS: 2
 
 jobs:
   predict-issue-label:
@@ -50,6 +51,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
+          max_labels: ${{ env.MAX_LABELS }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: ${{ !env.ALLOW_FAILURE }}

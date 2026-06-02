@@ -16,6 +16,7 @@ public struct Args
     public string? PullsModelPath { get; set; }
     public List<ulong>? Pulls { get; set; }
     public string? DefaultLabel { get; set; }
+    public int MaxLabels { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
     public bool Test { get; set; }
@@ -50,6 +51,8 @@ public struct Args
               THRESHOLD               Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
               DEFAULT_LABEL           Label to apply if no label is predicted.
+              MAX_LABELS              Maximum number of labels to apply when multiple predictions
+                                      meet the threshold. Must be a positive integer. Defaults to: 1.
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
@@ -75,6 +78,7 @@ public struct Args
         argUtils.TryGetFloat("threshold", out var threshold);
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
+        argUtils.TryGetInt("max_labels", out var maxLabels);
         argUtils.TryGetFlag("test", out var test);
         argUtils.TryGetFlag("verbose", out var verbose);
 
@@ -91,6 +95,7 @@ public struct Args
             Repo = repo,
             LabelPredicate = labelPredicate,
             DefaultLabel = defaultLabel,
+            MaxLabels = maxLabels ?? 1,
             IssuesModelPath = issuesModelPath,
             Issues = issues,
             PullsModelPath = pullsModelPath,

@@ -48,6 +48,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
             argsData.Test
@@ -87,6 +88,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             new PullRequest(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
             argsData.Test
@@ -106,7 +108,7 @@ foreach (var prediction in predictionResults.OrderBy(p => p.Number))
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, int[] retries, bool test) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
     string typeName = type == ModelType.PullRequest ? "Pull Request" : "Issue";
@@ -195,11 +197,11 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         .OrderByDescending(p => p.Score)
         .Take(3);
 
-    var bestScore = predictions.FirstOrDefault(p => p.Score >= argsData.Threshold);
+    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
 
-    if (bestScore is not null)
+    if (topLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - Predicted label: `{bestScore.Label}` meets the threshold of {argsData.Threshold}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {topLabels.Count} label(s) meet the threshold of {argsData.Threshold}.", true));
     }
     else
     {
@@ -211,49 +213,49 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         predictionResults.Add(summary => summary.AddRawMarkdown($"        - `{labelPrediction.Label}` - Score: {labelPrediction.Score}", true));
     }
 
-    if (bestScore is not null)
+    if (topLabels.Count > 0)
     {
-        if (!test)
+        foreach (var labelToApply in topLabels)
         {
-            error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, bestScore.Label, retries, action);
-        }
-
-        if (error is null)
-        {
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{bestScore.Label}` applied**", true));
-            resultMessageParts.Add($"Label '{bestScore.Label}' applied.");
-
-            if (hasDefaultLabel && defaultLabel is not null)
+            if (!test)
             {
-                if (!test)
-                {
-                    error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
-                }
+                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, labelToApply.Label, retries, action);
+            }
 
-                if (error is null)
-                {
-                    predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
-                    resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
-                    return Success();
-                }
-                else
-                {
-                    predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                    resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
-                    return Failure();
-                }
+            if (error is null)
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` applied**", true));
+                resultMessageParts.Add($"Label '{labelToApply.Label}' applied.");
             }
             else
             {
-                return Success();
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{labelToApply.Label}`**: {error}", true));
+                resultMessageParts.Add($"Error occurred applying label '{labelToApply.Label}'");
+                return Failure();
             }
         }
-        else
+
+        if (hasDefaultLabel && defaultLabel is not null)
         {
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{bestScore.Label}`**: {error}", true));
-            resultMessageParts.Add($"Error occurred applying label '{bestScore.Label}'");
-            return Failure();
+            if (!test)
+            {
+                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+            }
+
+            if (error is null)
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+            }
+            else
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
+                return Failure();
+            }
         }
+
+        return Success();
     }
 
     if (defaultLabel is not null)
