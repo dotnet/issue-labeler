@@ -78,7 +78,17 @@ public struct Args
         argUtils.TryGetFloat("threshold", out var threshold);
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
-        argUtils.TryGetInt("max_labels", out var maxLabels);
+        argUtils.TryGetString("max_labels", out var maxLabelsStr);
+        int? maxLabels = null;
+        if (maxLabelsStr is not null)
+        {
+            if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1)
+            {
+                ShowUsage("Input 'max_labels' must be a positive integer (>= 1).", action);
+                return null;
+            }
+            maxLabels = parsedMaxLabels;
+        }
         argUtils.TryGetFlag("test", out var test);
         argUtils.TryGetFlag("verbose", out var verbose);
 
