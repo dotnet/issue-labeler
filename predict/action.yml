@@ -1,5 +1,5 @@
 name: "Predict Labels"
-description: "Predict labels for Issues, Pull Requests, and Discussions using models already restored from cache."
+description: "Predict labels for Issues, Pull Requests, and Discussions using models already restored from cache. At least one of 'issues', 'pulls', or 'discussions' must be provided."
 
 inputs:
   issues:

@@ -667,9 +667,9 @@ public class GitHubApi
         return null;
     }
 
-    private static async Task<string?> GetOrCreateLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
+    private static async Task<string?> GetOrCreateLabelNodeId(HttpClient restClient, string org, string repo, string labelName, ICoreService action)
     {
-        string cacheKey = $"{org}/{repo}/{labelName}";
+        string cacheKey = $"{org.ToLowerInvariant()}/{repo.ToLowerInvariant()}/{labelName.ToLowerInvariant()}";
         if (_labelNodeIdCache.TryGetValue(cacheKey, out string? cached))
             return cached;
 
@@ -685,7 +685,10 @@ public class GitHubApi
         }
 
         if ((int)getResponse.StatusCode != 404)
+        {
+            action.WriteInfo($"[Label] Unexpected status {(int)getResponse.StatusCode} ({getResponse.ReasonPhrase}) when fetching label '{labelName}' from {org}/{repo}.");
             return null;
+        }
 
         // Label doesn't exist — create it
         var createResponse = await restClient.PostAsJsonAsync(
@@ -712,14 +715,19 @@ public class GitHubApi
                 if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
                 return nodeId;
             }
+
+            action.WriteInfo($"[Label] Unexpected status {(int)refetchResponse.StatusCode} ({refetchResponse.ReasonPhrase}) when refetching label '{labelName}' from {org}/{repo} after a create race.");
+            return null;
         }
+
+        action.WriteInfo($"[Label] Unexpected status {(int)createResponse.StatusCode} ({createResponse.ReasonPhrase}) when creating label '{labelName}' in {org}/{repo}.");
 
         return null;
     }
 
-    private static async Task<string?> GetLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
+    private static async Task<string?> GetLabelNodeId(HttpClient restClient, string org, string repo, string labelName, ICoreService action)
     {
-        string cacheKey = $"{org}/{repo}/{labelName}";
+        string cacheKey = $"{org.ToLowerInvariant()}/{repo.ToLowerInvariant()}/{labelName.ToLowerInvariant()}";
         if (_labelNodeIdCache.TryGetValue(cacheKey, out string? cached))
             return cached;
 
@@ -727,7 +735,11 @@ public class GitHubApi
             $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
 
         if (!response.IsSuccessStatusCode)
+        {
+            if ((int)response.StatusCode != 404)
+                action.WriteInfo($"[Label] Unexpected status {(int)response.StatusCode} ({response.ReasonPhrase}) when fetching label '{labelName}' from {org}/{repo}.");
             return null;
+        }
 
         var label = await response.Content.ReadFromJsonAsync<JsonElement>();
         string? nodeId = label.GetProperty("node_id").GetString();
@@ -747,7 +759,7 @@ public class GitHubApi
         var restClient = GetRestClient(githubToken);
         var graphqlClient = GetGraphQLClient(githubToken);
 
-        string? labelNodeId = await GetOrCreateLabelNodeId(restClient, org, repo, labelName);
+        string? labelNodeId = await GetOrCreateLabelNodeId(restClient, org, repo, labelName, action);
         if (labelNodeId is null)
             return $"Failed to resolve or create label '{labelName}'.";
 
@@ -810,7 +822,7 @@ public class GitHubApi
         var graphqlClient = GetGraphQLClient(githubToken);
 
         // If the label doesn't exist there's nothing to remove
-        string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName);
+        string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
         if (labelNodeId is null) return null;
 
         var mutation = new GraphQLRequest
