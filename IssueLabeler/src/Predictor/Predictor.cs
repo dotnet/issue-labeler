@@ -41,9 +41,6 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             continue;
         }
 
-        // CreatePredictionEngine is called once per task. ITransformer is shared and thread-safe;
-        // PredictionEngine itself is not, but each Task.Run closure captures its own instance.
-        // Microsoft.Extensions.ML (PredictionEnginePool) is not a dependency of this project.
         tasks.Add(Task.Run(() => ProcessPrediction(
             issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel),
             issueNumber,
@@ -83,7 +80,6 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             continue;
         }
 
-        // See issues block above: one PredictionEngine per Task.Run, ITransformer shared.
         tasks.Add(Task.Run(() => ProcessPrediction(
             pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel),
             pullNumber,
@@ -123,7 +119,6 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             continue;
         }
 
-        // See issues block above: one PredictionEngine per Task.Run, ITransformer shared.
         tasks.Add(Task.Run(() => ProcessPrediction(
             discussionContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(discussionModel),
             result.Number,

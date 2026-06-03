@@ -15,8 +15,6 @@ public class GitHubApi
 {
     private static ConcurrentDictionary<string, GraphQLHttpClient> _graphQLClients = new();
     private static ConcurrentDictionary<string, HttpClient> _restClients = new();
-    // No eviction: this is a short-lived GitHub Actions process. Cache entries are bounded
-    // by the number of distinct labels in the repo (typically < 100) and dropped on exit.
     private static ConcurrentDictionary<string, string> _labelNodeIdCache = new();
     private const int MaxLabelDelaySeconds = 30;
 
