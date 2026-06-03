@@ -61,8 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       discussions: write
-      issues: read
-    steps:
+      issues: write
       - name: "Apply default area label to discussion"
         uses: actions/github-script@v7
         env:
