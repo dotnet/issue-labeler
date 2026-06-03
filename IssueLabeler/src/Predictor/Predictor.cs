@@ -198,11 +198,12 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         .Take(3)
         .ToList();
 
-    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
+    var eligibleLabels = predictions.Where(p => p.Score >= argsData.Threshold).ToList();
+    var topLabels = eligibleLabels.Take(maxLabels).ToList();
 
-    if (topLabels.Count > 0)
+    if (eligibleLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {topLabels.Count} label(s) meet the threshold of {argsData.Threshold}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
     }
     else
     {
@@ -216,25 +217,34 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
     if (topLabels.Count > 0)
     {
-        foreach (var labelToApply in topLabels)
+        error = null;
+        if (!test)
         {
-            error = null;
-            if (!test)
-            {
-                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, labelToApply.Label, retries, action);
-            }
+            error = await GitHubApi.AddLabels(
+                argsData.GitHubToken,
+                argsData.Org,
+                argsData.Repo,
+                typeName,
+                number,
+                topLabels.Select(label => label.Label).ToArray(),
+                retries,
+                action);
+        }
 
-            if (error is null)
+        if (error is null)
+        {
+            foreach (var labelToApply in topLabels)
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` applied**", true));
                 resultMessageParts.Add($"Label '{labelToApply.Label}' applied.");
             }
-            else
-            {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{labelToApply.Label}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred applying label '{labelToApply.Label}': {error}");
-                return Failure();
-            }
+        }
+        else
+        {
+            string attemptedLabels = string.Join("', '", topLabels.Select(label => label.Label));
+            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels `{attemptedLabels}`**: {error}", true));
+            resultMessageParts.Add($"Error occurred applying labels '{attemptedLabels}': {error}");
+            return Failure();
         }
 
         if (hasDefaultLabel && defaultLabel is not null)

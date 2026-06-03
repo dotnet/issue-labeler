@@ -502,16 +502,37 @@ public class GitHubApi
     /// <param name="retries">An array of retry delays in seconds. A maximum delay of 30 seconds is enforced.</param>
     /// <param name="action">The GitHub action service.</param>
     /// <returns>A string describing a failure, or <c>null</c> if successful.</returns>
-    public static async Task<string?> AddLabel(string githubToken, string org, string repo, string type, ulong number, string label, int[] retries, ICoreService action)
+    public static async Task<string?> AddLabel(string githubToken, string org, string repo, string type, ulong number, string label, int[] retries, ICoreService action) =>
+        await AddLabels(githubToken, org, repo, type, number, [label], retries, action);
+
+    /// <summary>
+    /// Adds labels to an issue or pull request in a GitHub repository.
+    /// </summary>
+    /// <param name="githubToken">The GitHub token to use for authentication.</param>
+    /// <param name="org">The GitHub organization name.</param>
+    /// <param name="repo">The GitHub repository name.</param>
+    /// <param name="type">The type of item (e.g., "issue" or "pull request").</param>
+    /// <param name="number">The issue or pull request number.</param>
+    /// <param name="labels">The labels to add.</param>
+    /// <param name="retries">An array of retry delays in seconds. A maximum delay of 30 seconds is enforced.</param>
+    /// <param name="action">The GitHub action service.</param>
+    /// <returns>A string describing a failure, or <c>null</c> if successful.</returns>
+    public static async Task<string?> AddLabels(string githubToken, string org, string repo, string type, ulong number, string[] labels, int[] retries, ICoreService action)
     {
+        if (labels.Length == 0)
+        {
+            return null;
+        }
+
         var client = GetRestClient(githubToken);
         byte retry = 0;
+        string labelList = string.Join("', '", labels);
 
         while (retry < retries.Length)
         {
             var response = await client.PostAsJsonAsync(
                 $"https://api.github.com/repos/{org}/{repo}/issues/{number}/labels",
-                new string[] { label },
+                labels,
                 CancellationToken.None);
 
             if (response.IsSuccessStatusCode)
@@ -520,7 +541,7 @@ public class GitHubApi
             }
 
             action.WriteInfo($"""
-                [{type} {org}/{repo}#{number}] Failed to add label '{label}'. {response.ReasonPhrase} ({response.StatusCode})
+                [{type} {org}/{repo}#{number}] Failed to add label(s) '{labelList}'. {response.ReasonPhrase} ({response.StatusCode})
                     {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
@@ -528,7 +549,7 @@ public class GitHubApi
             await Task.Delay(delay * 1000);
         }
 
-        return $"Failed to add label '{label}' after {retries.Length} retries.";
+        return $"Failed to add label(s) '{labelList}' after {retries.Length} retries.";
     }
 
     /// <summary>
