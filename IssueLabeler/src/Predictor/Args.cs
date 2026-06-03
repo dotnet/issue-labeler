@@ -5,6 +5,8 @@ using Actions.Core.Services;
 
 public struct Args
 {
+    private const int MaxLabelsLimit = 5;
+
     public string GitHubToken => Environment.GetEnvironmentVariable("GITHUB_TOKEN")!;
     public string Org { get; set; }
     public string Repo { get; set; }
@@ -52,7 +54,8 @@ public struct Args
                                       Defaults to: 0.4.
               DEFAULT_LABEL           Label to apply if no label is predicted.
               MAX_LABELS              Maximum number of labels to apply when multiple predictions
-                                      meet the threshold. Must be a positive integer. Defaults to: 1.
+                                      meet the threshold. Must be a positive integer in [1, 5].
+                                      Defaults to: 1.
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
@@ -82,9 +85,9 @@ public struct Args
         int? maxLabels = null;
         if (maxLabelsStr is not null)
         {
-            if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1)
+            if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1 || parsedMaxLabels > MaxLabelsLimit)
             {
-                ShowUsage("Input 'max_labels' must be a positive integer (>= 1).", action);
+                ShowUsage($"Input 'max_labels' must be a positive integer between 1 and {MaxLabelsLimit}.", action);
                 return null;
             }
             maxLabels = parsedMaxLabels;

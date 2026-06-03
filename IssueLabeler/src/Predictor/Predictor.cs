@@ -152,7 +152,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
             }
 
             if (error is null)
@@ -239,7 +239,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
             }
 
             if (error is null)
