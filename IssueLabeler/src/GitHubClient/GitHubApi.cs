@@ -15,6 +15,7 @@ public class GitHubApi
 {
     private static ConcurrentDictionary<string, GraphQLHttpClient> _graphQLClients = new();
     private static ConcurrentDictionary<string, HttpClient> _restClients = new();
+    private static ConcurrentDictionary<string, string> _labelNodeIdCache = new();
     private const int MaxLabelDelaySeconds = 30;
 
     /// <summary>
@@ -668,13 +669,19 @@ public class GitHubApi
 
     private static async Task<string?> GetOrCreateLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
     {
+        string cacheKey = $"{org}/{repo}/{labelName}";
+        if (_labelNodeIdCache.TryGetValue(cacheKey, out string? cached))
+            return cached;
+
         var getResponse = await restClient.GetAsync(
             $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
 
         if (getResponse.IsSuccessStatusCode)
         {
             var label = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
-            return label.GetProperty("node_id").GetString();
+            string? nodeId = label.GetProperty("node_id").GetString();
+            if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
+            return nodeId;
         }
 
         if ((int)getResponse.StatusCode != 404)
@@ -688,7 +695,9 @@ public class GitHubApi
         if (createResponse.IsSuccessStatusCode)
         {
             var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
-            return created.GetProperty("node_id").GetString();
+            string? nodeId = created.GetProperty("node_id").GetString();
+            if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
+            return nodeId;
         }
 
         if ((int)createResponse.StatusCode == 422)
@@ -699,7 +708,9 @@ public class GitHubApi
             if (refetchResponse.IsSuccessStatusCode)
             {
                 var label = await refetchResponse.Content.ReadFromJsonAsync<JsonElement>();
-                return label.GetProperty("node_id").GetString();
+                string? nodeId = label.GetProperty("node_id").GetString();
+                if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
+                return nodeId;
             }
         }
 
@@ -708,6 +719,10 @@ public class GitHubApi
 
     private static async Task<string?> GetLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
     {
+        string cacheKey = $"{org}/{repo}/{labelName}";
+        if (_labelNodeIdCache.TryGetValue(cacheKey, out string? cached))
+            return cached;
+
         var response = await restClient.GetAsync(
             $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
 
@@ -715,7 +730,9 @@ public class GitHubApi
             return null;
 
         var label = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return label.GetProperty("node_id").GetString();
+        string? nodeId = label.GetProperty("node_id").GetString();
+        if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
+        return nodeId;
     }
 
     /// <summary>
