@@ -45,7 +45,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel),
+            issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!),
             issueNumber,
             new Issue(result),
             argsData.LabelPredicate,

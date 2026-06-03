@@ -702,7 +702,7 @@ public class GitHubApi
         if (getResponse.IsSuccessStatusCode)
         {
             var label = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
-            string? nodeId = label.GetProperty("node_id").GetString();
+            string? nodeId = label.TryGetProperty("node_id", out var nodeIdProp) ? nodeIdProp.GetString() : null;
             if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
             return nodeId;
         }
@@ -721,7 +721,7 @@ public class GitHubApi
         if (createResponse.IsSuccessStatusCode)
         {
             var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
-            string? nodeId = created.GetProperty("node_id").GetString();
+            string? nodeId = created.TryGetProperty("node_id", out var createdNodeIdProp) ? createdNodeIdProp.GetString() : null;
             if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
             return nodeId;
         }
@@ -734,7 +734,7 @@ public class GitHubApi
             if (refetchResponse.IsSuccessStatusCode)
             {
                 var label = await refetchResponse.Content.ReadFromJsonAsync<JsonElement>();
-                string? nodeId = label.GetProperty("node_id").GetString();
+                string? nodeId = label.TryGetProperty("node_id", out var refetchNodeIdProp) ? refetchNodeIdProp.GetString() : null;
                 if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
                 return nodeId;
             }
@@ -765,14 +765,14 @@ public class GitHubApi
         }
 
         var label = await response.Content.ReadFromJsonAsync<JsonElement>();
-        string? nodeId = label.GetProperty("node_id").GetString();
+        string? nodeId = label.TryGetProperty("node_id", out var nodeIdProp) ? nodeIdProp.GetString() : null;
         if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
         return nodeId;
     }
 
     /// <summary>
     /// Adds a label to a discussion in a GitHub repository via GraphQL.
-    /// Creates the label in the repository if it does not yet exist.
+    /// The label must already exist in the repository; if not, the method returns a failure message.
     /// </summary>
     public static async Task<string?> AddLabelToDiscussion(
         string githubToken, string org, string repo,
@@ -800,14 +800,8 @@ public class GitHubApi
             string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
             if (labelNodeId is null)
             {
-                action.WriteInfo($"""
-                    [Discussion] Failed to apply label '{labelName}'.
-                        Label does not exist in {org}/{repo}.
-                        {(retry < retries.Length - 1 ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
-                    """);
-                int labelDelay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
-                await Task.Delay(labelDelay * 1000);
-                continue;
+                // Label does not exist and will not appear on its own — fail immediately.
+                return $"Failed to apply label '{labelName}': label does not exist in {org}/{repo}.";
             }
 
             mutation.Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } };
