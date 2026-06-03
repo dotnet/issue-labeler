@@ -24,6 +24,14 @@ public class Issue
         Labels = issue.LabelNames;
         HasMoreLabels = issue.Labels.HasNextPage;
     }
+
+    public Issue(GitHubClient.Discussion discussion)
+    {
+        Title = discussion.Title;
+        Body = discussion.Body;
+        Labels = discussion.LabelNames;
+        HasMoreLabels = discussion.Labels.HasNextPage;
+    }
 }
 
 public class PullRequest : Issue

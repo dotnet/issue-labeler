@@ -63,46 +63,23 @@ jobs:
       discussions: write
       issues: write
     steps:
-      - name: "Apply default area label to discussion"
-        uses: actions/github-script@v7
-        env:
-          DEFAULT_LABEL: ${{ env.DEFAULT_LABEL }}
+      - name: "Restore issues model from cache"
+        id: restore-model
+        uses: dotnet/issue-labeler/restore@main
         with:
-          script: |
-            const labelName = process.env.DEFAULT_LABEL;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const discussionNodeId = context.payload.discussion?.node_id;
-            const discussionNumber = context.payload.discussion?.number;
+          type: issues
+          fail-on-cache-miss: false
+          quiet: true
+          cache_key: 'ACTIVE'
 
-            if (!discussionNodeId || !discussionNumber) {
-              core.setFailed("Missing discussion node ID or number in event payload.");
-              return;
-            }
-
-            // Resolve the label node ID (create the label if it doesn't exist yet)
-            let labelNodeId;
-            try {
-              const existingLabel = await github.rest.issues.getLabel({ owner, repo, name: labelName });
-              labelNodeId = existingLabel.data.node_id;
-            } catch (error) {
-              if (error.status !== 404) throw error;
-              const createdLabel = await github.rest.issues.createLabel({
-                owner,
-                repo,
-                name: labelName,
-                color: "ededed",
-                description: "Added by labeler workflow when no area could be predicted"
-              });
-              labelNodeId = createdLabel.data.node_id;
-            }
-
-            // Apply the label to the discussion via GraphQL (REST labels API does not support discussions)
-            await github.graphql(
-              `mutation($labelableId: ID!, $labelIds: [ID!]!) {
-                addLabelsToLabelable(input: { labelableId: $labelableId, labelIds: $labelIds }) {
-                  clientMutationId
-                }
-              }`,
-              { labelableId: discussionNodeId, labelIds: [labelNodeId] }
-            );
+      - name: "Predict discussion labels"
+        if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
+        uses: dotnet/issue-labeler/predict@main
+        with:
+          discussions: ${{ github.event.discussion.number }}
+          label_prefix: ${{ env.LABEL_PREFIX }}
+          threshold: ${{ env.THRESHOLD }}
+          default_label: ${{ env.DEFAULT_LABEL }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        continue-on-error: true

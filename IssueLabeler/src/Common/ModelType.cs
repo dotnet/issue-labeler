@@ -4,5 +4,6 @@
 public enum ModelType
 {
     Issue = 1,
-    PullRequest = 2
+    PullRequest = 2,
+    Discussion = 3
 }

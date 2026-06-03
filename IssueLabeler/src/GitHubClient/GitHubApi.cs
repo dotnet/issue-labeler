@@ -7,6 +7,7 @@ using GraphQL.Client.Http;
 using GraphQL.Client.Serializer.SystemTextJson;
 using System.Collections.Concurrent;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace GitHubClient;
 
@@ -569,5 +570,276 @@ public class GitHubApi
         }
 
         return $"Failed to remove label '{label}' after {retries.Length} retries.";
+    }
+
+    /// <summary>
+    /// Gets a discussion from a GitHub repository using GraphQL.
+    /// </summary>
+    public static async Task<Discussion?> GetDiscussion(string githubToken, string org, string repo, ulong number, int[] retries, ICoreService action, bool verbose)
+    {
+        GraphQLHttpClient client = GetGraphQLClient(githubToken);
+
+        GraphQLRequest query = new()
+        {
+            Query = """
+                query ($owner: String!, $repo: String!, $number: Int!) {
+                    repository (owner: $owner, name: $repo) {
+                        result:discussion (number: $number) {
+                            number
+                            id
+                            title
+                            author { login }
+                            body: bodyText
+                            labels (first: 25) {
+                                nodes { name }
+                                pageInfo { hasNextPage }
+                            }
+                        }
+                    }
+                }
+                """,
+            Variables = new { Owner = org, Repo = repo, Number = number }
+        };
+
+        byte retry = 0;
+
+        while (retry < retries.Length)
+        {
+            try
+            {
+                var response = await client.SendQueryAsync<RepositoryQuery<Discussion>>(query);
+
+                if (!(response.Errors?.Any() ?? false) && response.Data?.Repository?.Result is not null)
+                    return response.Data.Repository.Result;
+
+                if (response.Errors?.Any() ?? false)
+                {
+                    if (response.Errors.Any(e => e.Message.StartsWith("API rate limit exceeded")))
+                    {
+                        action.WriteInfo($"""
+                            [Discussion {org}/{repo}#{number}] Failed to retrieve data.
+                                Rate limit has been reached.
+                                {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                            """);
+                    }
+                    else
+                    {
+                        string errors = string.Join("\n\n", response.Errors.Select((e, i) => $"{i + 1}. {e.Message}").ToArray());
+                        action.WriteInfo($"""
+                            [Discussion {org}/{repo}#{number}] Failed to retrieve data.
+                                GraphQL request returned errors:
+
+                                {errors}
+                            """);
+                        return null;
+                    }
+                }
+                else
+                {
+                    action.WriteInfo($"""
+                        [Discussion {org}/{repo}#{number}] Failed to retrieve data.
+                            GraphQL response did not include the repository result data.
+                        """);
+                    return null;
+                }
+            }
+            catch (Exception ex) when (
+                ex is HttpIOException ||
+                ex is HttpRequestException ||
+                ex is GraphQLHttpRequestException ||
+                ex is TaskCanceledException
+            )
+            {
+                action.WriteInfo($"""
+                    [Discussion {org}/{repo}#{number}] Failed to retrieve data.
+                        Exception caught during query.
+
+                        {ex.Message}
+
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+
+            await Task.Delay(retries[retry++] * 1000);
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> GetOrCreateLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
+    {
+        var getResponse = await restClient.GetAsync(
+            $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
+
+        if (getResponse.IsSuccessStatusCode)
+        {
+            var label = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
+            return label.GetProperty("node_id").GetString();
+        }
+
+        if ((int)getResponse.StatusCode != 404)
+            return null;
+
+        // Label doesn't exist — create it
+        var createResponse = await restClient.PostAsJsonAsync(
+            $"https://api.github.com/repos/{org}/{repo}/labels",
+            new { name = labelName, color = "ededed" });
+
+        if (createResponse.IsSuccessStatusCode)
+        {
+            var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
+            return created.GetProperty("node_id").GetString();
+        }
+
+        if ((int)createResponse.StatusCode == 422)
+        {
+            // Race condition: another run created the label concurrently; re-fetch it
+            var refetchResponse = await restClient.GetAsync(
+                $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
+            if (refetchResponse.IsSuccessStatusCode)
+            {
+                var label = await refetchResponse.Content.ReadFromJsonAsync<JsonElement>();
+                return label.GetProperty("node_id").GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> GetLabelNodeId(HttpClient restClient, string org, string repo, string labelName)
+    {
+        var response = await restClient.GetAsync(
+            $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var label = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return label.GetProperty("node_id").GetString();
+    }
+
+    /// <summary>
+    /// Adds a label to a discussion in a GitHub repository via GraphQL.
+    /// Creates the label in the repository if it does not yet exist.
+    /// </summary>
+    public static async Task<string?> AddLabelToDiscussion(
+        string githubToken, string org, string repo,
+        string discussionNodeId, string labelName,
+        int[] retries, ICoreService action)
+    {
+        var restClient = GetRestClient(githubToken);
+        var graphqlClient = GetGraphQLClient(githubToken);
+
+        string? labelNodeId = await GetOrCreateLabelNodeId(restClient, org, repo, labelName);
+        if (labelNodeId is null)
+            return $"Failed to resolve or create label '{labelName}'.";
+
+        var mutation = new GraphQLRequest
+        {
+            Query = """
+                mutation($labelableId: ID!, $labelIds: [ID!]!) {
+                    addLabelsToLabelable(input: { labelableId: $labelableId, labelIds: $labelIds }) {
+                        clientMutationId
+                    }
+                }
+                """,
+            Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } }
+        };
+
+        byte retry = 0;
+
+        while (retry < retries.Length)
+        {
+            try
+            {
+                var response = await graphqlClient.SendMutationAsync<object>(mutation);
+                if (!(response.Errors?.Any() ?? false)) return null;
+
+                action.WriteInfo($"""
+                    [Discussion] Failed to apply label '{labelName}'.
+                        {string.Join("; ", response.Errors!.Select(e => e.Message))}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+            catch (Exception ex) when (
+                ex is HttpIOException ||
+                ex is HttpRequestException ||
+                ex is GraphQLHttpRequestException ||
+                ex is TaskCanceledException)
+            {
+                action.WriteInfo($"""
+                    [Discussion] Failed to apply label '{labelName}'.
+                        {ex.Message}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+
+            int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+            await Task.Delay(delay * 1000);
+        }
+
+        return $"Failed to apply label '{labelName}' after {retries.Length} retries.";
+    }
+
+    /// <summary>
+    /// Removes a label from a discussion in a GitHub repository via GraphQL.
+    /// </summary>
+    public static async Task<string?> RemoveLabelFromDiscussion(
+        string githubToken, string org, string repo,
+        string discussionNodeId, string labelName,
+        int[] retries, ICoreService action)
+    {
+        var restClient = GetRestClient(githubToken);
+        var graphqlClient = GetGraphQLClient(githubToken);
+
+        // If the label doesn't exist there's nothing to remove
+        string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName);
+        if (labelNodeId is null) return null;
+
+        var mutation = new GraphQLRequest
+        {
+            Query = """
+                mutation($labelableId: ID!, $labelIds: [ID!]!) {
+                    removeLabelsFromLabelable(input: { labelableId: $labelableId, labelIds: $labelIds }) {
+                        clientMutationId
+                    }
+                }
+                """,
+            Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } }
+        };
+
+        byte retry = 0;
+
+        while (retry < retries.Length)
+        {
+            try
+            {
+                var response = await graphqlClient.SendMutationAsync<object>(mutation);
+                if (!(response.Errors?.Any() ?? false)) return null;
+
+                action.WriteInfo($"""
+                    [Discussion] Failed to remove label '{labelName}'.
+                        {string.Join("; ", response.Errors!.Select(e => e.Message))}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+            catch (Exception ex) when (
+                ex is HttpIOException ||
+                ex is HttpRequestException ||
+                ex is GraphQLHttpRequestException ||
+                ex is TaskCanceledException)
+            {
+                action.WriteInfo($"""
+                    [Discussion] Failed to remove label '{labelName}'.
+                        {ex.Message}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+            }
+
+            int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+            await Task.Delay(delay * 1000);
+        }
+
+        return $"Failed to remove label '{labelName}' after {retries.Length} retries.";
     }
 }

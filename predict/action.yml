@@ -1,14 +1,23 @@
 name: "Predict Labels"
-description: "Predict labels for Issues and Pull Requests using models already restored from cache."
+description: "Predict labels for Issues, Pull Requests, and Discussions using models already restored from cache."
 
 inputs:
   issues:
     description: "Issue Numbers (comma-separated list of ranges)."
-    required: true
+    required: false
 
   pulls:
     description: "Pull Request Numbers (comma-separated list of ranges)."
-    required: true
+    required: false
+
+  discussions:
+    description: "Discussion Numbers (comma-separated list of ranges). Uses the issues model for prediction."
+    required: false
+
+  max_labels:
+    description: "Maximum number of labels to apply when multiple predictions meet the threshold. Must be a positive integer in [1, 5]. Defaults to 1."
+    required: false
+    default: "1"
 
   label_prefix:
     description: "The label prefix used for prediction. Must end with a non-alphanumeric character. Defaults to 'area-'."
