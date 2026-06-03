@@ -5,7 +5,7 @@ using Actions.Core.Services;
 
 public struct Args
 {
-    private const int MaxLabelsLimit = 5;
+    private const int MaxLabelsLimit = 2;
 
     public string GitHubToken => Environment.GetEnvironmentVariable("GITHUB_TOKEN")!;
     public string Org { get; set; }
@@ -54,7 +54,7 @@ public struct Args
                                       Defaults to: 0.4.
               DEFAULT_LABEL           Label to apply if no label is predicted.
               MAX_LABELS              Maximum number of labels to apply when multiple predictions
-                                      meet the threshold. Must be a positive integer in [1, 5].
+                                      meet the threshold. Must be a positive integer in [1, 2].
                                       Defaults to: 1.
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.

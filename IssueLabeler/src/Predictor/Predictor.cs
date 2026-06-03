@@ -164,7 +164,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
@@ -195,7 +195,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         .Where(prediction => labelPredicate(prediction.Label))
         // Capture at least the top 3 for output, or more if max_labels requests it
         .OrderByDescending(p => p.Score)
-        .Take(Math.Max(3, maxLabels));
+        .Take(Math.Max(3, maxLabels))
+        .ToList();
 
     var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
 
@@ -231,7 +232,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{labelToApply.Label}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred applying label '{labelToApply.Label}'");
+                resultMessageParts.Add($"Error occurred applying label '{labelToApply.Label}': {error}");
                 return Failure();
             }
         }
@@ -251,7 +252,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
@@ -271,7 +272,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         {
             if (!test)
             {
-                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
             }
 
             if (error is null)
@@ -283,7 +284,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
