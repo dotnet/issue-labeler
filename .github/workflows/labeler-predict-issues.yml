@@ -47,7 +47,6 @@ jobs:
         uses: dotnet/issue-labeler/predict@main
         with:
           issues: ${{ inputs.issues || github.event.issue.number }}
-          pulls: ""
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}

@@ -23,7 +23,6 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
     await action.WriteStatusAsync($"Loading prediction engine for issues model...");
     var issueContext = new MLContext();
     var issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
-    var issuePredictor = issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel);
     await action.WriteStatusAsync($"Issues prediction engine ready.");
 
     foreach (ulong issueNumber in argsData.Issues)
@@ -43,7 +42,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            issuePredictor,
+            issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel),
             issueNumber,
             new Issue(result),
             argsData.LabelPredicate,
@@ -62,7 +61,6 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
     await action.WriteStatusAsync($"Loading prediction engine for pulls model...");
     var pullContext = new MLContext();
     var pullModel = pullContext.Model.Load(argsData.PullsModelPath, out _);
-    var pullPredictor = pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel);
     await action.WriteStatusAsync($"Pulls prediction engine ready.");
 
     foreach (ulong pullNumber in argsData.Pulls)
@@ -82,7 +80,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            pullPredictor,
+            pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel),
             pullNumber,
             new PullRequest(result),
             argsData.LabelPredicate,
@@ -101,7 +99,6 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
     await action.WriteStatusAsync($"Loading prediction engine for discussions (uses issues model)...");
     var discussionContext = new MLContext();
     var discussionModel = discussionContext.Model.Load(argsData.IssuesModelPath, out _);
-    var discussionPredictor = discussionContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(discussionModel);
     await action.WriteStatusAsync($"Discussions prediction engine ready.");
 
     foreach (ulong discussionNumber in argsData.Discussions)
@@ -121,7 +118,7 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            discussionPredictor,
+            discussionContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(discussionModel),
             result.Number,
             new Issue(result),
             argsData.LabelPredicate,
