@@ -18,6 +18,17 @@ public class GitHubApi
     private static ConcurrentDictionary<string, string> _labelNodeIdCache = new();
     private const int MaxLabelDelaySeconds = 30;
 
+    private static int? GetGraphQLNumber(string typeName, string org, string repo, ulong number, ICoreService action)
+    {
+        if (number > int.MaxValue)
+        {
+            action.WriteInfo($"[{typeName} {org}/{repo}#{number}] Failed to retrieve data. GitHub GraphQL item numbers must fit in Int32.");
+            return null;
+        }
+
+        return (int)number;
+    }
+
     /// <summary>
     /// Gets or creates a GraphQL client for the GitHub API using the provided token.
     /// </summary>
@@ -388,6 +399,13 @@ public class GitHubApi
     {
         GraphQLHttpClient client = GetGraphQLClient(githubToken);
         string files = typeof(T) == typeof(PullRequest) ? "files (first: 100) { nodes { path } }" : "";
+        string typeName = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
+        int? graphQLNumber = GetGraphQLNumber(typeName, org, repo, number, action);
+
+        if (graphQLNumber is null)
+        {
+            return null;
+        }
 
         GraphQLRequest query = new GraphQLRequest
         {
@@ -410,14 +428,13 @@ public class GitHubApi
                 """,
             Variables = new
             {
-                Owner = org,
-                Repo = repo,
-                Number = number
+                owner = org,
+                repo = repo,
+                number = graphQLNumber.Value
             }
         };
 
         byte retry = 0;
-        string typeName = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
 
         while (retry < retries.Length)
         {
@@ -579,6 +596,12 @@ public class GitHubApi
     public static async Task<Discussion?> GetDiscussion(string githubToken, string org, string repo, ulong number, int[] retries, ICoreService action, bool verbose)
     {
         GraphQLHttpClient client = GetGraphQLClient(githubToken);
+        int? graphQLNumber = GetGraphQLNumber("Discussion", org, repo, number, action);
+
+        if (graphQLNumber is null)
+        {
+            return null;
+        }
 
         GraphQLRequest query = new()
         {
@@ -599,7 +622,7 @@ public class GitHubApi
                     }
                 }
                 """,
-            Variables = new { Owner = org, Repo = repo, Number = number }
+            Variables = new { owner = org, repo = repo, number = graphQLNumber.Value }
         };
 
         byte retry = 0;

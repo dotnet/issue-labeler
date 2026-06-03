@@ -22,7 +22,7 @@ public class Issue
 {
     public required ulong Number { get; init; }
     public required string Title { get; init; }
-    public required Author Author { get; init; }
+    public Author? Author { get; init; }
     public required string Body { get; init; }
     public required Page<Label> Labels { get; init; }
 
@@ -92,7 +92,7 @@ public class Discussion
     public required ulong Number { get; init; }
     public required string Id { get; init; }
     public required string Title { get; init; }
-    public required Author Author { get; init; }
+    public Author? Author { get; init; }
     public required string Body { get; init; }
     public required Page<Label> Labels { get; init; }
 
