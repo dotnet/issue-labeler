@@ -193,9 +193,9 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture at least the top 3 for output, or more if max_labels requests it
+        // Capture the top 3 predictions for output.
         .OrderByDescending(p => p.Score)
-        .Take(Math.Max(3, maxLabels))
+        .Take(3)
         .ToList();
 
     var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
@@ -239,6 +239,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
         if (hasDefaultLabel && defaultLabel is not null)
         {
+            error = null;
             if (!test)
             {
                 error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);

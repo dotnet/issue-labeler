@@ -85,12 +85,21 @@ public struct Args
         int? maxLabels = null;
         if (maxLabelsStr is not null)
         {
-            if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1 || parsedMaxLabels > MaxLabelsLimit)
+            maxLabelsStr = maxLabelsStr.Trim();
+
+            if (maxLabelsStr.Length == 0)
+            {
+                maxLabelsStr = null;
+            }
+            else if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1 || parsedMaxLabels > MaxLabelsLimit)
             {
                 ShowUsage($"Input 'max_labels' must be a positive integer between 1 and {MaxLabelsLimit}.", action);
                 return null;
             }
-            maxLabels = parsedMaxLabels;
+            else
+            {
+                maxLabels = parsedMaxLabels;
+            }
         }
         argUtils.TryGetFlag("test", out var test);
         argUtils.TryGetFlag("verbose", out var verbose);
