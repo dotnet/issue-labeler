@@ -50,7 +50,6 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
-            argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
             argsData.Test
@@ -89,7 +88,6 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             new PullRequest(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
-            argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
             argsData.Test
@@ -131,7 +129,6 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
-            argsData.MaxLabels,
             ModelType.Discussion,
             argsData.Retries,
             argsData.Test,
@@ -152,7 +149,7 @@ foreach (var prediction in predictionResults.OrderBy(p => p.Number))
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test, string? nodeId = null) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, int[] retries, bool test, string? nodeId = null) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
     string typeName = type switch
@@ -255,10 +252,10 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         .Where(prediction => labelPredicate(prediction.Label))
         // Capture the top max(3, maxLabels) for including in the output
         .OrderByDescending(p => p.Score)
-        .Take(Math.Max(3, maxLabels))
+        .Take(3)
         .ToList();
 
-    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
+    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(1).ToList();
 
     if (topLabels.Count > 0)
     {
