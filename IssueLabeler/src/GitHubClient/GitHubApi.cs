@@ -690,64 +690,6 @@ public class GitHubApi
         return null;
     }
 
-    private static async Task<string?> GetOrCreateLabelNodeId(HttpClient restClient, string org, string repo, string labelName, ICoreService action)
-    {
-        string cacheKey = $"{org.ToLowerInvariant()}/{repo.ToLowerInvariant()}/{labelName.ToLowerInvariant()}";
-        if (_labelNodeIdCache.TryGetValue(cacheKey, out string? cached))
-            return cached;
-
-        var getResponse = await restClient.GetAsync(
-            $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
-
-        if (getResponse.IsSuccessStatusCode)
-        {
-            var label = await getResponse.Content.ReadFromJsonAsync<JsonElement>();
-            string? nodeId = label.TryGetProperty("node_id", out var nodeIdProp) ? nodeIdProp.GetString() : null;
-            if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
-            return nodeId;
-        }
-
-        if ((int)getResponse.StatusCode != 404)
-        {
-            action.WriteInfo($"[Label] Unexpected status {(int)getResponse.StatusCode} ({getResponse.ReasonPhrase}) when fetching label '{labelName}' from {org}/{repo}.");
-            return null;
-        }
-
-        // Label doesn't exist — create it
-        var createResponse = await restClient.PostAsJsonAsync(
-            $"https://api.github.com/repos/{org}/{repo}/labels",
-            new { name = labelName, color = "ededed" });
-
-        if (createResponse.IsSuccessStatusCode)
-        {
-            var created = await createResponse.Content.ReadFromJsonAsync<JsonElement>();
-            string? nodeId = created.TryGetProperty("node_id", out var createdNodeIdProp) ? createdNodeIdProp.GetString() : null;
-            if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
-            return nodeId;
-        }
-
-        if ((int)createResponse.StatusCode == 422)
-        {
-            // Race condition: another run created the label concurrently; re-fetch it
-            var refetchResponse = await restClient.GetAsync(
-                $"https://api.github.com/repos/{org}/{repo}/labels/{Uri.EscapeDataString(labelName)}");
-            if (refetchResponse.IsSuccessStatusCode)
-            {
-                var label = await refetchResponse.Content.ReadFromJsonAsync<JsonElement>();
-                string? nodeId = label.TryGetProperty("node_id", out var refetchNodeIdProp) ? refetchNodeIdProp.GetString() : null;
-                if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
-                return nodeId;
-            }
-
-            action.WriteInfo($"[Label] Unexpected status {(int)refetchResponse.StatusCode} ({refetchResponse.ReasonPhrase}) when refetching label '{labelName}' from {org}/{repo} after a create race.");
-            return null;
-        }
-
-        action.WriteInfo($"[Label] Unexpected status {(int)createResponse.StatusCode} ({createResponse.ReasonPhrase}) when creating label '{labelName}' in {org}/{repo}.");
-
-        return null;
-    }
-
     private static async Task<string?> GetLabelNodeId(HttpClient restClient, string org, string repo, string labelName, ICoreService action)
     {
         string cacheKey = $"{org.ToLowerInvariant()}/{repo.ToLowerInvariant()}/{labelName.ToLowerInvariant()}";
