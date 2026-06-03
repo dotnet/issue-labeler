@@ -782,10 +782,6 @@ public class GitHubApi
         var restClient = GetRestClient(githubToken);
         var graphqlClient = GetGraphQLClient(githubToken);
 
-        string? labelNodeId = await GetOrCreateLabelNodeId(restClient, org, repo, labelName, action);
-        if (labelNodeId is null)
-            return $"Failed to resolve or create label '{labelName}'.";
-
         var mutation = new GraphQLRequest
         {
             Query = """
@@ -794,14 +790,28 @@ public class GitHubApi
                         clientMutationId
                     }
                 }
-                """,
-            Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } }
+                """
         };
 
         byte retry = 0;
 
         while (retry < retries.Length)
         {
+            string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
+            if (labelNodeId is null)
+            {
+                action.WriteInfo($"""
+                    [Discussion] Failed to apply label '{labelName}'.
+                        Label does not exist in {org}/{repo}.
+                        {(retry < retries.Length - 1 ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    """);
+                int labelDelay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+                await Task.Delay(labelDelay * 1000);
+                continue;
+            }
+
+            mutation.Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } };
+
             try
             {
                 var response = await graphqlClient.SendMutationAsync<object>(mutation);

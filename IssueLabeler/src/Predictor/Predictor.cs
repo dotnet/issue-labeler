@@ -18,11 +18,14 @@ if (Args.Parse(args, action) is not Args argsData) return 1;
 
 List<Task<(ulong Number, string ResultMessage, bool Success)>> tasks = new();
 
+MLContext? issueContext = null;
+ITransformer? issueModel = null;
+
 if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
 {
     await action.WriteStatusAsync($"Loading prediction engine for issues model...");
-    var issueContext = new MLContext();
-    var issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+    issueContext = new MLContext();
+    issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
     await action.WriteStatusAsync($"Issues prediction engine ready.");
 
     foreach (ulong issueNumber in argsData.Issues)
@@ -98,10 +101,13 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
 
 if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
 {
-    await action.WriteStatusAsync($"Loading prediction engine for discussions (uses issues model)...");
-    var discussionContext = new MLContext();
-    var discussionModel = discussionContext.Model.Load(argsData.IssuesModelPath, out _);
-    await action.WriteStatusAsync($"Discussions prediction engine ready.");
+    if (issueContext is null || issueModel is null)
+    {
+        await action.WriteStatusAsync($"Loading prediction engine for discussions (uses issues model)...");
+        issueContext = new MLContext();
+        issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+        await action.WriteStatusAsync($"Discussions prediction engine ready.");
+    }
 
     foreach (ulong discussionNumber in argsData.Discussions)
     {
@@ -120,7 +126,7 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            discussionContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(discussionModel),
+            issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!),
             result.Number,
             new Issue(result),
             argsData.LabelPredicate,
