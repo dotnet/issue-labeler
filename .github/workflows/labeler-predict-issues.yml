@@ -79,6 +79,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
+          test: ${{ vars.DISCUSSIONS_TEST || 'false' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: true
