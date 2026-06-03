@@ -193,9 +193,9 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture the top 3 for including in the output
+        // Capture at least the top 3 for output, or more if max_labels requests it
         .OrderByDescending(p => p.Score)
-        .Take(3);
+        .Take(Math.Max(3, maxLabels));
 
     var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(maxLabels).ToList();
 
