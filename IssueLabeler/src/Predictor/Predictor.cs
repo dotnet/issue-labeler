@@ -217,6 +217,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
     {
         foreach (var labelToApply in topLabels)
         {
+            error = null;
             if (!test)
             {
                 error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, labelToApply.Label, retries, action);

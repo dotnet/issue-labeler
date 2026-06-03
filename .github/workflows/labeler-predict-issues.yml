@@ -24,7 +24,7 @@ env:
   LABEL_PREFIX: "area-"
   THRESHOLD: 0.40
   DEFAULT_LABEL: "needs-area-label"
-  MAX_LABELS: 2
+  MAX_LABELS: "2"
 
 jobs:
   predict-issue-label:
