@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Test predictions against the Issues and/or Pull Requests model by downloading data and comparing predictions against existing labels."
+description: "Test predictions against the Issues, Discussions, and/or Pull Requests model by downloading data and comparing predictions against existing labels."
 
 branding:
   color: "purple"
@@ -7,7 +7,7 @@ branding:
 
 inputs:
   type:
-    description: "The model to test. Must be either 'issues' or 'pulls'."
+    description: "The model to test. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issue-like model path."
     required: true
   label_prefix:
     description: "The label prefix to use for model training. Must end with a non-alphanumeric character."
@@ -39,26 +39,17 @@ runs:
     - name: "Validate Inputs"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be either 'issues' or 'pulls'. Value provided: '${{ inputs.type }}'."
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
+          echo "::error::'type' must be 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'."
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be either 'issues' or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
-
-    - name: "Clone the ${{ github.action_repository }} repository with ref '{{ github.action_ref }}'"
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      env:
-        ISSUE_LABELER_REPO: ${{ github.action_repository }}
-        ISSUE_LABELER_REF: ${{ github.action_ref }}
-      with:
-        repository: ${{ env.ISSUE_LABELER_REPO }}
-        ref: ${{ env.ISSUE_LABELER_REF }}
 
     - name: "Restore model from cache"
       uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
-        path: "labeler-cache/${{ inputs.type }}-model.zip"
+        path: "labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || 'issues' }}-model.zip"
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}"
         fail-on-cache-miss: true
 
@@ -70,11 +61,12 @@ runs:
     - name: "Run Tester"
       shell: bash
       run: |
-        dotnet run -c Release --project IssueLabeler/src/Tester --  \
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Tester" --  \
           ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
           ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
           ${{ format('--threshold {0}', inputs.threshold) }} \
-          ${{ format('--{0}-model "labeler-cache/{0}-model.zip"', inputs.type) || '' }} \
+          ${{ inputs.type == 'pulls' && '--pulls-model "labeler-cache/pulls-model.zip"' || '--issues-model "labeler-cache/issues-model.zip"' }} \
+          ${{ inputs.type == 'discussions' && '--discussions' || '' }} \
           ${{ inputs.excluded_authors && format('--excluded-authors "{0}"', inputs.excluded_authors) || '' }} \
           ${{ inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit) || '' }} \
           ${{ inputs.page_size && format('--page-size {0}', inputs.page_size) || '' }} \

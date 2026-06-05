@@ -1,9 +1,9 @@
 name: "Train Model"
-description: "Train the Issues or Pull Requests model for label prediction."
+description: "Train the Issues, Discussions, or Pull Requests model for label prediction. Discussions use the issue-like model path."
 
 inputs:
   type:
-    description: "The model to train. Must be either 'issues' or 'pulls'."
+    description: "The model to train. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issue-like trainer path."
     required: true
   data_cache_key:
     description: "The cache key suffix to use for the downloaded data. Defaults to 'staged'."
@@ -22,10 +22,10 @@ runs:
     - name: "Validate Inputs"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be either 'issues' or 'pulls'. Value provided: '${{ inputs.type }}'."
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
+          echo "::error::'type' must be 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'."
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be either 'issues' or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
 
@@ -34,7 +34,7 @@ runs:
       run: |
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
-        echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
+        echo "MODEL_PATH=labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || 'issues' }}-model.zip" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
@@ -58,15 +58,6 @@ runs:
           exit 1
         fi
 
-    - name: "Clone the ${{ github.action_repository }} repository with ref '{{ github.action_ref }}'"
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      env:
-        ISSUE_LABELER_REPO: ${{ github.action_repository }}
-        ISSUE_LABELER_REF: ${{ github.action_ref }}
-      with:
-        repository: ${{ env.ISSUE_LABELER_REPO }}
-        ref: ${{ env.ISSUE_LABELER_REF }}
-
     - name: "Restore Data from Cache"
       uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
@@ -82,9 +73,9 @@ runs:
     - name: "Run Trainer"
       shell: bash
       run: |
-        dotnet run -c Release --project IssueLabeler/src/Trainer -- \
-          ${{ format('--{0}-data "{1}"', inputs.type, env.DATA_PATH) }} \
-          ${{ format('--{0}-model "{1}"', inputs.type, env.MODEL_PATH) }}
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- \
+          ${{ inputs.type == 'pulls' && format('--pulls-data "{0}"', env.DATA_PATH) || format('--issues-data "{0}"', env.DATA_PATH) }} \
+          ${{ inputs.type == 'pulls' && format('--pulls-model "{0}"', env.MODEL_PATH) || format('--issues-model "{0}"', env.MODEL_PATH) }}
 
     - name: "Save Model to Cache"
       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -96,7 +87,7 @@ runs:
       shell: bash
       run: |
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## ${{ inputs.type == 'issues' && 'Issues' || 'Pull Requests' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
+        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'discussions' && 'Discussions' || 'Pull Requests' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
 
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
           echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY

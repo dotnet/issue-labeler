@@ -139,6 +139,28 @@ public class GitHubApi
     }
 
     /// <summary>
+    /// Downloads discussions from a GitHub repository, filtering them by label and other criteria.
+    /// </summary>
+    public static async IAsyncEnumerable<(Discussion Discussion, string Label)> DownloadDiscussions(
+        string githubToken,
+        string org,
+        string repo,
+        Predicate<string> labelPredicate,
+        int? discussionsLimit,
+        int? pageSize,
+        int? pageLimit,
+        int[] retries,
+        string[]? excludedAuthors,
+        ICoreService action,
+        bool verbose = false)
+    {
+        await foreach (var item in DownloadDiscussionItems(githubToken, org, repo, labelPredicate, discussionsLimit, pageSize ?? 25, pageLimit ?? 1000, retries, excludedAuthors, action, verbose))
+        {
+            yield return (item.Item, item.Label);
+        }
+    }
+
+    /// <summary>
     /// Downloads items from a GitHub repository, filtering them by label and other criteria.
     /// </summary>
     /// <typeparam name="T"></typeparam>
@@ -298,6 +320,192 @@ public class GitHubApi
             }
         }
         while (!finished);
+    }
+
+    private static async IAsyncEnumerable<(Discussion Item, string Label)> DownloadDiscussionItems(
+        string githubToken,
+        string org,
+        string repo,
+        Predicate<string> labelPredicate,
+        int? itemLimit,
+        int pageSize,
+        int pageLimit,
+        int[] retries,
+        string[]? excludedAuthors,
+        ICoreService action,
+        bool verbose)
+    {
+        pageSize = Math.Min(pageSize, 100);
+
+        int pageNumber = 0;
+        string? after = null;
+        bool hasNextPage = true;
+        int loadedCount = 0;
+        int includedCount = 0;
+        int? totalCount = null;
+        byte retry = 0;
+        bool finished = false;
+
+        do
+        {
+            action.WriteInfo($"Downloading Discussions page {pageNumber + 1} from {org}/{repo}...{(retry > 0 ? $" (retry {retry} of {retries.Length}) " : "")}{(after is not null ? $" (cursor: '{after}')" : "")}");
+
+            Page<Discussion> page;
+
+            try
+            {
+                page = await GetDiscussionsPage(githubToken, org, repo, pageSize, after);
+            }
+            catch (Exception ex) when (
+                ex is HttpIOException ||
+                ex is HttpRequestException ||
+                ex is GraphQLHttpRequestException ||
+                ex is TaskCanceledException
+            )
+            {
+                action.WriteInfo($"Exception caught during query.\n  {ex.Message}");
+
+                if (retry >= retries.Length - 1)
+                {
+                    await action.WriteStatusAsync($"Retry limit of {retries.Length} reached. Aborting.");
+
+                    throw new ApplicationException($"""
+                        Retry limit of {retries.Length} reached. Aborting.
+
+                        {ex.Message}
+
+                        Total Downloaded: {totalCount}
+                        Applicable for Training: {loadedCount}
+                        Page Number: {pageNumber}
+                        """);
+                }
+
+                await action.WriteStatusAsync($"Waiting {retries[retry]} seconds before retry {retry + 1} of {retries.Length}...");
+                await Task.Delay(retries[retry] * 1000);
+                retry++;
+
+                continue;
+            }
+
+            if (after == page.EndCursor)
+            {
+                action.WriteError($"Paging did not progress. Cursor: '{after}'. Aborting.");
+                break;
+            }
+
+            pageNumber++;
+            after = page.EndCursor;
+            hasNextPage = page.HasNextPage;
+            loadedCount += page.Nodes.Length;
+            totalCount ??= page.TotalCount;
+            retry = 0;
+
+            foreach (Discussion item in page.Nodes)
+            {
+                if (excludedAuthors is not null && item.Author?.Login is not null && excludedAuthors.Contains(item.Author.Login, StringComparer.InvariantCultureIgnoreCase))
+                {
+                    if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Excluded from output. Author '{item.Author.Login}' is in excluded list.");
+                    continue;
+                }
+
+                if (item.Labels.HasNextPage)
+                {
+                    if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Excluded from output. Not all labels were loaded.");
+                    continue;
+                }
+
+                string[] labels = Array.FindAll(item.LabelNames, labelPredicate);
+                if (labels.Length != 1)
+                {
+                    if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Excluded from output. {labels.Length} applicable labels found.");
+                    continue;
+                }
+
+                if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Included in output. Applicable label: '{labels[0]}'.");
+
+                yield return (item, labels[0]);
+
+                includedCount++;
+
+                if (itemLimit.HasValue && includedCount >= itemLimit)
+                {
+                    break;
+                }
+            }
+
+            finished = (!hasNextPage || pageNumber >= pageLimit || (itemLimit.HasValue && includedCount >= itemLimit));
+
+            await action.WriteStatusAsync(
+                $"Items to Include: {includedCount} (limit: {(itemLimit.HasValue ? itemLimit : "none")}) | " +
+                $"Items Downloaded: {loadedCount} (total: {totalCount}) | " +
+                $"Pages Downloaded: {pageNumber} (limit: {pageLimit})");
+
+            if (finished)
+            {
+                action.Summary.AddPersistent(summary => {
+                    summary.AddMarkdownHeading($"Finished Downloading Discussions from {org}/{repo}", 2);
+                    summary.AddMarkdownList([
+                        $"Items to Include: {includedCount} (limit: {(itemLimit.HasValue ? itemLimit : "none")})",
+                        $"Items Downloaded: {loadedCount} (total: {totalCount})",
+                        $"Pages Downloaded: {pageNumber} (limit: {pageLimit})"
+                    ]);
+                });
+            }
+        }
+        while (!finished);
+    }
+
+    private static async Task<Page<Discussion>> GetDiscussionsPage(string githubToken, string org, string repo, int pageSize, string? after)
+    {
+        GraphQLHttpClient client = GetGraphQLClient(githubToken);
+
+        GraphQLRequest query = new GraphQLRequest
+        {
+            Query = $$"""
+                query ($owner: String!, $repo: String!, $after: String) {
+                    repository (owner: $owner, name: $repo) {
+                        result:discussions (after: $after, first: {{pageSize}}, orderBy: {field: CREATED_AT, direction: DESC}) {
+                            nodes {
+                                number
+                                id
+                                title
+                                author { login }
+                                body: bodyText
+                                labels (first: 25) {
+                                    nodes { name }
+                                    pageInfo { hasNextPage }
+                                }
+                            }
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                            totalCount
+                        }
+                    }
+                }
+                """,
+            Variables = new
+            {
+                Owner = org,
+                Repo = repo,
+                After = after
+            }
+        };
+
+        var response = await client.SendQueryAsync<RepositoryQuery<Page<Discussion>>>(query);
+
+        if (response.Errors?.Any() ?? false)
+        {
+            string errors = string.Join("\n\n", response.Errors.Select((e, i) => $"{i + 1}. {e.Message}").ToArray());
+            throw new ApplicationException($"GraphQL request returned errors.\n\n{errors}");
+        }
+        else if (response.Data is null || response.Data.Repository is null || response.Data.Repository.Result is null)
+        {
+            throw new ApplicationException("GraphQL response did not include the repository result data");
+        }
+
+        return response.Data.Repository.Result;
     }
 
     /// <summary>

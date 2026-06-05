@@ -22,6 +22,12 @@ if (!string.IsNullOrEmpty(argsData.IssuesDataPath))
     tasks.Add(Task.Run(() => DownloadIssues(argsData.IssuesDataPath)));
 }
 
+if (!string.IsNullOrEmpty(argsData.DiscussionsDataPath))
+{
+    EnsureOutputDirectory(argsData.DiscussionsDataPath);
+    tasks.Add(Task.Run(() => DownloadDiscussions(argsData.DiscussionsDataPath)));
+}
+
 if (!string.IsNullOrEmpty(argsData.PullsDataPath))
 {
     EnsureOutputDirectory(argsData.PullsDataPath);
@@ -75,6 +81,34 @@ async Task DownloadPullRequests(string outputPath)
                                                                     argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
         {
             writer.WriteLine(FormatPullRequestRecord(result.Label, result.PullRequest.Title, result.PullRequest.Body, result.PullRequest.FileNames, result.PullRequest.FolderNames));
+
+            if (++perFlushCount == 100)
+            {
+                writer.Flush();
+                perFlushCount = 0;
+            }
+        }
+    }
+
+    writer.Close();
+}
+
+async Task DownloadDiscussions(string outputPath)
+{
+    action.WriteInfo($"Discussions Data Path: {outputPath}");
+
+    byte perFlushCount = 0;
+
+    using StreamWriter writer = new StreamWriter(outputPath);
+    writer.WriteLine(FormatIssueRecord("Label", "Title", "Body"));
+
+    foreach (var repo in argsData.Repos)
+    {
+        await foreach (var result in GitHubApi.DownloadDiscussions(argsData.GitHubToken, argsData.Org, repo, argsData.LabelPredicate,
+                                                                   argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit,
+                                                                   argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
+        {
+            writer.WriteLine(FormatIssueRecord(result.Label, result.Discussion.Title, result.Discussion.Body));
 
             if (++perFlushCount == 100)
             {

@@ -5,13 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       type:
-        description: "Issues or Pull Requests"
+        description: "Issues, Discussions, or Pull Requests"
         type: choice
         required: true
         default: "Both"
         options:
           - "Both"
           - "Issues"
+          - "Discussions"
           - "Pull Requests"
 
       steps:
@@ -89,6 +90,68 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
+  download-discussions:
+    if: ${{ inputs.type == 'Discussions' && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    runs-on: ubuntu-latest
+    permissions:
+      discussions: read
+    steps:
+      - name: "Download Discussions"
+        uses: dotnet/issue-labeler/download@main
+        with:
+          type: "discussions"
+          cache_key: ${{ env.CACHE_KEY }}
+          repository: ${{ env.REPOSITORY }}
+          label_prefix: ${{ env.LABEL_PREFIX }}
+          limit: ${{ env.LIMIT }}
+          page_size: ${{ env.PAGE_SIZE }}
+          page_limit: ${{ env.PAGE_LIMIT }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  check-discussions-data:
+    if: ${{ always() && inputs.type == 'Discussions' && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: download-discussions
+    outputs:
+      has_training_data: ${{ steps.check.outputs.has_training_data }}
+    steps:
+      - name: "Restore Discussion Data from Cache"
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: labeler-cache/discussions-data.tsv
+          key: issue-labeler/data/discussions/${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Check Discussion Training Data"
+        id: check
+        shell: bash
+        run: |
+          line_count=$(wc -l < labeler-cache/discussions-data.tsv)
+          if [[ "$line_count" -ge 10 ]]; then
+            echo "has_training_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_training_data=false" >> "$GITHUB_OUTPUT"
+            echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+            echo "> Discussion training skipped because only $line_count line(s) were found in the downloaded TSV, and the trainer requires at least 10." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  train-discussions:
+    if: ${{ always() && inputs.type == 'Discussions' && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - download-discussions
+      - check-discussions-data
+    steps:
+      - name: "Train Model for Discussions"
+        uses: dotnet/issue-labeler/train@main
+        with:
+          type: "discussions"
+          data_cache_key: ${{ env.CACHE_KEY }}
+          model_cache_key: ${{ env.CACHE_KEY }}
+
   train-issues:
     if: ${{ always() && contains(fromJSON('["Both", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
@@ -126,6 +189,29 @@ jobs:
         uses: dotnet/issue-labeler/test@main
         with:
           type: "issues"
+          cache_key: ${{ env.CACHE_KEY }}
+          repository: ${{ env.REPOSITORY }}
+          label_prefix: ${{ env.LABEL_PREFIX }}
+          threshold: ${{ env.THRESHOLD }}
+          limit: ${{ env.LIMIT }}
+          page_size: ${{ env.PAGE_SIZE }}
+          page_limit: ${{ env.PAGE_LIMIT }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  test-discussions:
+    if: ${{ always() && inputs.type == 'Discussions' && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions:
+      discussions: read
+    needs:
+      - check-discussions-data
+      - train-discussions
+    steps:
+      - name: "Test Model for Discussions"
+        uses: dotnet/issue-labeler/test@main
+        with:
+          type: "discussions"
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}

@@ -12,7 +12,9 @@ public struct Args
     public Predicate<string> LabelPredicate { get; set; }
     public string[]? ExcludedAuthors { get; set; }
     public string? IssuesModelPath { get; set; }
+    public bool TestDiscussions { get; set; }
     public int? IssuesLimit { get; set; }
+    public int? DiscussionsLimit { get; set; }
     public string? PullsModelPath { get; set; }
     public int? PullsLimit { get; set; }
     public int? PageSize { get; set; }
@@ -34,6 +36,7 @@ public struct Args
 
             Required for testing the issues model:
               --issues-model          Path to existing issue prediction model file (ZIP file).
+                            --discussions          Evaluate discussions using the issue prediction model.
 
             Required for testing the pull requests model:
               --pulls-model           Path to existing pull request prediction model file (ZIP file).
@@ -43,6 +46,7 @@ public struct Args
               --threshold             Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
               --issues-limit          Maximum number of issues to download. Defaults to: No limit.
+              --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.
               --pulls-limit           Maximum number of pull requests to download. Defaults to: No limit.
               --page-size             Number of items per page in GitHub API requests.
                                       Defaults to: 100 for issues, 25 for pull requests.
@@ -120,12 +124,24 @@ public struct Args
                     argsData.IssuesModelPath = IssuesModelPath;
                     break;
 
+                case "--discussions":
+                    argsData.TestDiscussions = true;
+                    break;
+
                 case "--issues-limit":
                     if (!argUtils.TryGetInt("--issues-limit", out int? IssuesLimit))
                     {
                         return null;
                     }
                     argsData.IssuesLimit = IssuesLimit;
+                    break;
+
+                case "--discussions-limit":
+                    if (!argUtils.TryGetInt("--discussions-limit", out int? discussionsLimit))
+                    {
+                        return null;
+                    }
+                    argsData.DiscussionsLimit = discussionsLimit;
                     break;
 
                 case "--pulls-model":

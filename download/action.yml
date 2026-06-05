@@ -1,5 +1,5 @@
 name: "Download Data"
-description: "Download GitHub issues or pull requests and cache the data."
+description: "Download GitHub issues, discussions, or pull requests and cache the data."
 
 branding:
   color: "purple"
@@ -7,7 +7,7 @@ branding:
 
 inputs:
   type:
-    description: "The type of data to download. Must be either 'issues' or 'pulls'."
+    description: "The type of data to download. Must be 'issues', 'discussions', or 'pulls'."
     required: true
   label_prefix:
     description: "The label prefix to be used for model training. Must end in a non-alphanumeric character."
@@ -34,10 +34,10 @@ runs:
     - name: "Validate inputs and set cache variables"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be either 'issues' or 'pulls'. Value provided: '${{ inputs.type }}'"
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
+          echo "::error::'type' must be either 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'"
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be either 'issues' or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be either 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
 
@@ -66,15 +66,6 @@ runs:
           exit 1
         fi
 
-    - name: "Clone the ${{ github.action_repository }} repository with ref '{{ github.action_ref }}'"
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      env:
-        ISSUE_LABELER_REPO: ${{ github.action_repository }}
-        ISSUE_LABELER_REF: ${{ github.action_ref }}
-      with:
-        repository: ${{ env.ISSUE_LABELER_REPO }}
-        ref: ${{ env.ISSUE_LABELER_REF }}
-
     - name: "Set up the .NET SDK"
       uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
       with:
@@ -83,7 +74,7 @@ runs:
     - name: "Run Downloader"
       shell: bash
       run: |
-        dotnet run -c Release --project IssueLabeler/src/Downloader -- \
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Downloader" -- \
           ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
           ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
           ${{ format('--{0}-data "{1}"', inputs.type, env.DATA_PATH) }} \
@@ -103,5 +94,5 @@ runs:
       shell: bash
       run: |
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## ${{ inputs.type == 'issues' && 'Issues' || 'Pull Requests' }} Data Available as '${{ inputs.cache_key }}'" >> $GITHUB_STEP_SUMMARY
+        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'discussions' && 'Discussions' || 'Pull Requests' }} Data Available as '${{ inputs.cache_key }}'" >> $GITHUB_STEP_SUMMARY
         echo "The '${{ inputs.cache_key }}' data is saved to cache and available for training a model." >> $GITHUB_STEP_SUMMARY

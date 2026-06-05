@@ -62,11 +62,11 @@ jobs:
       discussions: write
       issues: write
     steps:
-      - name: "Restore issues model from cache"
+      - name: "Restore discussions model from cache"
         id: restore-model
         uses: dotnet/issue-labeler/restore@main
         with:
-          type: issues
+          type: discussions
           fail-on-cache-miss: false
           quiet: true
           cache_key: 'ACTIVE'
