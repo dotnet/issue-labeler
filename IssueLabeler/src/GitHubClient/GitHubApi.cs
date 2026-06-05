@@ -234,8 +234,8 @@ public class GitHubApi
 
                         {ex.Message}
 
-                        Total Downloaded: {totalCount}
-                        Applicable for Training: {loadedCount}
+                        Items Downloaded: {loadedCount} (total: {totalCount})
+                        Items to Include: {includedCount} (limit: {(itemLimit.HasValue ? itemLimit : "none")})
                         Page Number: {pageNumber}
                         """
                     );

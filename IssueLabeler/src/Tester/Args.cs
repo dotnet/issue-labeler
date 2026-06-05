@@ -36,7 +36,7 @@ public struct Args
 
             Required for testing the issues model:
               --issues-model          Path to existing issue prediction model file (ZIP file).
-                            --discussions          Evaluate discussions using the issue prediction model.
+                            --discussions           Evaluate discussions using the issue prediction model.
 
             Required for testing the pull requests model:
               --pulls-model           Path to existing pull request prediction model file (ZIP file).
@@ -198,6 +198,12 @@ public struct Args
             (argsData.IssuesModelPath is null && argsData.PullsModelPath is null))
         {
             ShowUsage(null, action);
+            return null;
+        }
+
+        if (argsData.TestDiscussions && argsData.IssuesModelPath is null)
+        {
+            ShowUsage("Argument '--issues-model' is required when '--discussions' is provided.", action);
             return null;
         }
 
