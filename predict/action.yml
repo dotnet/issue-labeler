@@ -24,11 +24,6 @@ inputs:
     required: false
     default: "0.40"
 
-  max_labels:
-    description: "The maximum number of labels to apply when predictions meet the threshold. Defaults to 1."
-    required: false
-    default: "1"
-
   default_label:
     description: "The default label to apply if no prediction meets the threshold. Leave blank for no default label."
 

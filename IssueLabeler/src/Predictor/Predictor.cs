@@ -272,16 +272,17 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture the top max(3, maxLabels) for including in the output
+        // Capture the top 3 predictions for including in the output
         .OrderByDescending(p => p.Score)
-        .Take(Math.Max(3, argsData.MaxLabels))
+        .Take(3)
         .ToList();
 
-    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(argsData.MaxLabels).ToList();
+    var eligibleLabels = predictions.Where(p => p.Score >= argsData.Threshold).ToList();
+    var topLabels = eligibleLabels.Take(1).ToList();
 
-    if (topLabels.Count > 0)
+    if (eligibleLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {topLabels.Count} label prediction(s) meet the threshold of {argsData.Threshold}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
     }
     else
     {
@@ -295,7 +296,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
     if (argsData.Verbose && predictions.Count > 0)
     {
-        resultMessageParts.Add($"Top predictions: {string.Join(", ", predictions.Select(p => $"'{p.Label}'={p.Score:0.000}"))}. Threshold={argsData.Threshold:0.000}; max_labels={argsData.MaxLabels}.");
+        resultMessageParts.Add($"Top predictions: {string.Join(", ", predictions.Select(p => $"'{p.Label}'={p.Score:0.000}"))}. Threshold={argsData.Threshold:0.000}.");
     }
 
     if (topLabels.Count > 0)
