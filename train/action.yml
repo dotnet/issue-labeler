@@ -73,9 +73,14 @@ runs:
     - name: "Run Trainer"
       shell: bash
       run: |
-        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- \
-          ${{ inputs.type == 'pulls' && format('--pulls-data "{0}"', env.DATA_PATH) || format('--issues-data "{0}"', env.DATA_PATH) }} \
-          ${{ inputs.type == 'pulls' && format('--pulls-model "{0}"', env.MODEL_PATH) || format('--issues-model "{0}"', env.MODEL_PATH) }}
+        if [[ "${{ inputs.type }}" == "pulls" ]]; then
+          trainer_args=(--pulls-data "${{ env.DATA_PATH }}" --pulls-model "${{ env.MODEL_PATH }}")
+        else
+          # Discussions intentionally reuse the issues training pipeline and schema.
+          trainer_args=(--issues-data "${{ env.DATA_PATH }}" --issues-model "${{ env.MODEL_PATH }}")
+        fi
+
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}"
 
     - name: "Save Model to Cache"
       uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3

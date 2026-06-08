@@ -17,6 +17,7 @@ public class GitHubApi
     private static ConcurrentDictionary<string, HttpClient> _restClients = new();
     private static ConcurrentDictionary<string, string> _labelNodeIdCache = new();
     private const int MaxLabelDelaySeconds = 30;
+    private const int MaxLabelNodeIdCacheEntries = 256;
 
     private static string GetRetryMessage(byte retry, int[] retries) =>
         retry + 1 < retries.Length
@@ -806,7 +807,7 @@ public class GitHubApi
     /// <summary>
     /// Gets a discussion from a GitHub repository using GraphQL.
     /// </summary>
-    public static async Task<Discussion?> GetDiscussion(string githubToken, string org, string repo, ulong number, int[] retries, ICoreService action, bool verbose)
+    public static async Task<Discussion?> GetDiscussion(string githubToken, string org, string repo, ulong number, int[] retries, ICoreService action)
     {
         GraphQLHttpClient client = GetGraphQLClient(githubToken);
         int? graphQLNumber = GetGraphQLNumber("Discussion", org, repo, number, action);
@@ -925,7 +926,12 @@ public class GitHubApi
 
         var label = await response.Content.ReadFromJsonAsync<JsonElement>();
         string? nodeId = label.TryGetProperty("node_id", out var nodeIdProp) ? nodeIdProp.GetString() : null;
-        if (nodeId is not null) _labelNodeIdCache[cacheKey] = nodeId;
+
+        if (nodeId is not null && _labelNodeIdCache.Count < MaxLabelNodeIdCacheEntries)
+        {
+            _labelNodeIdCache[cacheKey] = nodeId;
+        }
+
         return nodeId;
     }
 

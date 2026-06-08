@@ -45,15 +45,21 @@ public class PullRequest : Issue
 
 public class Discussion : Issue
 {
-    public Discussion(string repo, GitHubClient.Discussion discussion, Predicate<string> labelPredicate)
+    public Discussion(string repo, GitHubClient.Discussion discussion, string? label)
     {
         Repo = repo;
         Number = discussion.Number;
         Title = discussion.Title;
         Body = discussion.Body;
-        Label = discussion.Labels.HasNextPage ?
-            (string?)null :
-            discussion.LabelNames?.SingleOrDefault(l => labelPredicate(l));
+        Label = label;
+    }
+
+    public Discussion(string repo, GitHubClient.Discussion discussion, Predicate<string> labelPredicate)
+        : this(
+            repo,
+            discussion,
+            discussion.Labels.HasNextPage ? (string?)null : discussion.LabelNames?.SingleOrDefault(l => labelPredicate(l)))
+    {
     }
 }
 

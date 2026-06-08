@@ -20,12 +20,15 @@ List<Task<(ulong Number, string ResultMessage, bool Success)>> tasks = new();
 
 MLContext? issueContext = null;
 ITransformer? issueModel = null;
+ThreadLocal<PredictionEngine<Issue, LabelPrediction>>? issuePredictors = null;
+ThreadLocal<PredictionEngine<PullRequest, LabelPrediction>>? pullPredictors = null;
 
 if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
 {
     await action.WriteStatusAsync($"Loading prediction engine for issues model...");
     issueContext = new MLContext();
     issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+    issuePredictors = new(() => issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel));
     await action.WriteStatusAsync($"Issues prediction engine ready.");
 
     foreach (ulong issueNumber in argsData.Issues)
@@ -46,9 +49,8 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
 
         tasks.Add(Task.Run(() =>
         {
-            var predictor = issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!);
             return ProcessPrediction(
-                predictor,
+                issuePredictors!.Value!,
                 issueNumber,
                 new Issue(result),
                 argsData.LabelPredicate,
@@ -68,6 +70,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
     await action.WriteStatusAsync($"Loading prediction engine for pulls model...");
     var pullContext = new MLContext();
     var pullModel = pullContext.Model.Load(argsData.PullsModelPath, out _);
+    pullPredictors = new(() => pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel));
     await action.WriteStatusAsync($"Pulls prediction engine ready.");
 
     foreach (ulong pullNumber in argsData.Pulls)
@@ -88,9 +91,8 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
 
         tasks.Add(Task.Run(() =>
         {
-            var predictor = pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel);
             return ProcessPrediction(
-                predictor,
+                pullPredictors!.Value!,
                 pullNumber,
                 new PullRequest(result),
                 argsData.LabelPredicate,
@@ -112,12 +114,13 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
         await action.WriteStatusAsync($"Loading prediction engine for discussions (uses issues model)...");
         issueContext = new MLContext();
         issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+        issuePredictors = new(() => issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel));
         await action.WriteStatusAsync($"Discussions prediction engine ready.");
     }
 
     foreach (ulong discussionNumber in argsData.Discussions)
     {
-        var result = await GitHubApi.GetDiscussion(argsData.GitHubToken, argsData.Org, argsData.Repo, discussionNumber, argsData.Retries, action, argsData.Verbose);
+        var result = await GitHubApi.GetDiscussion(argsData.GitHubToken, argsData.Org, argsData.Repo, discussionNumber, argsData.Retries, action);
 
         if (result is null)
         {
@@ -133,9 +136,8 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
 
         tasks.Add(Task.Run(() =>
         {
-            var predictor = issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!);
             return ProcessPrediction(
-                predictor,
+                issuePredictors!.Value!,
                 result.Number,
                 new Issue(result),
                 argsData.LabelPredicate,
@@ -157,6 +159,9 @@ foreach (var prediction in predictionResults.OrderBy(p => p.Number))
 {
     action.WriteInfo(prediction.ResultMessage);
 }
+
+issuePredictors?.Dispose();
+pullPredictors?.Dispose();
 
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;

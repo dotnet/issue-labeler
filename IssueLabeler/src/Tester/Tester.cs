@@ -131,7 +131,7 @@ async Task<(Type, TestStats)> TestDiscussions()
     {
         await foreach (var result in GitHubApi.DownloadDiscussions(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
         {
-            yield return new(repo, result.Discussion, argsData.LabelPredicate);
+            yield return new(repo, result.Discussion, result.Label);
         }
     }
 
