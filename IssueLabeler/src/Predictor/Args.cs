@@ -9,6 +9,7 @@ public struct Args
     public string Org { get; set; }
     public string Repo { get; set; }
     public float Threshold { get; set; }
+    public int MaxLabels { get; set; }
     public Func<string, bool> LabelPredicate { get; set; }
     public string[]? ExcludedAuthors { get; set; }
     public string? IssuesModelPath { get; set; }
@@ -56,6 +57,8 @@ public struct Args
             Optional inputs:
               THRESHOLD               Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
+                            MAX_LABELS              Maximum number of labels to apply when predictions meet the threshold.
+                                                                            Must be a positive integer. Defaults to: 1.
               DEFAULT_LABEL           Label to apply if no label is predicted.
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
@@ -80,6 +83,7 @@ public struct Args
         argUtils.TryGetNumberRanges("pulls", out var pulls);
         argUtils.TryGetStringArray("excluded_authors", out var excludedAuthors);
         argUtils.TryGetFloat("threshold", out var threshold);
+        argUtils.TryGetInt("max_labels", out var maxLabels);
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
         argUtils.TryGetNumberRanges("discussions", out var discussions);
@@ -112,6 +116,7 @@ public struct Args
             Discussions = discussions,
             ExcludedAuthors = excludedAuthors,
             Threshold = threshold ?? 0.4f,
+            MaxLabels = maxLabels is > 0 ? maxLabels.Value : 1,
             Retries = retries ?? [30, 30, 300, 300, 3000, 3000],
             Test = test ?? false,
             Verbose = verbose ?? false

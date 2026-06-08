@@ -252,10 +252,10 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         .Where(prediction => labelPredicate(prediction.Label))
         // Capture the top max(3, maxLabels) for including in the output
         .OrderByDescending(p => p.Score)
-        .Take(3)
+        .Take(Math.Max(3, argsData.MaxLabels))
         .ToList();
 
-    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(1).ToList();
+    var topLabels = predictions.Where(p => p.Score >= argsData.Threshold).Take(argsData.MaxLabels).ToList();
 
     if (topLabels.Count > 0)
     {
