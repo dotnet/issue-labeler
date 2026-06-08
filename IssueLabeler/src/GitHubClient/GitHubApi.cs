@@ -956,17 +956,17 @@ public class GitHubApi
 
         while (retry < retries.Length)
         {
-            string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
-            if (labelNodeId is null)
-            {
-                // Label does not exist and will not appear on its own — fail immediately.
-                return $"Failed to apply label '{labelName}': label does not exist in {org}/{repo}.";
-            }
-
-            mutation.Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } };
-
             try
             {
+                string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
+                if (labelNodeId is null)
+                {
+                    // Label does not exist and will not appear on its own — fail immediately.
+                    return $"Failed to apply label '{labelName}': label does not exist in {org}/{repo}.";
+                }
+
+                mutation.Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } };
+
                 var response = await graphqlClient.SendMutationAsync<object>(mutation);
                 if (!(response.Errors?.Any() ?? false)) return null;
 

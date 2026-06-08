@@ -3,7 +3,7 @@ description: "Restore a model from cache for label prediction or cache retention
 
 inputs:
   type:
-    description: "The model to restore. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issue-like model path."
+    description: "The model to restore. Must be 'issues', 'discussions', or 'pulls'. Each type restores its own cached model file."
     required: true
 
   cache_key:
@@ -44,7 +44,7 @@ runs:
       id: restore-cache
       uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
       with:
-        path: "labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || inputs.type == 'discussions' && 'discussions' || 'issues' }}-model.zip"
+        path: "labeler-cache/${{ inputs.type }}-model.zip"
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'ACTIVE' }}"
         fail-on-cache-miss: false
 

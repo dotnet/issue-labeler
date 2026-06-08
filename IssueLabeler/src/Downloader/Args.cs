@@ -44,7 +44,7 @@ public struct Args
 
             Optional arguments:
               --issues-limit          Maximum number of issues to download. Defaults to: No limit.
-                            --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.
+              --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.
               --pulls-limit           Maximum number of pull requests to download. Defaults to: No limit.
               --page-size             Number of items per page in GitHub API requests.
               --page-limit            Maximum number of pages to retrieve.

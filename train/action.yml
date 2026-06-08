@@ -1,9 +1,9 @@
 name: "Train Model"
-description: "Train the Issues, Discussions, or Pull Requests model for label prediction. Discussions use the issue-like model path."
+description: "Train the Issues, Discussions, or Pull Requests model for label prediction. Each type writes its own cached model file."
 
 inputs:
   type:
-    description: "The model to train. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issue-like trainer path."
+    description: "The model to train. Must be 'issues', 'discussions', or 'pulls'."
     required: true
   data_cache_key:
     description: "The cache key suffix to use for the downloaded data. Defaults to 'staged'."
@@ -34,7 +34,7 @@ runs:
       run: |
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
-        echo "MODEL_PATH=labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || inputs.type == 'discussions' && 'discussions' || 'issues' }}-model.zip" >> $GITHUB_ENV
+        echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
