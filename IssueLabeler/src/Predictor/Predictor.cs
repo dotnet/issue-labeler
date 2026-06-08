@@ -271,6 +271,11 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         predictionResults.Add(summary => summary.AddRawMarkdown($"        - `{labelPrediction.Label}` - Score: {labelPrediction.Score}", true));
     }
 
+    if (argsData.Verbose && predictions.Count > 0)
+    {
+        resultMessageParts.Add($"Top predictions: {string.Join(", ", predictions.Select(p => $"'{p.Label}'={p.Score:0.000}"))}. Threshold={argsData.Threshold:0.000}; max_labels={argsData.MaxLabels}.");
+    }
+
     if (topLabels.Count > 0)
     {
         foreach (var labelToApply in topLabels)
