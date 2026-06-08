@@ -34,7 +34,7 @@ runs:
       run: |
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
-        echo "MODEL_PATH=labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || 'issues' }}-model.zip" >> $GITHUB_ENV
+        echo "MODEL_PATH=labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || inputs.type == 'discussions' && 'discussions' || 'issues' }}-model.zip" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"

@@ -103,6 +103,12 @@ public struct Args
             return null;
         }
 
+        if (maxLabels is <= 0)
+        {
+            ShowUsage("Input 'max_labels' must be a positive integer when provided.", action);
+            return null;
+        }
+
         Args argsData = new()
         {
             Org = org,
@@ -116,7 +122,7 @@ public struct Args
             Discussions = discussions,
             ExcludedAuthors = excludedAuthors,
             Threshold = threshold ?? 0.4f,
-            MaxLabels = maxLabels is > 0 ? maxLabels.Value : 1,
+            MaxLabels = maxLabels ?? 1,
             Retries = retries ?? [30, 30, 300, 300, 3000, 3000],
             Test = test ?? false,
             Verbose = verbose ?? false

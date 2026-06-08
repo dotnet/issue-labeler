@@ -18,6 +18,11 @@ public class GitHubApi
     private static ConcurrentDictionary<string, string> _labelNodeIdCache = new();
     private const int MaxLabelDelaySeconds = 30;
 
+    private static string GetRetryMessage(byte retry, int[] retries) =>
+        retry + 1 < retries.Length
+            ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..."
+            : $"Retry limit of {retries.Length} reached.";
+
     private static int? GetGraphQLNumber(string typeName, string org, string repo, ulong number, ICoreService action)
     {
         if (number > int.MaxValue)
@@ -253,7 +258,7 @@ public class GitHubApi
             if (after == page.EndCursor)
             {
                 action.WriteError($"Paging did not progress. Cursor: '{after}'. Aborting.");
-                break;
+                throw new ApplicationException($"Paging did not progress for {typeNames} from {org}/{repo}. Cursor '{after}' was returned again.");
             }
 
             pageNumber++;
@@ -374,8 +379,8 @@ public class GitHubApi
 
                         {ex.Message}
 
-                        Total Downloaded: {totalCount}
-                        Applicable for Training: {loadedCount}
+                        Items Downloaded: {loadedCount} (total: {totalCount})
+                        Items to Include: {includedCount} (limit: {(itemLimit.HasValue ? itemLimit : "none")})
                         Page Number: {pageNumber}
                         """);
                 }
@@ -390,7 +395,7 @@ public class GitHubApi
             if (after == page.EndCursor)
             {
                 action.WriteError($"Paging did not progress. Cursor: '{after}'. Aborting.");
-                break;
+                throw new ApplicationException($"Paging did not progress for Discussions from {org}/{repo}. Cursor '{after}' was returned again.");
             }
 
             pageNumber++;
@@ -487,9 +492,9 @@ public class GitHubApi
                 """,
             Variables = new
             {
-                Owner = org,
-                Repo = repo,
-                After = after
+                owner = org,
+                repo = repo,
+                after
             }
         };
 
@@ -554,9 +559,9 @@ public class GitHubApi
                 """,
             Variables = new
             {
-                Owner = org,
-                Repo = repo,
-                After = after
+                owner = org,
+                repo = repo,
+                after
             }
         };
 
@@ -663,7 +668,7 @@ public class GitHubApi
                         action.WriteInfo($"""
                             [{typeName} {org}/{repo}#{number}] Failed to retrieve data.
                                 Rate limit has been reached.
-                                {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                                {GetRetryMessage(retry, retries)}
                             """);
                     }
                     else
@@ -707,7 +712,7 @@ public class GitHubApi
 
                         {ex.Message}
 
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
 
@@ -748,7 +753,7 @@ public class GitHubApi
 
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to add label '{label}'. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {GetRetryMessage(retry, retries)}
                 """);
 
             int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
@@ -788,7 +793,7 @@ public class GitHubApi
 
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to remove label '{label}'. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {GetRetryMessage(retry, retries)}
                 """);
 
             int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
@@ -851,7 +856,7 @@ public class GitHubApi
                         action.WriteInfo($"""
                             [Discussion {org}/{repo}#{number}] Failed to retrieve data.
                                 Rate limit has been reached.
-                                {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                                {GetRetryMessage(retry, retries)}
                             """);
                     }
                     else
@@ -888,7 +893,7 @@ public class GitHubApi
 
                         {ex.Message}
 
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
 
@@ -910,7 +915,11 @@ public class GitHubApi
         if (!response.IsSuccessStatusCode)
         {
             if ((int)response.StatusCode != 404)
+            {
                 action.WriteInfo($"[Label] Unexpected status {(int)response.StatusCode} ({response.ReasonPhrase}) when fetching label '{labelName}' from {org}/{repo}.");
+                throw new HttpRequestException($"Failed to fetch label '{labelName}' from {org}/{repo}. Status {(int)response.StatusCode} ({response.ReasonPhrase}).");
+            }
+
             return null;
         }
 
@@ -964,7 +973,7 @@ public class GitHubApi
                 action.WriteInfo($"""
                     [Discussion] Failed to apply label '{labelName}'.
                         {string.Join("; ", response.Errors!.Select(e => e.Message))}
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
             catch (Exception ex) when (
@@ -976,7 +985,7 @@ public class GitHubApi
                 action.WriteInfo($"""
                     [Discussion] Failed to apply label '{labelName}'.
                         {ex.Message}
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
 
@@ -998,10 +1007,6 @@ public class GitHubApi
         var restClient = GetRestClient(githubToken);
         var graphqlClient = GetGraphQLClient(githubToken);
 
-        // If the label doesn't exist there's nothing to remove
-        string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
-        if (labelNodeId is null) return null;
-
         var mutation = new GraphQLRequest
         {
             Query = """
@@ -1010,8 +1015,7 @@ public class GitHubApi
                         clientMutationId
                     }
                 }
-                """,
-            Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } }
+                """
         };
 
         byte retry = 0;
@@ -1020,13 +1024,19 @@ public class GitHubApi
         {
             try
             {
+                // If the label doesn't exist there's nothing to remove.
+                string? labelNodeId = await GetLabelNodeId(restClient, org, repo, labelName, action);
+                if (labelNodeId is null) return null;
+
+                mutation.Variables = new { labelableId = discussionNodeId, labelIds = new[] { labelNodeId } };
+
                 var response = await graphqlClient.SendMutationAsync<object>(mutation);
                 if (!(response.Errors?.Any() ?? false)) return null;
 
                 action.WriteInfo($"""
                     [Discussion] Failed to remove label '{labelName}'.
                         {string.Join("; ", response.Errors!.Select(e => e.Message))}
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
             catch (Exception ex) when (
@@ -1038,7 +1048,7 @@ public class GitHubApi
                 action.WriteInfo($"""
                     [Discussion] Failed to remove label '{labelName}'.
                         {ex.Message}
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {GetRetryMessage(retry, retries)}
                     """);
             }
 

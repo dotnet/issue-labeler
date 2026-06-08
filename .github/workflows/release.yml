@@ -48,7 +48,7 @@ jobs:
             -p DebugType=none \
             -p ContainerBaseImage=${{ env.BASE_IMAGE }} \
             -p ContainerRegistry=ghcr.io \
-            -p ContainerImageTags="\"$IMAGE_TAG\"" \
+            -p ContainerImageTags=$IMAGE_TAG \
             -p ContainerRepository=${{ env.PREDICTOR_IMAGE_NAME }} \
             -p ContainerAuthors=${{ github.repository_owner }} \
             -p ContainerInformationUrl=${{ format('{0}/{1}', github.server_url, github.repository) }} \
@@ -94,7 +94,7 @@ jobs:
       - name: "Update the `predict` action to use the published image digest"
         run: |
           PREDICT_ACTION="predict/action.yml"
-          sed -i "s|ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@.*|${{ needs.publish-predictor.outputs.published_image_digest }} # $IMAGE_TAG|" $PREDICT_ACTION
+          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # $IMAGE_TAG|" $PREDICT_ACTION
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"

@@ -44,16 +44,20 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() => ProcessPrediction(
-            issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!),
-            issueNumber,
-            new Issue(result),
-            argsData.LabelPredicate,
-            argsData.DefaultLabel,
-            ModelType.Issue,
-            argsData.Retries,
-            argsData.Test
-        )));
+        tasks.Add(Task.Run(() =>
+        {
+            var predictor = issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!);
+            return ProcessPrediction(
+                predictor,
+                issueNumber,
+                new Issue(result),
+                argsData.LabelPredicate,
+                argsData.DefaultLabel,
+                ModelType.Issue,
+                argsData.Retries,
+                argsData.Test
+            );
+        }));
 
         action.WriteInfo($"[Issue {argsData.Org}/{argsData.Repo}#{issueNumber}] Queued for prediction.");
     }
@@ -82,16 +86,20 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() => ProcessPrediction(
-            pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel),
-            pullNumber,
-            new PullRequest(result),
-            argsData.LabelPredicate,
-            argsData.DefaultLabel,
-            ModelType.PullRequest,
-            argsData.Retries,
-            argsData.Test
-        )));
+        tasks.Add(Task.Run(() =>
+        {
+            var predictor = pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel);
+            return ProcessPrediction(
+                predictor,
+                pullNumber,
+                new PullRequest(result),
+                argsData.LabelPredicate,
+                argsData.DefaultLabel,
+                ModelType.PullRequest,
+                argsData.Retries,
+                argsData.Test
+            );
+        }));
 
         action.WriteInfo($"[Pull Request {argsData.Org}/{argsData.Repo}#{pullNumber}] Queued for prediction.");
     }
@@ -123,17 +131,21 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() => ProcessPrediction(
-            issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!),
-            result.Number,
-            new Issue(result),
-            argsData.LabelPredicate,
-            argsData.DefaultLabel,
-            ModelType.Discussion,
-            argsData.Retries,
-            argsData.Test,
-            nodeId: result.Id
-        )));
+        tasks.Add(Task.Run(() =>
+        {
+            var predictor = issueContext!.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel!);
+            return ProcessPrediction(
+                predictor,
+                result.Number,
+                new Issue(result),
+                argsData.LabelPredicate,
+                argsData.DefaultLabel,
+                ModelType.Discussion,
+                argsData.Retries,
+                argsData.Test,
+                nodeId: result.Id
+            );
+        }));
 
         action.WriteInfo($"[Discussion {argsData.Org}/{argsData.Repo}#{discussionNumber}] Queued for prediction.");
     }
@@ -185,7 +197,17 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
     (ulong, string, bool) Success() => GetResult(true);
     (ulong, string, bool) Failure() => GetResult(false);
 
+    string ApplyVerb() => test ? "would be applied" : "applied";
+    string RemoveVerb() => test ? "would be removed" : "removed";
+
     predictionResults.Add(summary => summary.AddRawMarkdown($"- **{argsData.Org}/{argsData.Repo}#{number}**", true));
+
+    if (type == ModelType.Discussion && nodeId is null)
+    {
+        predictionResults.Add(summary => summary.AddRawMarkdown("    - **Error**: discussion node ID is missing, so labels cannot be applied via GraphQL.", true));
+        resultMessageParts.Add("Error occurred preparing discussion label mutation.");
+        return Failure();
+    }
 
     if (issueOrPull.HasMoreLabels)
     {
@@ -214,8 +236,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - Removed default label `{defaultLabel}`.", true));
-                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - Default label `{defaultLabel}` {RemoveVerb()}.", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' {RemoveVerb()}.");
                 return Success();
             }
             else
@@ -288,8 +310,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` applied**", true));
-                resultMessageParts.Add($"Label '{labelToApply.Label}' applied.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` {ApplyVerb()}**", true));
+                resultMessageParts.Add($"Label '{labelToApply.Label}' {ApplyVerb()}.");
             }
             else
             {
@@ -308,8 +330,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
-                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` {RemoveVerb()}**", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' {RemoveVerb()}.");
                 return Success();
             }
             else
@@ -340,8 +362,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` applied.**", true));
-                resultMessageParts.Add($"No prediction made. Default label '{defaultLabel}' applied.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` {ApplyVerb()}.**", true));
+                resultMessageParts.Add($"No prediction made. Default label '{defaultLabel}' {ApplyVerb()}.");
                 return Success();
             }
             else

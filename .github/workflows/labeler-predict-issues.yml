@@ -83,4 +83,5 @@ jobs:
           test: ${{ vars.LABELER_TEST_MODE || 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          INPUT_ISSUES_MODEL: labeler-cache/discussions-model.zip
         continue-on-error: true
