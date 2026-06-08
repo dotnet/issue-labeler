@@ -50,6 +50,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
+          test: ${{ vars.LABELER_TEST_MODE || 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
@@ -79,7 +80,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
-          test: ${{ vars.DISCUSSIONS_TEST || 'false' }}
+          test: ${{ vars.LABELER_TEST_MODE || 'true' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: true
