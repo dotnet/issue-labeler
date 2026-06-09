@@ -3,9 +3,6 @@ name: "Release"
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tags:
-        description: "Deprecated. Additional tags are currently ignored; only the sanitized ref name is published."
 
 env:
   BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:9.0-noble-chiseled

@@ -22,6 +22,7 @@ on:
         default: "ACTIVE"
 
 env:
+  ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
   LABEL_PREFIX: "area-"
   THRESHOLD: 0.40
   DEFAULT_LABEL: "needs-area-label"
@@ -40,7 +41,7 @@ jobs:
         uses: dotnet/issue-labeler/restore@main
         with:
           type: discussions
-          fail-on-cache-miss: ${{ github.event_name == 'workflow_dispatch' }}
+          fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
           quiet: true
           cache_key: ${{ github.event.inputs.cache_key || 'ACTIVE' }}
 
@@ -56,4 +57,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           INPUT_ISSUES_MODEL: labeler-cache/discussions-model.zip
-        continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
+        continue-on-error: ${{ fromJSON(env.ALLOW_FAILURE) }}

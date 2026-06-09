@@ -20,7 +20,7 @@ if (config is not Args argsData) return 1;
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];
 
-if (argsData.IssuesModelPath is not null && !argsData.TestDiscussions)
+if (argsData.IssuesModelPath is not null)
 {
     tasks.Add(Task.Run(() => TestIssues()));
 }
@@ -40,7 +40,7 @@ var (results, success) = await App.RunTasks(tasks, action);
 foreach (var (itemType, stats) in results)
 {
     AlertType resultAlert = (stats.MatchesPercentage >= 0.65f && stats.MismatchesPercentage < 0.15f) ? AlertType.Note : AlertType.Warning;
-    string itemTypeName = GetItemTypeName(itemType);
+    string itemTypeName = GetItemTypeNamePlural(itemType);
 
     action.Summary.AddPersistent(summary =>
     {
@@ -205,7 +205,7 @@ PredictionEngine<T, LabelPrediction> GetPredictionEngine<T>(string modelPath) wh
 
 void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor, TestStats stats) where T : Issue
 {
-    var itemType = GetSingularItemTypeName(typeof(T));
+    var itemType = GetItemTypeNameSingular(typeof(T));
 
     (string? predictedLabel, float? score) = GetPrediction(
         predictor,
@@ -251,7 +251,7 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
 (string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold) where T : Issue
 {
     var prediction = predictor.Predict(issueOrPull);
-    var itemType = GetSingularItemTypeName(typeof(T));
+    var itemType = GetItemTypeNameSingular(typeof(T));
 
     if (prediction.Score is null || prediction.Score.Length == 0)
     {
@@ -274,7 +274,7 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
     return bestScore is not null ? (bestScore.Label, bestScore.Score) : ((string?)null, (float?)null);
 }
 
-static string GetItemTypeName(Type type)
+static string GetItemTypeNamePlural(Type type)
 {
     if (type == typeof(PullRequest))
     {
@@ -289,7 +289,7 @@ static string GetItemTypeName(Type type)
     return "Issues";
 }
 
-static string GetSingularItemTypeName(Type type)
+static string GetItemTypeNameSingular(Type type)
 {
     if (type == typeof(PullRequest))
     {

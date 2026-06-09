@@ -7,7 +7,7 @@ branding:
 
 inputs:
   type:
-    description: "The model to test. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issue-like model path."
+    description: "The model to test. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issues model path."
     required: true
   label_prefix:
     description: "The label prefix to use for model training. Must end with a non-alphanumeric character."

@@ -47,19 +47,16 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() =>
-        {
-            return ProcessPrediction(
-                issuePredictors!.Value!,
-                issueNumber,
-                new Issue(result),
-                argsData.LabelPredicate,
-                argsData.DefaultLabel,
-                ModelType.Issue,
-                argsData.Retries,
-                argsData.Test
-            );
-        }));
+        tasks.Add(Task.Run(() => ProcessPrediction(
+            issuePredictors!.Value!,
+            issueNumber,
+            new Issue(result),
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
+            ModelType.Issue,
+            argsData.Retries,
+            argsData.Test
+        )));
 
         action.WriteInfo($"[Issue {argsData.Org}/{argsData.Repo}#{issueNumber}] Queued for prediction.");
     }
@@ -89,19 +86,16 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() =>
-        {
-            return ProcessPrediction(
-                pullPredictors!.Value!,
-                pullNumber,
-                new PullRequest(result),
-                argsData.LabelPredicate,
-                argsData.DefaultLabel,
-                ModelType.PullRequest,
-                argsData.Retries,
-                argsData.Test
-            );
-        }));
+        tasks.Add(Task.Run(() => ProcessPrediction(
+            pullPredictors!.Value!,
+            pullNumber,
+            new PullRequest(result),
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
+            ModelType.PullRequest,
+            argsData.Retries,
+            argsData.Test
+        )));
 
         action.WriteInfo($"[Pull Request {argsData.Org}/{argsData.Repo}#{pullNumber}] Queued for prediction.");
     }
@@ -134,20 +128,17 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             continue;
         }
 
-        tasks.Add(Task.Run(() =>
-        {
-            return ProcessPrediction(
-                issuePredictors!.Value!,
-                result.Number,
-                new Issue(result),
-                argsData.LabelPredicate,
-                argsData.DefaultLabel,
-                ModelType.Discussion,
-                argsData.Retries,
-                argsData.Test,
-                nodeId: result.Id
-            );
-        }));
+        tasks.Add(Task.Run(() => ProcessPrediction(
+            issuePredictors!.Value!,
+            result.Number,
+            new Issue(result),
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
+            ModelType.Discussion,
+            argsData.Retries,
+            argsData.Test,
+            nodeId: result.Id
+        )));
 
         action.WriteInfo($"[Discussion {argsData.Org}/{argsData.Repo}#{discussionNumber}] Queued for prediction.");
     }
