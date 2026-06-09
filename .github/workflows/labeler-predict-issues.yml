@@ -12,6 +12,10 @@ on:
       issues:
         description: "Issue Numbers (comma-separated list of ranges)."
         required: true
+      dry_run:
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
+        required: false
+        default: "true"
       cache_key:
         description: "The cache key suffix to use for restoring the model. Defaults to 'ACTIVE'."
         required: true
@@ -24,8 +28,8 @@ env:
 
 jobs:
   predict-issue-label:
-    # Do not automatically run on forks outside the 'dotnet' org
-    if: ${{ github.event_name == 'workflow_dispatch' || github.repository_owner == 'dotnet' }}
+    # Do not automatically run on forked repositories
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.fork }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -48,7 +52,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
-          test: ${{ vars.LABELER_TEST_MODE || 'true' }}
+          dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}

@@ -60,7 +60,9 @@ public struct Args
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
-              TEST                    Run in test mode, outputting predictions without applying labels.
+              DRY_RUN                 Run in dry-run mode, outputting predictions without applying labels.
+                                      Must be one of: true, false, TRUE, FALSE
+              TEST                    Deprecated alias for DRY_RUN.
                                       Must be one of: true, false, TRUE, FALSE
               VERBOSE                 Enable verbose output.
                                       Must be one of: true, false, TRUE, FALSE
@@ -83,6 +85,7 @@ public struct Args
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
         argUtils.TryGetNumberRanges("discussions", out var discussions);
+        argUtils.TryGetFlag("dry_run", out var dryRun);
         argUtils.TryGetFlag("test", out var test);
         argUtils.TryGetFlag("verbose", out var verbose);
 
@@ -113,7 +116,7 @@ public struct Args
             ExcludedAuthors = excludedAuthors,
             Threshold = threshold ?? 0.4f,
             Retries = retries ?? [30, 30, 300, 300, 3000, 3000],
-            Test = test ?? false,
+            Test = dryRun ?? test ?? false,
             Verbose = verbose ?? false
         };
 

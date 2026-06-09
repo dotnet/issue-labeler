@@ -35,8 +35,12 @@ inputs:
     required: false
     default: "30,30,300,300,3000,3000"
 
+  dry_run:
+    description: "Run in dry-run mode, outputting predictions without applying labels."
+    required: false
+
   test:
-    description: "Run in test mode, outputting predictions without applying labels."
+    description: "Deprecated alias for `dry_run`. Run in dry-run mode, outputting predictions without applying labels."
     required: false
 
   verbose:
