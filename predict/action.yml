@@ -22,9 +22,12 @@ inputs:
 
   default_label:
     description: "The default label to apply if no prediction meets the threshold. Leave blank for no default label."
+    required: false
 
+  max_labels:
     description: "Maximum number of labels to apply when multiple predictions meet the threshold. Must be a positive integer between 1 and 10. Defaults to 1."
-
+    required: false
+    default: "1"
   excluded_authors:
     description: "Comma-separated list of authors to exclude. Defaults to none."
 
