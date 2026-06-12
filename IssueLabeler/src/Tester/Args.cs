@@ -36,7 +36,7 @@ public struct Args
 
             Required for testing the issues model:
               --issues-model          Path to existing issue prediction model file (ZIP file).
-                            --discussions           Also evaluate discussions using the issues prediction model.
+              --discussions           Also evaluate discussions using the issues prediction model.
 
             Required for testing the pull requests model:
               --pulls-model           Path to existing pull request prediction model file (ZIP file).

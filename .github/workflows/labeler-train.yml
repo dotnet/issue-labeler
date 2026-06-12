@@ -46,8 +46,9 @@ env:
   CACHE_KEY: ${{ inputs.cache_key_suffix }}
   REPOSITORY: ${{ inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
-  THRESHOLD: "0.40"
-  DISCUSSION_THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
+  THRESHOLD_ISSUES: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
+  THRESHOLD_PULLS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
+  THRESHOLD_DISCUSSIONS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_DISCUSSIONS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   LIMIT: ${{ inputs.limit }}
   PAGE_SIZE: ${{ inputs.page_size }}
   PAGE_LIMIT: ${{ inputs.page_limit }}
@@ -255,7 +256,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
-          threshold: ${{ env.THRESHOLD }}
+          threshold: ${{ env.THRESHOLD_ISSUES }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -278,7 +279,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
-          threshold: ${{ env.DISCUSSION_THRESHOLD }}
+          threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -301,7 +302,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
-          threshold: ${{ env.THRESHOLD }}
+          threshold: ${{ env.THRESHOLD_PULLS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}

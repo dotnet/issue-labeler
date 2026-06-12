@@ -11,7 +11,28 @@ env:
   GITHUB_API_PACKAGE_OWNER: /orgs/dotnet
 
 jobs:
+  compute-image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.compute.outputs.image_tag }}
+    steps:
+      - name: "Compute sanitized image tag"
+        id: compute
+        run: |
+          IMAGE_TAG=$(printf '%s' '${{ github.ref_name }}' \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/[:space:]' '--' \
+            | tr -cd '[:alnum:]_.-' \
+            | cut -c1-128)
+
+          if [[ -z "$IMAGE_TAG" ]]; then
+            IMAGE_TAG="ref-${{ github.run_number }}"
+          fi
+
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
   publish-predictor:
+    needs: compute-image-tag
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,20 +56,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: "Compute sanitized image tag"
-        run: |
-          IMAGE_TAG=$(printf '%s' '${{ github.ref_name }}' \
-            | tr '[:upper:]' '[:lower:]' \
-            | tr '/[:space:]' '--' \
-            | tr -cd '[:alnum:]_.-' \
-            | cut -c1-128)
-
-          if [[ -z "$IMAGE_TAG" ]]; then
-            IMAGE_TAG="ref-${{ github.run_number }}"
-          fi
-
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
       - name: "Publish Predictor"
         run: |
           dotnet publish IssueLabeler/src/Predictor/Predictor.csproj \
@@ -56,7 +63,7 @@ jobs:
             -p DebugType=none \
             -p ContainerBaseImage=${{ env.BASE_IMAGE }} \
             -p ContainerRegistry=ghcr.io \
-            -p ContainerImageTags=$IMAGE_TAG \
+            -p ContainerImageTags=${{ needs.compute-image-tag.outputs.image_tag }} \
             -p ContainerRepository=${{ env.PREDICTOR_IMAGE_NAME }} \
             -p ContainerAuthors=${{ github.repository_owner }} \
             -p ContainerInformationUrl=${{ format('{0}/{1}', github.server_url, github.repository) }} \
@@ -73,7 +80,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               ${{ format('{0}/packages/container/{1}/versions', env.GITHUB_API_PACKAGE_OWNER, env.PACKAGE_NAME_ESCAPED) }} \
-            | jq -r --arg tag "$IMAGE_TAG" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
+            | jq -r --arg tag "${{ needs.compute-image-tag.outputs.image_tag }}" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
           `
           PUBLISHED_IMAGE_DIGEST=ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@${DIGEST}
 
@@ -88,7 +95,9 @@ jobs:
 
   update-predictor-action:
     runs-on: ubuntu-latest
-    needs: publish-predictor
+    needs:
+      - compute-image-tag
+      - publish-predictor
     permissions:
       contents: write
       packages: read
@@ -96,24 +105,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: "Compute sanitized image tag"
-        run: |
-          IMAGE_TAG=$(printf '%s' '${{ github.ref_name }}' \
-            | tr '[:upper:]' '[:lower:]' \
-            | tr '/[:space:]' '--' \
-            | tr -cd '[:alnum:]_.-' \
-            | cut -c1-128)
-
-          if [[ -z "$IMAGE_TAG" ]]; then
-            IMAGE_TAG="ref-${{ github.run_number }}"
-          fi
-
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
       - name: "Update the `predict` action to use the published image digest"
         run: |
           PREDICT_ACTION="predict/action.yml"
-          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # $IMAGE_TAG|" $PREDICT_ACTION
+          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # ${{ needs.compute-image-tag.outputs.image_tag }}|" $PREDICT_ACTION
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
