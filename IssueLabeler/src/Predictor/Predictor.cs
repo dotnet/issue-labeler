@@ -193,9 +193,9 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture the top 3 predictions for output.
+        // Capture a little extra headroom beyond what may be applied.
         .OrderByDescending(p => p.Score)
-        .Take(3)
+        .Take(maxLabels + 2)
         .ToList();
 
     var eligibleLabels = predictions.Where(p => p.Score >= argsData.Threshold).ToList();
@@ -241,9 +241,9 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         }
         else
         {
-            string attemptedLabels = string.Join("', '", topLabels.Select(label => label.Label));
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels `{attemptedLabels}`**: {error}", true));
-            resultMessageParts.Add($"Error occurred applying labels '{attemptedLabels}': {error}");
+            string attemptedLabels = string.Join(", ", topLabels.Select(label => $"'{label.Label}'"));
+            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels {attemptedLabels}**: {error}", true));
+            resultMessageParts.Add($"Error occurred applying labels {attemptedLabels}: {error}");
             return Failure();
         }
 
