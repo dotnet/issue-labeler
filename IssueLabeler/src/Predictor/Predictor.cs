@@ -242,8 +242,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         else
         {
             string attemptedLabels = string.Join(", ", topLabels.Select(label => $"'{label.Label}'"));
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels {attemptedLabels}**: {error}", true));
-            resultMessageParts.Add($"Error occurred applying labels {attemptedLabels}: {error}");
+            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels: {attemptedLabels}**: {error}", true));
+            resultMessageParts.Add($"Error occurred applying labels: {attemptedLabels}. {error}");
             return Failure();
         }
 

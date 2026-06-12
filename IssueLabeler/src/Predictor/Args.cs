@@ -5,7 +5,7 @@ using Actions.Core.Services;
 
 public struct Args
 {
-    private const int MaxLabelsLimit = 2;
+    private const byte MaxLabelsLimit = 10;
 
     public string GitHubToken => Environment.GetEnvironmentVariable("GITHUB_TOKEN")!;
     public string Org { get; set; }
@@ -18,7 +18,7 @@ public struct Args
     public string? PullsModelPath { get; set; }
     public List<ulong>? Pulls { get; set; }
     public string? DefaultLabel { get; set; }
-    public int MaxLabels { get; set; }
+    public byte MaxLabels { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
     public bool Test { get; set; }
@@ -54,7 +54,7 @@ public struct Args
                                       Defaults to: 0.4.
               DEFAULT_LABEL           Label to apply if no label is predicted.
               MAX_LABELS              Maximum number of labels to apply when multiple predictions
-                                      meet the threshold. Must be a positive integer in [1, 2].
+                                      meet the threshold. Must be a positive integer in [1, 10].
                                       Defaults to: 1.
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
@@ -82,7 +82,7 @@ public struct Args
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
         argUtils.TryGetString("max_labels", out var maxLabelsStr);
-        int? maxLabels = null;
+        byte? maxLabels = null;
         if (maxLabelsStr is not null)
         {
             maxLabelsStr = maxLabelsStr.Trim();
@@ -91,7 +91,7 @@ public struct Args
             {
                 maxLabelsStr = null;
             }
-            else if (!int.TryParse(maxLabelsStr, out int parsedMaxLabels) || parsedMaxLabels < 1 || parsedMaxLabels > MaxLabelsLimit)
+            else if (!byte.TryParse(maxLabelsStr, out byte parsedMaxLabels) || parsedMaxLabels < 1 || parsedMaxLabels > MaxLabelsLimit)
             {
                 ShowUsage($"Input 'max_labels' must be a positive integer between 1 and {MaxLabelsLimit}.", action);
                 return null;

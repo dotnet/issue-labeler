@@ -541,7 +541,7 @@ public class GitHubApi
             }
 
             action.WriteInfo($"""
-                [{type} {org}/{repo}#{number}] Failed to add label(s) {labelList}. {response.ReasonPhrase} ({response.StatusCode})
+                [{type} {org}/{repo}#{number}] Failed to add label(s): {labelList}. {response.ReasonPhrase} ({response.StatusCode})
                     {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
@@ -549,7 +549,7 @@ public class GitHubApi
             await Task.Delay(delay * 1000);
         }
 
-        return $"Failed to add label(s) {labelList} after {retries.Length} retries.";
+        return $"Failed to add label(s): {labelList}. Performed {retries.Length} retries.";
     }
 
     /// <summary>
