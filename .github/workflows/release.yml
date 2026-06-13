@@ -4,6 +4,8 @@ name: "Release"
 on:
   workflow_dispatch:
 
+permissions: {}
+
 env:
   BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:9.0-noble-chiseled
   PREDICTOR_IMAGE_NAME: ${{ github.repository }}/predictor

@@ -31,6 +31,8 @@ on:
         required: true
         default: "ACTIVE"
 
+permissions: {}
+
 env:
   # Do not allow failure for jobs triggered automatically (this can block PR merge)
   ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}

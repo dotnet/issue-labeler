@@ -42,6 +42,8 @@ on:
         required: true
         default: "staged"
 
+permissions: {}
+
 env:
   CACHE_KEY: ${{ inputs.cache_key_suffix }}
   REPOSITORY: ${{ inputs.repository || github.repository }}

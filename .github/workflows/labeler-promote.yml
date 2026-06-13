@@ -26,13 +26,14 @@ on:
         description: "The cache key suffix to use for backing up the currently active model. Defaults to 'backup'."
         default: "backup"
 
-permissions:
-  actions: write
+permissions: {}
 
 jobs:
   promote-issues:
     if: ${{ inputs.issues }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: "Promote Model for Issues"
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
@@ -44,6 +45,8 @@ jobs:
   promote-pulls:
     if: ${{ inputs.pulls }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: "Promote Model for Pull Requests"
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
@@ -55,6 +58,8 @@ jobs:
   promote-discussions:
     if: ${{ inputs.discussions }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: "Promote Model for Discussions"
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
