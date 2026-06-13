@@ -48,6 +48,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
             argsData.Test
@@ -87,6 +88,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             new PullRequest(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
             argsData.Test
@@ -106,7 +108,7 @@ foreach (var prediction in predictionResults.OrderBy(p => p.Number))
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, int[] retries, bool test) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
     string typeName = type == ModelType.PullRequest ? "Pull Request" : "Issue";
@@ -150,7 +152,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         {
             if (!test)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
             }
 
             if (error is null)
@@ -162,7 +164,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
@@ -191,15 +193,17 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture the top 3 for including in the output
+        // Capture a little extra headroom beyond what may be applied.
         .OrderByDescending(p => p.Score)
-        .Take(3);
+        .Take(maxLabels + 2)
+        .ToList();
 
-    var bestScore = predictions.FirstOrDefault(p => p.Score >= argsData.Threshold);
+    var eligibleLabels = predictions.Where(p => p.Score >= argsData.Threshold).ToList();
+    var topLabels = eligibleLabels.Take(maxLabels).ToList();
 
-    if (bestScore is not null)
+    if (eligibleLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - Predicted label: `{bestScore.Label}` meets the threshold of {argsData.Threshold}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - At least {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
     }
     else
     {
@@ -211,49 +215,60 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         predictionResults.Add(summary => summary.AddRawMarkdown($"        - `{labelPrediction.Label}` - Score: {labelPrediction.Score}", true));
     }
 
-    if (bestScore is not null)
+    if (topLabels.Count > 0)
     {
+        error = null;
         if (!test)
         {
-            error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, bestScore.Label, retries, action);
+            error = await GitHubApi.AddLabels(
+                argsData.GitHubToken,
+                argsData.Org,
+                argsData.Repo,
+                typeName,
+                number,
+                topLabels.Select(label => label.Label).ToArray(),
+                retries,
+                action);
         }
 
         if (error is null)
         {
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{bestScore.Label}` applied**", true));
-            resultMessageParts.Add($"Label '{bestScore.Label}' applied.");
-
-            if (hasDefaultLabel && defaultLabel is not null)
+            foreach (var labelToApply in topLabels)
             {
-                if (!test)
-                {
-                    error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
-                }
-
-                if (error is null)
-                {
-                    predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
-                    resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
-                    return Success();
-                }
-                else
-                {
-                    predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                    resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
-                    return Failure();
-                }
-            }
-            else
-            {
-                return Success();
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` applied**", true));
+                resultMessageParts.Add($"Label '{labelToApply.Label}' applied.");
             }
         }
         else
         {
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{bestScore.Label}`**: {error}", true));
-            resultMessageParts.Add($"Error occurred applying label '{bestScore.Label}'");
+            string attemptedLabels = string.Join(", ", topLabels.Select(label => $"'{label.Label}'"));
+            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels: {attemptedLabels}**: {error}", true));
+            resultMessageParts.Add($"Error occurred applying labels: {attemptedLabels}. {error}");
             return Failure();
         }
+
+        if (hasDefaultLabel && defaultLabel is not null)
+        {
+            error = null;
+            if (!test)
+            {
+                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
+            }
+
+            if (error is null)
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+            }
+            else
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
+                return Failure();
+            }
+        }
+
+        return Success();
     }
 
     if (defaultLabel is not null)
@@ -268,7 +283,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         {
             if (!test)
             {
-                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, argsData.Retries, action);
+                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
             }
 
             if (error is null)
@@ -280,7 +295,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
