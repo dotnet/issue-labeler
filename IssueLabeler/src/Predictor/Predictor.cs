@@ -56,7 +56,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
-            argsData.Test
+            argsData.DryRun
         )));
 
         action.WriteInfo($"[Issue {argsData.Org}/{argsData.Repo}#{issueNumber}] Queued for prediction.");
@@ -96,7 +96,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
-            argsData.Test
+            argsData.DryRun
         )));
 
         action.WriteInfo($"[Pull Request {argsData.Org}/{argsData.Repo}#{pullNumber}] Queued for prediction.");
@@ -139,7 +139,7 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             argsData.MaxLabels,
             ModelType.Discussion,
             argsData.Retries,
-            argsData.Test,
+            argsData.DryRun,
             nodeId: result.Id
         )));
 
@@ -160,7 +160,7 @@ pullPredictors?.Dispose();
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test, string? nodeId = null) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool dryRun, string? nodeId = null) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
     string typeName = type switch
@@ -196,8 +196,8 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
     (ulong, string, bool) Success() => GetResult(true);
     (ulong, string, bool) Failure() => GetResult(false);
 
-    string ApplyVerb() => test ? "would be applied" : "applied";
-    string RemoveVerb() => test ? "would be removed" : "removed";
+    string ApplyVerb() => dryRun ? "would be applied" : "applied";
+    string RemoveVerb() => dryRun ? "would be removed" : "removed";
 
     predictionResults.Add(summary => summary.AddRawMarkdown($"- **{argsData.Org}/{argsData.Repo}#{number}**", true));
 
@@ -228,7 +228,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
         if (hasDefaultLabel && defaultLabel is not null)
         {
-            if (!test)
+            if (!dryRun)
             {
                 error = await UnapplyLabel(defaultLabel);
             }
@@ -303,7 +303,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         foreach (var labelToApply in topLabels)
         {
             error = null;
-            if (!test)
+            if (!dryRun)
             {
                 error = await ApplyLabel(labelToApply.Label);
             }
@@ -323,7 +323,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
         if (hasDefaultLabel && defaultLabel is not null)
         {
-            if (!test)
+            if (!dryRun)
             {
                 error = await UnapplyLabel(defaultLabel);
             }
@@ -355,7 +355,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         }
         else
         {
-            if (!test)
+            if (!dryRun)
             {
                 error = await ApplyLabel(defaultLabel);
             }

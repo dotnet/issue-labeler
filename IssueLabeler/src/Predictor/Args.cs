@@ -22,7 +22,7 @@ public struct Args
     public byte MaxLabels { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
-    public bool Test { get; set; }
+    public bool DryRun { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -114,7 +114,6 @@ public struct Args
             }
         }
 
-        argUtils.TryGetFlag("test", out var test);
         argUtils.TryGetFlag("verbose", out var verbose);
 
         if (org is null || repo is null || threshold is null || labelPredicate is null ||
@@ -145,7 +144,7 @@ public struct Args
             ExcludedAuthors = excludedAuthors,
             Threshold = threshold ?? 0.4f,
             Retries = retries ?? [30, 30, 300, 300, 3000, 3000],
-            Test = dryRun ?? test ?? false,
+            DryRun = dryRun ?? false,
             Verbose = verbose ?? false
         };
 
