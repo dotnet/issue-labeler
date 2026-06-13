@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Promote Model for Issues"
-        uses: dotnet/issue-labeler/promote@main
+        uses: dotnet/issue-labeler/promote@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "issues"
           staged_key: ${{ inputs.staged_key }}
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Promote Model for Pull Requests"
-        uses: dotnet/issue-labeler/promote@main
+        uses: dotnet/issue-labeler/promote@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "pulls"
           staged_key: ${{ inputs.staged_key }}
