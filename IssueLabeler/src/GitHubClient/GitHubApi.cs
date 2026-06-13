@@ -207,9 +207,10 @@ public class GitHubApi
                 }
                 else
                 {
-                    await action.WriteStatusAsync($"Waiting {retries[retry]} seconds before retry {retry + 1} of {retries.Length}...");
-                    await Task.Delay(retries[retry] * 1000);
                     retry++;
+
+                    await action.WriteStatusAsync($"Waiting {retries[retry]} seconds before retry {retry} of {retries.Length}...");
+                    await Task.Delay(retries[retry] * 1000);
 
                     continue;
                 }
@@ -542,12 +543,14 @@ public class GitHubApi
                 return null;
             }
 
+            retry++;
+
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to add label(s): {labelList}. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
-            int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+            int delay = Math.Min(retries[retry], MaxLabelDelaySeconds);
             await Task.Delay(delay * 1000);
         }
 
@@ -582,12 +585,14 @@ public class GitHubApi
                 return null;
             }
 
+            retry++;
+
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to remove label '{label}'. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
-            int delay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+            int delay = Math.Min(retries[retry], MaxLabelDelaySeconds);
             await Task.Delay(delay * 1000);
         }
 
