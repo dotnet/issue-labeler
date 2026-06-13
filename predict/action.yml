@@ -61,7 +61,7 @@ runs:
   using: docker
   # Reference the docker container image using a published sha256 digest
   # to ensure an immutable version is always used.
-  image: docker://ghcr.io/dotnet/issue-labeler/predictor@sha256:6a9e48e5121c5ba69d6dd98ec0bc65292e2dfc7c8475cb1375c685558970e7ca # v2.1.0
+  image: docker://ghcr.io/dotnet/issue-labeler/predictor@sha256:79b5359ae5c85b90d9a98dcf3864163ae0a248f6d60687b7e81c8a189b8219a6 # v2.1.0
   env:
     INPUT_ISSUES_MODEL: "labeler-cache/issues-model.zip"
     INPUT_PULLS_MODEL: "labeler-cache/pulls-model.zip"
