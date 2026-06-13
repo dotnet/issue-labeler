@@ -13,20 +13,23 @@ on:
         description: "Issue Numbers (comma-separated list of ranges)."
         required: true
       dry_run:
-        description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'false'."
         required: false
-        default: "true"
+        type: boolean
+        default: false
       cache_key:
         description: "The cache key suffix to use for restoring the model. Defaults to 'ACTIVE'."
         required: true
         default: "ACTIVE"
 
+permissions: {}
+
 env:
   ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
   LABEL_PREFIX: "area-"
-  THRESHOLD: 0.40
+  THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   DEFAULT_LABEL: "needs-area-label"
-  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS || '1' }}
+  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS_ISSUES || vars.ISSUE_LABELER_MAX_LABELS || '1' }}
 
 jobs:
   predict-issue-label:

@@ -4,8 +4,10 @@ name: "Release"
 on:
   workflow_dispatch:
 
+permissions: {}
+
 env:
-  BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:9.0-noble-chiseled
+  BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:10.0-noble-chiseled
   PREDICTOR_IMAGE_NAME: ${{ github.repository }}/predictor
   PACKAGE_NAME_ESCAPED: issue-labeler%2Fpredictor
   GITHUB_API_PACKAGE_OWNER: /orgs/dotnet
@@ -18,18 +20,21 @@ jobs:
     steps:
       - name: "Compute sanitized image tag"
         id: compute
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          IMAGE_TAG=$(printf '%s' "${{ github.ref_name }}" \
+          IMAGE_TAG=$(printf '%s' "$REF_NAME" \
             | tr '[:upper:]' '[:lower:]' \
             | tr '/[:space:]' '--' \
             | tr -cd '[:alnum:]_.-' \
             | cut -c1-128)
 
           if [[ -z "$IMAGE_TAG" ]]; then
-            IMAGE_TAG="ref-${{ github.run_number }}"
+            IMAGE_TAG="ref-$RUN_NUMBER"
           fi
 
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   publish-predictor:
     needs: compute-image-tag
@@ -42,56 +47,63 @@ jobs:
       published_image_digest: ${{ steps.published-image.outputs.published_image_digest }}
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: "Set up the .NET SDK"
-        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: "Log in to the GitHub Container Registry"
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Publish Predictor"
+        env:
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPO_URL: ${{ format('{0}/{1}', github.server_url, github.repository) }}
+          WIKI_URL: ${{ format('{0}/{1}/wiki', github.server_url, github.repository) }}
+          LICENSE_URL: ${{ format('{0}/{1}/blob/main/LICENSE.TXT', github.server_url, github.repository) }}
         run: |
           dotnet publish IssueLabeler/src/Predictor/Predictor.csproj \
             /t:PublishContainer \
             -p DebugType=none \
-            -p ContainerBaseImage=${{ env.BASE_IMAGE }} \
+            -p ContainerBaseImage="$BASE_IMAGE" \
             -p ContainerRegistry=ghcr.io \
-            -p ContainerImageTags=${{ needs.compute-image-tag.outputs.image_tag }} \
-            -p ContainerRepository=${{ env.PREDICTOR_IMAGE_NAME }} \
-            -p ContainerAuthors=${{ github.repository_owner }} \
-            -p ContainerInformationUrl=${{ format('{0}/{1}', github.server_url, github.repository) }} \
-            -p ContainerDocumentationUrl=${{ format('{0}/{1}/wiki', github.server_url, github.repository) }} \
-            -p ContainerLicenseExpression=${{ format('{0}/{1}/blob/main/LICENSE.TXT', github.server_url, github.repository) }}
+            -p ContainerImageTags="$IMAGE_TAG" \
+            -p ContainerRepository="$PREDICTOR_IMAGE_NAME" \
+            -p ContainerAuthors="$REPOSITORY_OWNER" \
+            -p ContainerInformationUrl="$REPO_URL" \
+            -p ContainerDocumentationUrl="$WIKI_URL" \
+            -p ContainerLicenseExpression="$LICENSE_URL"
 
       - name: "Capture and output the Docker image digest to the workflow summary"
         id: published-image
         env:
           GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
         run: |
-          DIGEST=` \
+          DIGEST=$( \
             gh api \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              ${{ format('{0}/packages/container/{1}/versions', env.GITHUB_API_PACKAGE_OWNER, env.PACKAGE_NAME_ESCAPED) }} \
-            | jq -r --arg tag "${{ needs.compute-image-tag.outputs.image_tag }}" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
-          `
-          PUBLISHED_IMAGE_DIGEST=ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@${DIGEST}
+              "${GITHUB_API_PACKAGE_OWNER}/packages/container/${PACKAGE_NAME_ESCAPED}/versions" \
+            | jq -r --arg tag "$IMAGE_TAG" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
+          )
+          PUBLISHED_IMAGE_DIGEST="ghcr.io/${PREDICTOR_IMAGE_NAME}@${DIGEST}"
 
-          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
-          echo "published_image_digest=$PUBLISHED_IMAGE_DIGEST" >> $GITHUB_OUTPUT
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "published_image_digest=$PUBLISHED_IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
 
-          echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
-          echo "> **Docker container image published.**" >> $GITHUB_STEP_SUMMARY
-          echo "> Digest: \`$DIGEST\`" >> $GITHUB_STEP_SUMMARY
-          echo "> Published: \`$PUBLISHED_IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **Docker container image published.**" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Digest: \`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Published: \`$PUBLISHED_IMAGE_DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
   update-predictor-action:
     runs-on: ubuntu-latest
@@ -100,27 +112,96 @@ jobs:
       - publish-predictor
     permissions:
       contents: write
-      packages: read
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
-      - name: "Update the `predict` action to use the published image digest"
+      - name: "Commit the `predict` image update and capture workflow pin patch"
+        id: release
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.publish-predictor.outputs.published_image_digest }}
+          RELEASE_DIGEST: ${{ needs.publish-predictor.outputs.digest }}
+          REPO_TREE_URL_BASE: ${{ format('{0}/{1}/tree', github.server_url, github.repository) }}
+          REPO_BLOB_URL_BASE: ${{ format('{0}/{1}/blob', github.server_url, github.repository) }}
+          REPO_COMMIT_URL_BASE: ${{ format('{0}/{1}/commit', github.server_url, github.repository) }}
         run: |
+          WORKFLOW_FILES=(
+            ".github/workflows/labeler-cache-retention.yml"
+            ".github/workflows/labeler-predict-discussions.yml"
+            ".github/workflows/labeler-predict-issues.yml"
+            ".github/workflows/labeler-predict-pulls.yml"
+            ".github/workflows/labeler-promote.yml"
+            ".github/workflows/labeler-train.yml"
+          )
+
           PREDICT_ACTION="predict/action.yml"
-          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # ${{ needs.compute-image-tag.outputs.image_tag }}|" $PREDICT_ACTION
+          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*\$|  image: docker://${IMAGE_DIGEST} # ${IMAGE_TAG}|" "$PREDICT_ACTION"
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add $PREDICT_ACTION
-          git commit -m "Release '${{ github.ref_name }}' with predictor digest '${{ needs.publish-predictor.outputs.digest }}'"
-          git push origin ${{ github.ref_name }}
+          git add "$PREDICT_ACTION"
+          if git diff --cached --quiet; then
+            echo "predict/action.yml already pinned to ${IMAGE_DIGEST}; skipping release commit."
+          else
+            git commit -m "Release '${REF_NAME}' with predictor digest '${RELEASE_DIGEST}'"
+            git push origin "$REF_NAME"
+          fi
 
-          echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
-          echo "> Updated [\`predict/action.yml\` (${{ github.ref_name }})](${{ format('{0}/{1}/blob/{2}/predict/action.yml', github.server_url, github.repository, github.ref_name) }}) to:" >> $GITHUB_STEP_SUMMARY
-          echo "> \`${{ needs.publish-predictor.outputs.published_image_digest }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          RELEASE_COMMIT_URL="${REPO_COMMIT_URL_BASE}/${RELEASE_SHA}"
 
-          echo "\`\`\`yml" >> $GITHUB_STEP_SUMMARY
-          grep -i -B1 -A10 '^\s*using:\s*docker' $PREDICT_ACTION >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          for workflow_file in "${WORKFLOW_FILES[@]}"; do
+            perl -0pi -e "s{^([[:space:]]*(?:-[[:space:]]+)?uses:[[:space:]]+dotnet/issue-labeler/(?:download|train|test|restore|promote|predict)@)[^[:space:]#]+(?:[[:space:]]+#.*)?\$}{\${1}${RELEASE_SHA} # ${REF_NAME}}mg" "$workflow_file"
+          done
+
+          PATCH_FILE="${RUNNER_TEMP}/workflow-pins.patch"
+          git diff -- "${WORKFLOW_FILES[@]}" > "$PATCH_FILE"
+          git checkout -- "${WORKFLOW_FILES[@]}"
+
+          if [[ -s "$PATCH_FILE" ]]; then
+            HAS_PATCH="true"
+          else
+            HAS_PATCH="false"
+            rm -f "$PATCH_FILE"
+          fi
+
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_commit_url=$RELEASE_COMMIT_URL" >> "$GITHUB_OUTPUT"
+          echo "patch_file=$PATCH_FILE" >> "$GITHUB_OUTPUT"
+          echo "has_patch=$HAS_PATCH" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "> [!NOTE]"
+            echo "> Released [\`${REF_NAME}\`](${REPO_TREE_URL_BASE}/${REF_NAME}) as [\`${RELEASE_SHA}\`](${RELEASE_COMMIT_URL})."
+            echo ""
+            echo "> Updated [\`predict/action.yml\` (${REF_NAME})](${REPO_BLOB_URL_BASE}/${REF_NAME}/predict/action.yml) image to:"
+            echo "> \`${IMAGE_DIGEST}\`"
+            echo ""
+            echo "\`\`\`yml"
+            grep -i -B1 -A10 '^\s*using:\s*docker' "$PREDICT_ACTION"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$HAS_PATCH" == "true" ]]; then
+            {
+              echo ""
+              echo "> [!IMPORTANT]"
+              echo "> The labeler workflow files reference \`dotnet/issue-labeler/*\` actions and need to be re-pinned to [\`${RELEASE_SHA}\`](${RELEASE_COMMIT_URL}) (\`${REF_NAME}\`)."
+              echo "> \`GITHUB_TOKEN\` cannot modify files under \`.github/workflows/\`, so the updates are emitted as a patch."
+              echo "> Download the \`workflow-pins.patch\` artifact from this run, apply it with \`git apply\`, and open a follow-up pull request."
+              echo ""
+              echo "\`\`\`diff"
+              cat "$PATCH_FILE"
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: "Upload workflow-pins.patch artifact"
+        if: ${{ steps.release.outputs.has_patch == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workflow-pins.patch
+          path: ${{ steps.release.outputs.patch_file }}
+          if-no-files-found: error

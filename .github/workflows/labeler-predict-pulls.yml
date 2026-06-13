@@ -21,18 +21,26 @@ on:
       pulls:
         description: "Pull Request Numbers (comma-separated list of ranges)."
         required: true
+      dry_run:
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'false'."
+        required: false
+        type: boolean
+        default: false
       cache_key:
         description: "The cache key suffix to use for restoring the model. Defaults to 'ACTIVE'."
         required: true
         default: "ACTIVE"
 
+permissions: {}
+
 env:
-  # Do not allow failure for jobs triggered automatically (this can block PR merge)
-  ALLOW_FAILURE: ${{ github.event_name == 'workflow_dispatch' }}
+  # Suppress failures on automatic runs to avoid blocking PR merges; surface failures on manual dispatch
+  ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
 
   LABEL_PREFIX: "area-"
-  THRESHOLD: 0.40
+  THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   DEFAULT_LABEL: "needs-area-label"
+  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS_PULLS || vars.ISSUE_LABELER_MAX_LABELS || '1' }}
 
 jobs:
   predict-pull-label:
@@ -40,6 +48,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.fork }}
     runs-on: ubuntu-latest
     permissions:
+      issues: write
       pull-requests: write
     steps:
       - name: "Restore pulls model from cache"
@@ -47,18 +56,21 @@ jobs:
         uses: dotnet/issue-labeler/restore@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
           type: pulls
-          fail-on-cache-miss: ${{ env.ALLOW_FAILURE }}
+          fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
           quiet: true
+          cache_key: ${{ github.event.inputs.cache_key || 'ACTIVE' }}
 
       - name: "Predict pull labels"
         id: prediction
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
         uses: dotnet/issue-labeler/predict@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
-          pulls: ${{ inputs.pulls || github.event.number }}
+          pulls: ${{ github.event.inputs.pulls || github.event.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
+          dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+          max_labels: ${{ env.MAX_LABELS }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        continue-on-error: ${{ !env.ALLOW_FAILURE }}
+        continue-on-error: ${{ fromJSON(env.ALLOW_FAILURE) }}
