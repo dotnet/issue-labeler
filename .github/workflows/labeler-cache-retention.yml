@@ -30,7 +30,7 @@ jobs:
       matrix:
         type: ["issues", "pulls", "discussions"]
     steps:
-      - uses: dotnet/issue-labeler/restore@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
+      - uses: dotnet/issue-labeler/restore@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
         with:
           type: ${{ matrix.type }}
           cache_key: ${{ env.CACHE_KEY }}
