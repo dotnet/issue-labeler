@@ -25,9 +25,9 @@ on:
 env:
   ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
   LABEL_PREFIX: "area-"
-  THRESHOLD: 0.40
+  THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
   DEFAULT_LABEL: "needs-area-label"
-  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS || '1' }}
+  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS_ISSUES || vars.ISSUE_LABELER_MAX_LABELS || '1' }}
 
 jobs:
   predict-issue-label:
