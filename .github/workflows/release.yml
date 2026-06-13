@@ -138,7 +138,7 @@ jobs:
           )
 
           for workflow_file in "${WORKFLOW_FILES[@]}"; do
-            perl -0pi -e "s|^([[:space:]]*uses:[[:space:]]*dotnet/issue-labeler/(?:download|train|test|restore|promote|predict)@)[^[:space:]#]+(?:[[:space:]]*#.*)?\$|\\1${RELEASE_SHA} # ${REF_NAME}|mg" "$workflow_file"
+            perl -0pi -e "s{^([[:space:]]*uses:[[:space:]]*dotnet/issue-labeler/(?:download|train|test|restore|promote|predict)@)[^[:space:]#]+(?:[[:space:]]*#.*)?\$}{\\1${RELEASE_SHA} # ${REF_NAME}}mg" "$workflow_file"
           done
 
           PREDICT_ACTION="predict/action.yml"
