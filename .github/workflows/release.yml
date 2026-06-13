@@ -20,18 +20,21 @@ jobs:
     steps:
       - name: "Compute sanitized image tag"
         id: compute
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          IMAGE_TAG=$(printf '%s' "${{ github.ref_name }}" \
+          IMAGE_TAG=$(printf '%s' "$REF_NAME" \
             | tr '[:upper:]' '[:lower:]' \
             | tr '/[:space:]' '--' \
             | tr -cd '[:alnum:]_.-' \
             | cut -c1-128)
 
           if [[ -z "$IMAGE_TAG" ]]; then
-            IMAGE_TAG="ref-${{ github.run_number }}"
+            IMAGE_TAG="ref-$RUN_NUMBER"
           fi
 
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   publish-predictor:
     needs: compute-image-tag
@@ -59,41 +62,48 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Publish Predictor"
+        env:
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPO_URL: ${{ format('{0}/{1}', github.server_url, github.repository) }}
+          WIKI_URL: ${{ format('{0}/{1}/wiki', github.server_url, github.repository) }}
+          LICENSE_URL: ${{ format('{0}/{1}/blob/main/LICENSE.TXT', github.server_url, github.repository) }}
         run: |
           dotnet publish IssueLabeler/src/Predictor/Predictor.csproj \
             /t:PublishContainer \
             -p DebugType=none \
-            -p ContainerBaseImage=${{ env.BASE_IMAGE }} \
+            -p ContainerBaseImage="$BASE_IMAGE" \
             -p ContainerRegistry=ghcr.io \
-            -p ContainerImageTags=${{ needs.compute-image-tag.outputs.image_tag }} \
-            -p ContainerRepository=${{ env.PREDICTOR_IMAGE_NAME }} \
-            -p ContainerAuthors=${{ github.repository_owner }} \
-            -p ContainerInformationUrl=${{ format('{0}/{1}', github.server_url, github.repository) }} \
-            -p ContainerDocumentationUrl=${{ format('{0}/{1}/wiki', github.server_url, github.repository) }} \
-            -p ContainerLicenseExpression=${{ format('{0}/{1}/blob/main/LICENSE.TXT', github.server_url, github.repository) }}
+            -p ContainerImageTags="$IMAGE_TAG" \
+            -p ContainerRepository="$PREDICTOR_IMAGE_NAME" \
+            -p ContainerAuthors="$REPOSITORY_OWNER" \
+            -p ContainerInformationUrl="$REPO_URL" \
+            -p ContainerDocumentationUrl="$WIKI_URL" \
+            -p ContainerLicenseExpression="$LICENSE_URL"
 
       - name: "Capture and output the Docker image digest to the workflow summary"
         id: published-image
         env:
           GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
         run: |
-          DIGEST=` \
+          DIGEST=$( \
             gh api \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              ${{ format('{0}/packages/container/{1}/versions', env.GITHUB_API_PACKAGE_OWNER, env.PACKAGE_NAME_ESCAPED) }} \
-            | jq -r --arg tag "${{ needs.compute-image-tag.outputs.image_tag }}" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
-          `
-          PUBLISHED_IMAGE_DIGEST=ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@${DIGEST}
+              "${GITHUB_API_PACKAGE_OWNER}/packages/container/${PACKAGE_NAME_ESCAPED}/versions" \
+            | jq -r --arg tag "$IMAGE_TAG" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
+          )
+          PUBLISHED_IMAGE_DIGEST="ghcr.io/${PREDICTOR_IMAGE_NAME}@${DIGEST}"
 
-          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
-          echo "published_image_digest=$PUBLISHED_IMAGE_DIGEST" >> $GITHUB_OUTPUT
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "published_image_digest=$PUBLISHED_IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
 
-          echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
-          echo "> **Docker container image published.**" >> $GITHUB_STEP_SUMMARY
-          echo "> Digest: \`$DIGEST\`" >> $GITHUB_STEP_SUMMARY
-          echo "> Published: \`$PUBLISHED_IMAGE_DIGEST\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **Docker container image published.**" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Digest: \`$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Published: \`$PUBLISHED_IMAGE_DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
   update-predictor-action:
     runs-on: ubuntu-latest
@@ -108,9 +118,16 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: "Update workflow pins and the `predict` action for the release"
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ needs.compute-image-tag.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.publish-predictor.outputs.published_image_digest }}
+          RELEASE_DIGEST: ${{ needs.publish-predictor.outputs.digest }}
+          REPO_TREE_URL_BASE: ${{ format('{0}/{1}/tree', github.server_url, github.repository) }}
+          REPO_BLOB_URL_BASE: ${{ format('{0}/{1}/blob', github.server_url, github.repository) }}
+          REPO_COMMIT_URL_BASE: ${{ format('{0}/{1}/commit', github.server_url, github.repository) }}
         run: |
           RELEASE_SHA="$(git rev-parse HEAD)"
-          RELEASE_BRANCH="${{ github.ref_name }}"
           WORKFLOW_FILES=(
             ".github/workflows/labeler-cache-retention.yml"
             ".github/workflows/labeler-predict-discussions.yml"
@@ -121,32 +138,32 @@ jobs:
           )
 
           for workflow_file in "${WORKFLOW_FILES[@]}"; do
-            perl -0pi -e "s|^([[:space:]]*uses:[[:space:]]*dotnet/issue-labeler/(?:download|train|test|restore|promote|predict)@)[^[:space:]#]+(?:[[:space:]]*#.*)?$|\\1${RELEASE_SHA} # ${RELEASE_BRANCH}|mg" "$workflow_file"
+            perl -0pi -e "s|^([[:space:]]*uses:[[:space:]]*dotnet/issue-labeler/(?:download|train|test|restore|promote|predict)@)[^[:space:]#]+(?:[[:space:]]*#.*)?\$|\\1${RELEASE_SHA} # ${REF_NAME}|mg" "$workflow_file"
           done
 
           PREDICT_ACTION="predict/action.yml"
-          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # ${{ needs.compute-image-tag.outputs.image_tag }}|" $PREDICT_ACTION
+          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*\$|  image: docker://${IMAGE_DIGEST} # ${IMAGE_TAG}|" "$PREDICT_ACTION"
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add "${WORKFLOW_FILES[@]}" "$PREDICT_ACTION"
-          git commit -m "Release '${{ github.ref_name }}' with predictor digest '${{ needs.publish-predictor.outputs.digest }}' and workflow pins"
+          git commit -m "Release '${REF_NAME}' with predictor digest '${RELEASE_DIGEST}' and workflow pins"
           RELEASE_COMMIT_SHA="$(git rev-parse HEAD)"
-          RELEASE_COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${RELEASE_COMMIT_SHA}"
-          git push origin ${{ github.ref_name }}
+          RELEASE_COMMIT_URL="${REPO_COMMIT_URL_BASE}/${RELEASE_COMMIT_SHA}"
+          git push origin "$REF_NAME"
 
-          echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
-          echo "> Updated workflow pins on release branch [\`$RELEASE_BRANCH\`](${{ format('{0}/{1}/tree/{2}', github.server_url, github.repository, github.ref_name) }}) to [\`$RELEASE_SHA\`]($RELEASE_COMMIT_URL)." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Workflow files:" >> $GITHUB_STEP_SUMMARY
+          echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Updated workflow pins on release branch [\`${REF_NAME}\`](${REPO_TREE_URL_BASE}/${REF_NAME}) to [\`${RELEASE_SHA}\`](${RELEASE_COMMIT_URL})." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Workflow files:" >> "$GITHUB_STEP_SUMMARY"
           for workflow_file in "${WORKFLOW_FILES[@]}"; do
-            echo "> - \`$workflow_file\`" >> $GITHUB_STEP_SUMMARY
+            echo "> - \`$workflow_file\`" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> Updated [\`predict/action.yml\` (${{ github.ref_name }})](${{ format('{0}/{1}/blob/{2}/predict/action.yml', github.server_url, github.repository, github.ref_name) }}) to:" >> $GITHUB_STEP_SUMMARY
-          echo "> \`${{ needs.publish-predictor.outputs.published_image_digest }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Updated [\`predict/action.yml\` (${REF_NAME})](${REPO_BLOB_URL_BASE}/${REF_NAME}/predict/action.yml) to:" >> "$GITHUB_STEP_SUMMARY"
+          echo "> \`${IMAGE_DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "\`\`\`yml" >> $GITHUB_STEP_SUMMARY
-          grep -i -B1 -A10 '^\s*using:\s*docker' $PREDICT_ACTION >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`yml" >> "$GITHUB_STEP_SUMMARY"
+          grep -i -B1 -A10 '^\s*using:\s*docker' "$PREDICT_ACTION" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`\`\`" >> "$GITHUB_STEP_SUMMARY"
