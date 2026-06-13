@@ -22,7 +22,7 @@ on:
         description: "Pull Request Numbers (comma-separated list of ranges)."
         required: true
       dry_run:
-        description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'false'."
         required: false
         type: boolean
         default: false
@@ -33,7 +33,7 @@ on:
 
 env:
   # Do not allow failure for jobs triggered automatically (this can block PR merge)
-  ALLOW_FAILURE: ${{ github.event_name == 'workflow_dispatch' }}
+  ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
 
   LABEL_PREFIX: "area-"
   THRESHOLD: 0.40
@@ -52,8 +52,9 @@ jobs:
         uses: dotnet/issue-labeler/restore@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
           type: pulls
-          fail-on-cache-miss: ${{ env.ALLOW_FAILURE }}
+          fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
           quiet: true
+          cache_key: ${{ github.event.inputs.cache_key || 'ACTIVE' }}
 
       - name: "Predict pull labels"
         id: prediction
@@ -64,7 +65,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
-          dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        continue-on-error: ${{ !env.ALLOW_FAILURE }}
+        continue-on-error: ${{ fromJSON(env.ALLOW_FAILURE) }}

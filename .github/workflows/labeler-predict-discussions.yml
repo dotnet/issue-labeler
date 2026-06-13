@@ -13,7 +13,7 @@ on:
         description: "Discussion Numbers (comma-separated list of ranges)."
         required: true
       dry_run:
-        description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'false'."
         required: false
         type: boolean
         default: false
