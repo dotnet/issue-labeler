@@ -53,7 +53,7 @@ jobs:
     steps:
       - name: "Restore pulls model from cache"
         id: restore-model
-        uses: dotnet/issue-labeler/restore@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/restore@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           type: pulls
           fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
@@ -63,7 +63,7 @@ jobs:
       - name: "Predict pull labels"
         id: prediction
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
-        uses: dotnet/issue-labeler/predict@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/predict@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           pulls: ${{ github.event.inputs.pulls || github.event.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}

@@ -37,7 +37,7 @@ jobs:
       actions: write
     steps:
       - name: "Promote Model for Issues"
-        uses: dotnet/issue-labeler/promote@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/promote@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           type: "issues"
           staged_key: ${{ github.event.inputs.staged_key }}
@@ -50,7 +50,7 @@ jobs:
       actions: write
     steps:
       - name: "Promote Model for Pull Requests"
-        uses: dotnet/issue-labeler/promote@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/promote@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           type: "pulls"
           staged_key: ${{ github.event.inputs.staged_key }}
@@ -63,7 +63,7 @@ jobs:
       actions: write
     steps:
       - name: "Promote Model for Discussions"
-        uses: dotnet/issue-labeler/promote@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/promote@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           type: "discussions"
           staged_key: ${{ github.event.inputs.staged_key }}
