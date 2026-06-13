@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: "Restore discussions model from cache"
         id: restore-model
-        uses: dotnet/issue-labeler/restore@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/restore@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           type: discussions
           fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
@@ -51,7 +51,7 @@ jobs:
 
       - name: "Predict discussion labels"
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
-        uses: dotnet/issue-labeler/predict@460bc0f9b7a7349547c8567d2ebf752453f044a1 # v2.1.0
+        uses: dotnet/issue-labeler/predict@98f1d9b85686147ffdc155547cdd3469546c4e26 # v2.1.0
         with:
           discussions: ${{ github.event.inputs.discussions || github.event.discussion.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}
