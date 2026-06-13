@@ -19,7 +19,7 @@ jobs:
       - name: "Compute sanitized image tag"
         id: compute
         run: |
-          IMAGE_TAG=$(printf '%s' '${{ github.ref_name }}' \
+          IMAGE_TAG=$(printf '%s' "${{ github.ref_name }}" \
             | tr '[:upper:]' '[:lower:]' \
             | tr '/[:space:]' '--' \
             | tr -cd '[:alnum:]_.-' \
