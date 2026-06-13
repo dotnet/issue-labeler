@@ -68,8 +68,6 @@ public struct Args
                                       Defaults to: 30,30,300,300,3000,3000.
               DRY_RUN                 Run in dry-run mode, outputting predictions without applying labels.
                                       Must be one of: true, false, TRUE, FALSE
-              TEST                    Deprecated alias for DRY_RUN.
-                                      Must be one of: true, false, TRUE, FALSE
               VERBOSE                 Enable verbose output.
                                       Must be one of: true, false, TRUE, FALSE
             """);
