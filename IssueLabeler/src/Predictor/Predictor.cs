@@ -203,7 +203,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
     if (eligibleLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - At least {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
     }
     else
     {
