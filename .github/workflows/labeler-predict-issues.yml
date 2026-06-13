@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: "Restore issues model from cache"
         id: restore-model
-        uses: dotnet/issue-labeler/restore@main
+        uses: dotnet/issue-labeler/restore@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: issues
           fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
@@ -48,7 +48,7 @@ jobs:
       - name: "Predict issue labels"
         id: prediction
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
-        uses: dotnet/issue-labeler/predict@main
+        uses: dotnet/issue-labeler/predict@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           issues: ${{ github.event.inputs.issues || github.event.issue.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}

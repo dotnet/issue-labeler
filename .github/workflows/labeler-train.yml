@@ -61,7 +61,7 @@ jobs:
       issues: read
     steps:
       - name: "Download Issues"
-        uses: dotnet/issue-labeler/download@main
+        uses: dotnet/issue-labeler/download@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "issues"
           cache_key: ${{ env.CACHE_KEY }}
@@ -80,7 +80,7 @@ jobs:
       pull-requests: read
     steps:
       - name: "Download Pull Requests"
-        uses: dotnet/issue-labeler/download@main
+        uses: dotnet/issue-labeler/download@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "pulls"
           cache_key: ${{ env.CACHE_KEY }}
@@ -99,7 +99,7 @@ jobs:
       discussions: read
     steps:
       - name: "Download Discussions"
-        uses: dotnet/issue-labeler/download@main
+        uses: dotnet/issue-labeler/download@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "discussions"
           cache_key: ${{ env.CACHE_KEY }}
@@ -204,7 +204,7 @@ jobs:
       - check-discussions-data
     steps:
       - name: "Train Model for Discussions"
-        uses: dotnet/issue-labeler/train@main
+        uses: dotnet/issue-labeler/train@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "discussions"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -219,7 +219,7 @@ jobs:
       - check-issues-data
     steps:
       - name: "Train Model for Issues"
-        uses: dotnet/issue-labeler/train@main
+        uses: dotnet/issue-labeler/train@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "issues"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -234,7 +234,7 @@ jobs:
       - check-pulls-data
     steps:
       - name: "Train Model for Pull Requests"
-        uses: dotnet/issue-labeler/train@main
+        uses: dotnet/issue-labeler/train@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "pulls"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -250,7 +250,7 @@ jobs:
       - train-issues
     steps:
       - name: "Test Model for Issues"
-        uses: dotnet/issue-labeler/test@main
+        uses: dotnet/issue-labeler/test@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "issues"
           cache_key: ${{ env.CACHE_KEY }}
@@ -273,7 +273,7 @@ jobs:
       - train-discussions
     steps:
       - name: "Test Model for Discussions"
-        uses: dotnet/issue-labeler/test@main
+        uses: dotnet/issue-labeler/test@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "discussions"
           cache_key: ${{ env.CACHE_KEY }}
@@ -296,7 +296,7 @@ jobs:
       - train-pulls
     steps:
       - name: "Test Model for Pull Requests"
-        uses: dotnet/issue-labeler/test@main
+        uses: dotnet/issue-labeler/test@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "pulls"
           cache_key: ${{ env.CACHE_KEY }}
