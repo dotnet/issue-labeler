@@ -24,13 +24,14 @@ on:
         default: "staged"
       backup_key:
         description: "The cache key suffix to use for backing up the currently active model. Defaults to 'backup'."
+        required: false
         default: "backup"
 
 permissions: {}
 
 jobs:
   promote-issues:
-    if: ${{ inputs.issues }}
+    if: ${{ github.event.inputs.issues == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -39,11 +40,11 @@ jobs:
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
           type: "issues"
-          staged_key: ${{ inputs.staged_key }}
-          backup_key: ${{ inputs.backup_key }}
+          staged_key: ${{ github.event.inputs.staged_key }}
+          backup_key: ${{ github.event.inputs.backup_key }}
 
   promote-pulls:
-    if: ${{ inputs.pulls }}
+    if: ${{ github.event.inputs.pulls == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -52,11 +53,11 @@ jobs:
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
           type: "pulls"
-          staged_key: ${{ inputs.staged_key }}
-          backup_key: ${{ inputs.backup_key }}
+          staged_key: ${{ github.event.inputs.staged_key }}
+          backup_key: ${{ github.event.inputs.backup_key }}
 
   promote-discussions:
-    if: ${{ inputs.discussions }}
+    if: ${{ github.event.inputs.discussions == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -65,5 +66,5 @@ jobs:
         uses: dotnet/issue-labeler/promote@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
           type: "discussions"
-          staged_key: ${{ inputs.staged_key }}
-          backup_key: ${{ inputs.backup_key }}
+          staged_key: ${{ github.event.inputs.staged_key }}
+          backup_key: ${{ github.event.inputs.backup_key }}

@@ -34,7 +34,7 @@ on:
 permissions: {}
 
 env:
-  # Do not allow failure for jobs triggered automatically (this can block PR merge)
+  # Suppress failures on automatic runs to avoid blocking PR merges; surface failures on manual dispatch
   ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
 
   LABEL_PREFIX: "area-"
@@ -64,7 +64,7 @@ jobs:
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
         uses: dotnet/issue-labeler/predict@00ce11f3eef738334ec9092ead6e5f34db9218a4 # v2.1.0
         with:
-          pulls: ${{ inputs.pulls || github.event.number }}
+          pulls: ${{ github.event.inputs.pulls || github.event.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
