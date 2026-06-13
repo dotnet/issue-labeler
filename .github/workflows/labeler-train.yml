@@ -42,20 +42,22 @@ on:
         required: true
         default: "staged"
 
+permissions: {}
+
 env:
-  CACHE_KEY: ${{ inputs.cache_key_suffix }}
-  REPOSITORY: ${{ inputs.repository || github.repository }}
+  CACHE_KEY: ${{ github.event.inputs.cache_key_suffix }}
+  REPOSITORY: ${{ github.event.inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
-  THRESHOLD_ISSUES: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
-  THRESHOLD_PULLS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
+  THRESHOLD_ISSUES: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
+  THRESHOLD_PULLS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   THRESHOLD_DISCUSSIONS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_DISCUSSIONS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
-  LIMIT: ${{ inputs.limit }}
-  PAGE_SIZE: ${{ inputs.page_size }}
-  PAGE_LIMIT: ${{ inputs.page_limit }}
+  LIMIT: ${{ github.event.inputs.limit }}
+  PAGE_SIZE: ${{ github.event.inputs.page_size }}
+  PAGE_LIMIT: ${{ github.event.inputs.page_limit }}
 
 jobs:
   download-issues:
-    if: ${{ contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    if: ${{ contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -74,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   download-pulls:
-    if: ${{ contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    if: ${{ contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -93,7 +95,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   download-discussions:
-    if: ${{ contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    if: ${{ contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
       discussions: read
@@ -112,7 +114,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   check-issues-data:
-    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs: download-issues
@@ -140,7 +142,7 @@ jobs:
           fi
 
   check-pulls-data:
-    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs: download-pulls
@@ -168,7 +170,7 @@ jobs:
           fi
 
   check-discussions-data:
-    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs: download-discussions
@@ -196,7 +198,7 @@ jobs:
           fi
 
   train-discussions:
-    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs:
@@ -211,7 +213,7 @@ jobs:
           model_cache_key: ${{ env.CACHE_KEY }}
 
   train-issues:
-    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs:
@@ -226,7 +228,7 @@ jobs:
           model_cache_key: ${{ env.CACHE_KEY }}
 
   train-pulls:
-    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs:
@@ -241,7 +243,7 @@ jobs:
           model_cache_key: ${{ env.CACHE_KEY }}
 
   test-issues:
-    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -264,7 +266,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   test-discussions:
-    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-discussions.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-discussions.result) }}
     runs-on: ubuntu-latest
     permissions:
       discussions: read
@@ -287,7 +289,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   test-pulls:
-    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-pulls.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-pulls.result) }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read

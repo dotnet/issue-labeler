@@ -15,8 +15,10 @@ on:
         required: true
         default: "ACTIVE"
 
+permissions: {}
+
 env:
-  CACHE_KEY: ${{ inputs.cache_key || 'ACTIVE' }}
+  CACHE_KEY: ${{ github.event.inputs.cache_key || 'ACTIVE' }}
 
 jobs:
   restore-cache:
