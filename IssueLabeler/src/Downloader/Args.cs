@@ -36,8 +36,8 @@ public struct Args
             Required for downloading issue data:
               --issues-data           Path for issue data file to create (TSV file).
 
-                        Required for downloading discussion data:
-                            --discussions-data      Path for discussion data file to create (TSV file).
+            Required for downloading discussion data:
+              --discussions-data      Path for discussion data file to create (TSV file).
 
             Required for downloading pull request data:
               --pulls-data            Path for pull request data file to create (TSV file).
