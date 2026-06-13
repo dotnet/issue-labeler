@@ -14,6 +14,11 @@ public class Issue
     public string? Area { get => Label; }
     public string? Description { get => Body; }
 
+    protected Issue()
+    {
+        Repo = string.Empty;
+    }
+
     public Issue(string repo, GitHubClient.Issue issue, Predicate<string> labelPredicate)
     {
         Repo = repo;
@@ -35,6 +40,26 @@ public class PullRequest : Issue
     {
         FileNames = string.Join(' ', pull.FileNames);
         FolderNames = string.Join(' ', pull.FolderNames);
+    }
+}
+
+public class Discussion : Issue
+{
+    public Discussion(string repo, GitHubClient.Discussion discussion, string? label)
+    {
+        Repo = repo;
+        Number = discussion.Number;
+        Title = discussion.Title;
+        Body = discussion.Body;
+        Label = label;
+    }
+
+    public Discussion(string repo, GitHubClient.Discussion discussion, Predicate<string> labelPredicate)
+        : this(
+            repo,
+            discussion,
+            discussion.Labels.HasNextPage ? (string?)null : discussion.LabelNames?.SingleOrDefault(l => labelPredicate(l)))
+    {
     }
 }
 

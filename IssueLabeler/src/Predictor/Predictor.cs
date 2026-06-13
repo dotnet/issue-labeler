@@ -18,12 +18,17 @@ if (Args.Parse(args, action) is not Args argsData) return 1;
 
 List<Task<(ulong Number, string ResultMessage, bool Success)>> tasks = new();
 
+MLContext? issueContext = null;
+ITransformer? issueModel = null;
+ThreadLocal<PredictionEngine<Issue, LabelPrediction>>? issuePredictors = null;
+ThreadLocal<PredictionEngine<PullRequest, LabelPrediction>>? pullPredictors = null;
+
 if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
 {
     await action.WriteStatusAsync($"Loading prediction engine for issues model...");
-    var issueContext = new MLContext();
-    var issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
-    var issuePredictor = issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel);
+    issueContext = new MLContext();
+    issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+    issuePredictors = new(() => issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel));
     await action.WriteStatusAsync($"Issues prediction engine ready.");
 
     foreach (ulong issueNumber in argsData.Issues)
@@ -43,7 +48,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            issuePredictor,
+            issuePredictors!.Value!,
             issueNumber,
             new Issue(result),
             argsData.LabelPredicate,
@@ -51,7 +56,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
-            argsData.Test
+            argsData.DryRun
         )));
 
         action.WriteInfo($"[Issue {argsData.Org}/{argsData.Repo}#{issueNumber}] Queued for prediction.");
@@ -63,7 +68,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
     await action.WriteStatusAsync($"Loading prediction engine for pulls model...");
     var pullContext = new MLContext();
     var pullModel = pullContext.Model.Load(argsData.PullsModelPath, out _);
-    var pullPredictor = pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel);
+    pullPredictors = new(() => pullContext.Model.CreatePredictionEngine<PullRequest, LabelPrediction>(pullModel));
     await action.WriteStatusAsync($"Pulls prediction engine ready.");
 
     foreach (ulong pullNumber in argsData.Pulls)
@@ -83,7 +88,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
         }
 
         tasks.Add(Task.Run(() => ProcessPrediction(
-            pullPredictor,
+            pullPredictors!.Value!,
             pullNumber,
             new PullRequest(result),
             argsData.LabelPredicate,
@@ -91,10 +96,54 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
-            argsData.Test
+            argsData.DryRun
         )));
 
         action.WriteInfo($"[Pull Request {argsData.Org}/{argsData.Repo}#{pullNumber}] Queued for prediction.");
+    }
+}
+
+if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
+{
+    if (issueContext is null || issueModel is null)
+    {
+        await action.WriteStatusAsync($"Loading prediction engine for discussions (uses issues model)...");
+        issueContext = new MLContext();
+        issueModel = issueContext.Model.Load(argsData.IssuesModelPath, out _);
+        issuePredictors = new(() => issueContext.Model.CreatePredictionEngine<Issue, LabelPrediction>(issueModel));
+        await action.WriteStatusAsync($"Discussions prediction engine ready.");
+    }
+
+    foreach (ulong discussionNumber in argsData.Discussions)
+    {
+        var result = await GitHubApi.GetDiscussion(argsData.GitHubToken, argsData.Org, argsData.Repo, discussionNumber, argsData.Retries, action);
+
+        if (result is null)
+        {
+            action.WriteNotice($"[Discussion {argsData.Org}/{argsData.Repo}#{discussionNumber}] could not be found or downloaded. Skipped.");
+            continue;
+        }
+
+        if (argsData.ExcludedAuthors is not null && result.Author?.Login is not null && argsData.ExcludedAuthors.Contains(result.Author.Login, StringComparer.InvariantCultureIgnoreCase))
+        {
+            action.WriteNotice($"[Discussion {argsData.Org}/{argsData.Repo}#{discussionNumber}] Author '{result.Author.Login}' is in excluded list. Skipped.");
+            continue;
+        }
+
+        tasks.Add(Task.Run(() => ProcessPrediction(
+            issuePredictors!.Value!,
+            result.Number,
+            new Issue(result),
+            argsData.LabelPredicate,
+            argsData.DefaultLabel,
+            argsData.MaxLabels,
+            ModelType.Discussion,
+            argsData.Retries,
+            argsData.DryRun,
+            nodeId: result.Id
+        )));
+
+        action.WriteInfo($"[Discussion {argsData.Org}/{argsData.Repo}#{discussionNumber}] Queued for prediction.");
     }
 }
 
@@ -105,13 +154,32 @@ foreach (var prediction in predictionResults.OrderBy(p => p.Number))
     action.WriteInfo(prediction.ResultMessage);
 }
 
+issuePredictors?.Dispose();
+pullPredictors?.Dispose();
+
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool dryRun, string? nodeId = null) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
-    string typeName = type == ModelType.PullRequest ? "Pull Request" : "Issue";
+    string typeName = type switch
+    {
+        ModelType.PullRequest => "Pull Request",
+        ModelType.Discussion => "Discussion",
+        _ => "Issue"
+    };
+
+    Func<string, Task<string?>> ApplyLabel = label =>
+        type == ModelType.Discussion && nodeId is not null
+            ? GitHubApi.AddLabelToDiscussion(argsData.GitHubToken, argsData.Org, argsData.Repo, nodeId, label, retries, action)
+            : GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, label, retries, action);
+
+    Func<string, Task<string?>> UnapplyLabel = label =>
+        type == ModelType.Discussion && nodeId is not null
+            ? GitHubApi.RemoveLabelFromDiscussion(argsData.GitHubToken, argsData.Org, argsData.Repo, nodeId, label, retries, action)
+            : GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, label, retries, action);
+
     List<string> resultMessageParts = [];
     string? error = null;
 
@@ -128,7 +196,17 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
     (ulong, string, bool) Success() => GetResult(true);
     (ulong, string, bool) Failure() => GetResult(false);
 
+    string ApplyVerb() => dryRun ? "would be applied" : "applied";
+    string RemoveVerb() => dryRun ? "would be removed" : "removed";
+
     predictionResults.Add(summary => summary.AddRawMarkdown($"- **{argsData.Org}/{argsData.Repo}#{number}**", true));
+
+    if (type == ModelType.Discussion && nodeId is null)
+    {
+        predictionResults.Add(summary => summary.AddRawMarkdown("    - **Error**: discussion node ID is missing, so labels cannot be applied via GraphQL.", true));
+        resultMessageParts.Add("Error occurred preparing discussion label mutation.");
+        return Failure();
+    }
 
     if (issueOrPull.HasMoreLabels)
     {
@@ -150,15 +228,15 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
 
         if (hasDefaultLabel && defaultLabel is not null)
         {
-            if (!test)
+            if (!dryRun)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
+                error = await UnapplyLabel(defaultLabel);
             }
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - Removed default label `{defaultLabel}`.", true));
-                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - Default label `{defaultLabel}` {RemoveVerb()}.", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' {RemoveVerb()}.");
                 return Success();
             }
             else
@@ -215,55 +293,51 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         predictionResults.Add(summary => summary.AddRawMarkdown($"        - `{labelPrediction.Label}` - Score: {labelPrediction.Score}", true));
     }
 
+    if (argsData.Verbose && predictions.Count > 0)
+    {
+        resultMessageParts.Add($"Top predictions: {string.Join(", ", predictions.Select(p => $"'{p.Label}'={p.Score:0.000}"))}. Threshold={argsData.Threshold:0.000}.");
+    }
+
     if (topLabels.Count > 0)
     {
-        error = null;
-        if (!test)
-        {
-            error = await GitHubApi.AddLabels(
-                argsData.GitHubToken,
-                argsData.Org,
-                argsData.Repo,
-                typeName,
-                number,
-                topLabels.Select(label => label.Label).ToArray(),
-                retries,
-                action);
-        }
-
-        if (error is null)
-        {
-            foreach (var labelToApply in topLabels)
-            {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` applied**", true));
-                resultMessageParts.Add($"Label '{labelToApply.Label}' applied.");
-            }
-        }
-        else
-        {
-            string attemptedLabels = string.Join(", ", topLabels.Select(label => $"'{label.Label}'"));
-            predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying labels: {attemptedLabels}**: {error}", true));
-            resultMessageParts.Add($"Error occurred applying labels: {attemptedLabels}. {error}");
-            return Failure();
-        }
-
-        if (hasDefaultLabel && defaultLabel is not null)
+        foreach (var labelToApply in topLabels)
         {
             error = null;
-            if (!test)
+            if (!dryRun)
             {
-                error = await GitHubApi.RemoveLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
+                error = await ApplyLabel(labelToApply.Label);
             }
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Removed default label `{defaultLabel}`**", true));
-                resultMessageParts.Add($"Default label '{defaultLabel}' removed.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **`{labelToApply.Label}` {ApplyVerb()}**", true));
+                resultMessageParts.Add($"Label '{labelToApply.Label}' {ApplyVerb()}.");
+            }
+            else
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying label `{labelToApply.Label}`**: {error}", true));
+                resultMessageParts.Add($"Error occurred applying label '{labelToApply.Label}'");
+                return Failure();
+            }
+        }
+
+        if (hasDefaultLabel && defaultLabel is not null)
+        {
+            if (!dryRun)
+            {
+                error = await UnapplyLabel(defaultLabel);
+            }
+
+            if (error is null)
+            {
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` {RemoveVerb()}**", true));
+                resultMessageParts.Add($"Default label '{defaultLabel}' {RemoveVerb()}.");
+                return Success();
             }
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
                 return Failure();
             }
         }
@@ -281,15 +355,15 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         }
         else
         {
-            if (!test)
+            if (!dryRun)
             {
-                error = await GitHubApi.AddLabel(argsData.GitHubToken, argsData.Org, argsData.Repo, typeName, number, defaultLabel, retries, action);
+                error = await ApplyLabel(defaultLabel);
             }
 
             if (error is null)
             {
-                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` applied.**", true));
-                resultMessageParts.Add($"No prediction made. Default label '{defaultLabel}' applied.");
+                predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Default label `{defaultLabel}` {ApplyVerb()}.**", true));
+                resultMessageParts.Add($"No prediction made. Default label '{defaultLabel}' {ApplyVerb()}.");
                 return Success();
             }
             else

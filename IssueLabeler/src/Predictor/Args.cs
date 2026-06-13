@@ -18,10 +18,11 @@ public struct Args
     public string? PullsModelPath { get; set; }
     public List<ulong>? Pulls { get; set; }
     public string? DefaultLabel { get; set; }
+    public List<ulong>? Discussions { get; set; }
     public byte MaxLabels { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
-    public bool Test { get; set; }
+    public bool DryRun { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -49,6 +50,12 @@ public struct Args
               PULLS                   Comma-separated list of pull request number ranges.
                                       Example: 1-3,7,5-9.
 
+            Required inputs for predicting discussion labels:
+              ISSUES_MODEL            Path to the issues model file (ZIP file).
+                                      Discussions use the issues model for prediction.
+              DISCUSSIONS             Comma-separated list of discussion number ranges.
+                                      Example: 1-3,7,5-9.
+
             Optional inputs:
               THRESHOLD               Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
@@ -59,7 +66,7 @@ public struct Args
               EXCLUDED_AUTHORS        Comma-separated list of authors to exclude.
               RETRIES                 Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
-              TEST                    Run in test mode, outputting predictions without applying labels.
+              DRY_RUN                 Run in dry-run mode, outputting predictions without applying labels.
                                       Must be one of: true, false, TRUE, FALSE
               VERBOSE                 Enable verbose output.
                                       Must be one of: true, false, TRUE, FALSE
@@ -81,7 +88,10 @@ public struct Args
         argUtils.TryGetFloat("threshold", out var threshold);
         argUtils.TryGetIntArray("retries", out var retries);
         argUtils.TryGetString("default_label", out var defaultLabel);
+        argUtils.TryGetNumberRanges("discussions", out var discussions);
+        argUtils.TryGetFlag("dry_run", out var dryRun);
         argUtils.TryGetString("max_labels", out var maxLabelsStr);
+
         byte? maxLabels = null;
         if (maxLabelsStr is not null)
         {
@@ -101,13 +111,19 @@ public struct Args
                 maxLabels = parsedMaxLabels;
             }
         }
-        argUtils.TryGetFlag("test", out var test);
+
         argUtils.TryGetFlag("verbose", out var verbose);
 
         if (org is null || repo is null || threshold is null || labelPredicate is null ||
-            (issues is null && pulls is null))
+            (issues is null && pulls is null && discussions is null))
         {
             ShowUsage(null, action);
+            return null;
+        }
+
+        if (discussions is not null && issuesModelPath is null)
+        {
+            ShowUsage("Input 'issues_model' is required when 'discussions' is provided (discussions use the issues model for prediction).", action);
             return null;
         }
 
@@ -122,10 +138,11 @@ public struct Args
             Issues = issues,
             PullsModelPath = pullsModelPath,
             Pulls = pulls,
+            Discussions = discussions,
             ExcludedAuthors = excludedAuthors,
             Threshold = threshold ?? 0.4f,
             Retries = retries ?? [30, 30, 300, 300, 3000, 3000],
-            Test = test ?? false,
+            DryRun = dryRun ?? false,
             Verbose = verbose ?? false
         };
 

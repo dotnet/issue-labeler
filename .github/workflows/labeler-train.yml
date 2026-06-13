@@ -1,17 +1,18 @@
-# Train the Issues and Pull Requests models for label prediction
+# Train the Issues, Discussions, and Pull Requests models for label prediction
 name: "Labeler: Training"
 
 on:
   workflow_dispatch:
     inputs:
       type:
-        description: "Issues or Pull Requests"
+        description: "Issues, Discussions, or Pull Requests"
         type: choice
         required: true
-        default: "Both"
+        default: "All"
         options:
-          - "Both"
+          - "All"
           - "Issues"
+          - "Discussions"
           - "Pull Requests"
 
       steps:
@@ -45,14 +46,16 @@ env:
   CACHE_KEY: ${{ inputs.cache_key_suffix }}
   REPOSITORY: ${{ inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
-  THRESHOLD: "0.40"
+  THRESHOLD_ISSUES: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
+  THRESHOLD_PULLS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.40' }}
+  THRESHOLD_DISCUSSIONS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_DISCUSSIONS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   LIMIT: ${{ inputs.limit }}
   PAGE_SIZE: ${{ inputs.page_size }}
   PAGE_LIMIT: ${{ inputs.page_limit }}
 
 jobs:
   download-issues:
-    if: ${{ contains(fromJSON('["Both", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    if: ${{ contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -71,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   download-pulls:
-    if: ${{ contains(fromJSON('["Both", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    if: ${{ contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -89,11 +92,131 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-  train-issues:
-    if: ${{ always() && contains(fromJSON('["Both", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
+  download-discussions:
+    if: ${{ contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Download Data"]'), inputs.steps) }}
+    runs-on: ubuntu-latest
+    permissions:
+      discussions: read
+    steps:
+      - name: "Download Discussions"
+        uses: dotnet/issue-labeler/download@main
+        with:
+          type: "discussions"
+          cache_key: ${{ env.CACHE_KEY }}
+          repository: ${{ env.REPOSITORY }}
+          label_prefix: ${{ env.LABEL_PREFIX }}
+          limit: ${{ env.LIMIT }}
+          page_size: ${{ env.PAGE_SIZE }}
+          page_limit: ${{ env.PAGE_LIMIT }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  check-issues-data:
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs: download-issues
+    outputs:
+      has_training_data: ${{ steps.check.outputs.has_training_data }}
+    steps:
+      - name: "Restore Issue Data from Cache"
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: labeler-cache/issues-data.tsv
+          key: issue-labeler/data/issues/${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Check Issue Training Data"
+        id: check
+        shell: bash
+        run: |
+          line_count=$(wc -l < labeler-cache/issues-data.tsv)
+          if [[ "$line_count" -ge 10 ]]; then
+            echo "has_training_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_training_data=false" >> "$GITHUB_OUTPUT"
+            echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+            echo "> Issue training skipped because only $line_count line(s) were found in the downloaded TSV, and the trainer requires at least 10." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  check-pulls-data:
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: download-pulls
+    outputs:
+      has_training_data: ${{ steps.check.outputs.has_training_data }}
+    steps:
+      - name: "Restore Pull Request Data from Cache"
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: labeler-cache/pulls-data.tsv
+          key: issue-labeler/data/pulls/${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Check Pull Request Training Data"
+        id: check
+        shell: bash
+        run: |
+          line_count=$(wc -l < labeler-cache/pulls-data.tsv)
+          if [[ "$line_count" -ge 10 ]]; then
+            echo "has_training_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_training_data=false" >> "$GITHUB_OUTPUT"
+            echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+            echo "> Pull request training skipped because only $line_count line(s) were found in the downloaded TSV, and the trainer requires at least 10." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  check-discussions-data:
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs: download-discussions
+    outputs:
+      has_training_data: ${{ steps.check.outputs.has_training_data }}
+    steps:
+      - name: "Restore Discussion Data from Cache"
+        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: labeler-cache/discussions-data.tsv
+          key: issue-labeler/data/discussions/${{ env.CACHE_KEY }}
+          fail-on-cache-miss: true
+
+      - name: "Check Discussion Training Data"
+        id: check
+        shell: bash
+        run: |
+          line_count=$(wc -l < labeler-cache/discussions-data.tsv)
+          if [[ "$line_count" -ge 10 ]]; then
+            echo "has_training_data=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_training_data=false" >> "$GITHUB_OUTPUT"
+            echo "> [!NOTE]" >> "$GITHUB_STEP_SUMMARY"
+            echo "> Discussion training skipped because only $line_count line(s) were found in the downloaded TSV, and the trainer requires at least 10." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  train-discussions:
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - download-discussions
+      - check-discussions-data
+    steps:
+      - name: "Train Model for Discussions"
+        uses: dotnet/issue-labeler/train@main
+        with:
+          type: "discussions"
+          data_cache_key: ${{ env.CACHE_KEY }}
+          model_cache_key: ${{ env.CACHE_KEY }}
+
+  train-issues:
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    needs:
+      - download-issues
+      - check-issues-data
     steps:
       - name: "Train Model for Issues"
         uses: dotnet/issue-labeler/train@main
@@ -103,10 +226,12 @@ jobs:
           model_cache_key: ${{ env.CACHE_KEY }}
 
   train-pulls:
-    if: ${{ always() && contains(fromJSON('["Both", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model"]'), inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
     permissions: {}
-    needs: download-pulls
+    needs:
+      - download-pulls
+      - check-pulls-data
     steps:
       - name: "Train Model for Pull Requests"
         uses: dotnet/issue-labeler/train@main
@@ -116,11 +241,13 @@ jobs:
           model_cache_key: ${{ env.CACHE_KEY }}
 
   test-issues:
-    if: ${{ always() && contains(fromJSON('["Both", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
     runs-on: ubuntu-latest
     permissions:
       issues: read
-    needs: train-issues
+    needs:
+      - check-issues-data
+      - train-issues
     steps:
       - name: "Test Model for Issues"
         uses: dotnet/issue-labeler/test@main
@@ -129,7 +256,30 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
-          threshold: ${{ env.THRESHOLD }}
+          threshold: ${{ env.THRESHOLD_ISSUES }}
+          limit: ${{ env.LIMIT }}
+          page_size: ${{ env.PAGE_SIZE }}
+          page_limit: ${{ env.PAGE_LIMIT }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  test-discussions:
+    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-discussions.result) }}
+    runs-on: ubuntu-latest
+    permissions:
+      discussions: read
+    needs:
+      - check-discussions-data
+      - train-discussions
+    steps:
+      - name: "Test Model for Discussions"
+        uses: dotnet/issue-labeler/test@main
+        with:
+          type: "discussions"
+          cache_key: ${{ env.CACHE_KEY }}
+          repository: ${{ env.REPOSITORY }}
+          label_prefix: ${{ env.LABEL_PREFIX }}
+          threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -137,11 +287,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   test-pulls:
-    if: ${{ always() && contains(fromJSON('["Both", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.train-pulls.result) }}
+    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Test Model"]'), inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-pulls.result) }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
-    needs: train-pulls
+    needs:
+      - check-pulls-data
+      - train-pulls
     steps:
       - name: "Test Model for Pull Requests"
         uses: dotnet/issue-labeler/test@main
@@ -150,7 +302,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
-          threshold: ${{ env.THRESHOLD }}
+          threshold: ${{ env.THRESHOLD_PULLS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}

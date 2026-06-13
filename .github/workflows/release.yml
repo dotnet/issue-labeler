@@ -3,19 +3,36 @@ name: "Release"
 
 on:
   workflow_dispatch:
-    inputs:
-      image_tags:
-        description: "The optional semicolon separated list of tags to apply to the published Docker container image. The ref name is added automatically."
 
 env:
   BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:9.0-noble-chiseled
-  IMAGE_TAGS: ${{ inputs.image_tags && format('{0};{1}', github.ref_name, inputs.image_tags) || github.ref_name }}
   PREDICTOR_IMAGE_NAME: ${{ github.repository }}/predictor
   PACKAGE_NAME_ESCAPED: issue-labeler%2Fpredictor
   GITHUB_API_PACKAGE_OWNER: /orgs/dotnet
 
 jobs:
+  compute-image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.compute.outputs.image_tag }}
+    steps:
+      - name: "Compute sanitized image tag"
+        id: compute
+        run: |
+          IMAGE_TAG=$(printf '%s' "${{ github.ref_name }}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | tr '/[:space:]' '--' \
+            | tr -cd '[:alnum:]_.-' \
+            | cut -c1-128)
+
+          if [[ -z "$IMAGE_TAG" ]]; then
+            IMAGE_TAG="ref-${{ github.run_number }}"
+          fi
+
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
   publish-predictor:
+    needs: compute-image-tag
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,7 +63,7 @@ jobs:
             -p DebugType=none \
             -p ContainerBaseImage=${{ env.BASE_IMAGE }} \
             -p ContainerRegistry=ghcr.io \
-            -p ContainerImageTags='"${{ env.IMAGE_TAGS }}"' \
+            -p ContainerImageTags=${{ needs.compute-image-tag.outputs.image_tag }} \
             -p ContainerRepository=${{ env.PREDICTOR_IMAGE_NAME }} \
             -p ContainerAuthors=${{ github.repository_owner }} \
             -p ContainerInformationUrl=${{ format('{0}/{1}', github.server_url, github.repository) }} \
@@ -63,7 +80,7 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               ${{ format('{0}/packages/container/{1}/versions', env.GITHUB_API_PACKAGE_OWNER, env.PACKAGE_NAME_ESCAPED) }} \
-            | jq -r '.[] | select(.metadata.container.tags[] == "${ github.ref_name }") | .name' \
+            | jq -r --arg tag "${{ needs.compute-image-tag.outputs.image_tag }}" '.[] | select(.metadata.container.tags[] == $tag) | .name' \
           `
           PUBLISHED_IMAGE_DIGEST=ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@${DIGEST}
 
@@ -78,7 +95,9 @@ jobs:
 
   update-predictor-action:
     runs-on: ubuntu-latest
-    needs: publish-predictor
+    needs:
+      - compute-image-tag
+      - publish-predictor
     permissions:
       contents: write
       packages: read
@@ -89,7 +108,7 @@ jobs:
       - name: "Update the `predict` action to use the published image digest"
         run: |
           PREDICT_ACTION="predict/action.yml"
-          sed -i "s|ghcr.io/${{ env.PREDICTOR_IMAGE_NAME }}@.*|${{ needs.publish-predictor.outputs.published_image_digest }} # ${{ env.IMAGE_TAGS }}|" $PREDICT_ACTION
+          sed -i "s|^[[:space:]]*image:[[:space:]]*docker://ghcr\.io/.*$|  image: docker://${{ needs.publish-predictor.outputs.published_image_digest }} # ${{ needs.compute-image-tag.outputs.image_tag }}|" $PREDICT_ACTION
 
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"

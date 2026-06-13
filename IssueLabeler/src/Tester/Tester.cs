@@ -25,6 +25,11 @@ if (argsData.IssuesModelPath is not null)
     tasks.Add(Task.Run(() => TestIssues()));
 }
 
+if (argsData.IssuesModelPath is not null && argsData.TestDiscussions)
+{
+    tasks.Add(Task.Run(() => TestDiscussions()));
+}
+
 if (argsData.PullsModelPath is not null)
 {
     tasks.Add(Task.Run(() => TestPullRequests()));
@@ -35,10 +40,11 @@ var (results, success) = await App.RunTasks(tasks, action);
 foreach (var (itemType, stats) in results)
 {
     AlertType resultAlert = (stats.MatchesPercentage >= 0.65f && stats.MismatchesPercentage < 0.15f) ? AlertType.Note : AlertType.Warning;
+    string itemTypeName = GetItemTypeNamePlural(itemType);
 
     action.Summary.AddPersistent(summary =>
     {
-        summary.AddMarkdownHeading($"Finished Testing {(itemType == typeof(PullRequest) ? "Pull Requests" : "Issues")}", 2);
+        summary.AddMarkdownHeading($"Finished Testing {itemTypeName}", 2);
         summary.AddAlert($"**{stats.Total}** items were tested with **{stats.MatchesPercentage:P2} matches** and **{stats.MismatchesPercentage:P2} mismatches**.", resultAlert);
         summary.AddRawMarkdown($"Testing complete. **{stats.Total}** items tested, with the following results.", true);
         summary.AddNewLine();
@@ -116,6 +122,36 @@ async Task<(Type, TestStats)> TestIssues()
     return (typeof(Issue), stats);
 }
 
+async Task<(Type, TestStats)> TestDiscussions()
+{
+    var predictor = GetPredictionEngine<Discussion>(argsData.IssuesModelPath!);
+    var stats = new TestStats();
+
+    async IAsyncEnumerable<Discussion> DownloadDiscussions(string githubToken, string repo)
+    {
+        await foreach (var result in GitHubApi.DownloadDiscussions(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
+        {
+            yield return new(repo, result.Discussion, result.Label);
+        }
+    }
+
+    action.WriteInfo($"Testing discussions from {argsData.Repos.Count} repositories.");
+
+    foreach (var repo in argsData.Repos)
+    {
+        await action.WriteStatusAsync($"Downloading and testing discussions from {argsData.Org}/{repo}.");
+
+        await foreach (var discussion in DownloadDiscussions(argsData.GitHubToken, repo))
+        {
+            TestPrediction(discussion, predictor, stats);
+        }
+
+        await action.WriteStatusAsync($"Finished Testing Discussions from {argsData.Org}/{repo}.");
+    }
+
+    return (typeof(Discussion), stats);
+}
+
 async Task<(Type, TestStats)> TestPullRequests()
 {
     var predictor = GetPredictionEngine<PullRequest>(argsData.PullsModelPath);
@@ -169,7 +205,7 @@ PredictionEngine<T, LabelPrediction> GetPredictionEngine<T>(string modelPath) wh
 
 void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor, TestStats stats) where T : Issue
 {
-    var itemType = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
+    var itemType = GetItemTypeNameSingular(typeof(T));
 
     (string? predictedLabel, float? score) = GetPrediction(
         predictor,
@@ -215,7 +251,7 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
 (string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold) where T : Issue
 {
     var prediction = predictor.Predict(issueOrPull);
-    var itemType = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
+    var itemType = GetItemTypeNameSingular(typeof(T));
 
     if (prediction.Score is null || prediction.Score.Length == 0)
     {
@@ -236,6 +272,36 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         .FirstOrDefault(p => threshold is null || p.Score >= threshold);
 
     return bestScore is not null ? (bestScore.Label, bestScore.Score) : ((string?)null, (float?)null);
+}
+
+static string GetItemTypeNamePlural(Type type)
+{
+    if (type == typeof(PullRequest))
+    {
+        return "Pull Requests";
+    }
+
+    if (type == typeof(Discussion))
+    {
+        return "Discussions";
+    }
+
+    return "Issues";
+}
+
+static string GetItemTypeNameSingular(Type type)
+{
+    if (type == typeof(PullRequest))
+    {
+        return "Pull Request";
+    }
+
+    if (type == typeof(Discussion))
+    {
+        return "Discussion";
+    }
+
+    return "Issue";
 }
 
 class TestStats

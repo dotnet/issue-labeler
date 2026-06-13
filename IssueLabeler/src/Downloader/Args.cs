@@ -10,6 +10,8 @@ public struct Args
     public List<string> Repos { get; set; }
     public string? IssuesDataPath { get; set; }
     public int? IssuesLimit { get; set; }
+    public string? DiscussionsDataPath { get; set; }
+    public int? DiscussionsLimit { get; set; }
     public string? PullsDataPath { get; set; }
     public int? PullsLimit { get; set; }
     public int? PageSize { get; set; }
@@ -34,11 +36,15 @@ public struct Args
             Required for downloading issue data:
               --issues-data           Path for issue data file to create (TSV file).
 
+            Required for downloading discussion data:
+              --discussions-data      Path for discussion data file to create (TSV file).
+
             Required for downloading pull request data:
               --pulls-data            Path for pull request data file to create (TSV file).
 
             Optional arguments:
               --issues-limit          Maximum number of issues to download. Defaults to: No limit.
+              --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.
               --pulls-limit           Maximum number of pull requests to download. Defaults to: No limit.
               --page-size             Number of items per page in GitHub API requests.
               --page-limit            Maximum number of pages to retrieve.
@@ -114,6 +120,22 @@ public struct Args
                     argsData.IssuesLimit = IssuesLimit;
                     break;
 
+                case "--discussions-data":
+                    if (!argUtils.TryGetPath("--discussions-data", out string? discussionsDataPath))
+                    {
+                        return null;
+                    }
+                    argsData.DiscussionsDataPath = discussionsDataPath;
+                    break;
+
+                case "--discussions-limit":
+                    if (!argUtils.TryGetInt("--discussions-limit", out int? discussionsLimit))
+                    {
+                        return null;
+                    }
+                    argsData.DiscussionsLimit = discussionsLimit;
+                    break;
+
                 case "--pulls-data":
                     if (!argUtils.TryGetPath("--pulls-data", out string? PullsDataPath))
                     {
@@ -165,7 +187,7 @@ public struct Args
         }
 
         if (argsData.Org is null || argsData.Repos is null || argsData.LabelPredicate is null ||
-            (argsData.IssuesDataPath is null && argsData.PullsDataPath is null))
+            (argsData.IssuesDataPath is null && argsData.DiscussionsDataPath is null && argsData.PullsDataPath is null))
         {
             ShowUsage(null, action);
             return null;

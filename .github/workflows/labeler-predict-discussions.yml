@@ -1,16 +1,16 @@
-# Predict labels for Issues using a trained model
-name: "Labeler: Predict (Issues)"
+# Predict labels for Discussions using a trained model
+name: "Labeler: Predict (Discussions)"
 
 on:
-  # Only automatically predict area labels when issues are first opened
-  issues:
-    types: [opened]
+  # Only automatically predict area labels when discussions are first created
+  discussion:
+    types: [created]
 
   # Allow dispatching the workflow via the Actions UI, specifying ranges of numbers
   workflow_dispatch:
     inputs:
-      issues:
-        description: "Issue Numbers (comma-separated list of ranges)."
+      discussions:
+        description: "Discussion Numbers (comma-separated list of ranges)."
         required: true
       dry_run:
         description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
@@ -24,38 +24,37 @@ on:
 env:
   ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
   LABEL_PREFIX: "area-"
-  THRESHOLD: 0.40
+  THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   DEFAULT_LABEL: "needs-area-label"
-  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS || '1' }}
 
 jobs:
-  predict-issue-label:
+  predict-discussion-label:
     # Do not automatically run on forked repositories
     if: ${{ github.event_name == 'workflow_dispatch' || !github.event.repository.fork }}
     runs-on: ubuntu-latest
     permissions:
+      discussions: write
       issues: write
     steps:
-      - name: "Restore issues model from cache"
+      - name: "Restore discussions model from cache"
         id: restore-model
         uses: dotnet/issue-labeler/restore@main
         with:
-          type: issues
+          type: discussions
           fail-on-cache-miss: ${{ !fromJSON(env.ALLOW_FAILURE) }}
           quiet: true
           cache_key: ${{ github.event.inputs.cache_key || 'ACTIVE' }}
 
-      - name: "Predict issue labels"
-        id: prediction
+      - name: "Predict discussion labels"
         if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
         uses: dotnet/issue-labeler/predict@main
         with:
-          issues: ${{ github.event.inputs.issues || github.event.issue.number }}
+          discussions: ${{ github.event.inputs.discussions || github.event.discussion.number }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
           dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
-          max_labels: ${{ env.MAX_LABELS }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          INPUT_ISSUES_MODEL: labeler-cache/discussions-model.zip
         continue-on-error: ${{ fromJSON(env.ALLOW_FAILURE) }}
