@@ -1,19 +1,19 @@
-# Train the Issues, Discussions, and Pull Requests models for label prediction
+# Train the Issues, Pull Requests, and Discussions models for label prediction
 name: "Labeler: Training"
 
 on:
   workflow_dispatch:
     inputs:
       type:
-        description: "Issues, Discussions, or Pull Requests"
+        description: "Issues, Pull Requests, or Discussions"
         type: choice
         required: true
         default: "All"
         options:
           - "All"
           - "Issues"
-          - "Discussions"
           - "Pull Requests"
+          - "Discussions"
 
       steps:
         description: "Training Steps"
