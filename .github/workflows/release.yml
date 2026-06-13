@@ -142,8 +142,12 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add "$PREDICT_ACTION"
-          git commit -m "Release '${REF_NAME}' with predictor digest '${RELEASE_DIGEST}'"
-          git push origin "$REF_NAME"
+          if git diff --cached --quiet; then
+            echo "predict/action.yml already pinned to ${IMAGE_DIGEST}; skipping release commit."
+          else
+            git commit -m "Release '${REF_NAME}' with predictor digest '${RELEASE_DIGEST}'"
+            git push origin "$REF_NAME"
+          fi
 
           RELEASE_SHA="$(git rev-parse HEAD)"
           RELEASE_COMMIT_URL="${REPO_COMMIT_URL_BASE}/${RELEASE_SHA}"
