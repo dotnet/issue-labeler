@@ -474,17 +474,19 @@ public class GitHubApi
             )
             {
                 // Retry on exceptions as they can be temporary network issues
+                retry++;
+
                 action.WriteInfo($"""
                     [{typeName} {org}/{repo}#{number}] Failed to retrieve data.
                         Exception caught during query.
 
                         {ex.Message}
 
-                        {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
                     """);
             }
 
-            await Task.Delay(retries[retry++] * 1000);
+            await Task.Delay(retries[retry] * 1000);
         }
 
         return null;
