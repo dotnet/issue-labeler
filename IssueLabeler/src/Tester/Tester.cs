@@ -85,7 +85,7 @@ foreach (var (itemType, stats) in results)
             "**No Existing Label**: A prediction was made, but there was no existing label. Incorrect prediction."
         ]);
         summary.AddNewLine();
-        summary.AddAlert($"If the **Matches** percentage is **at least 65%** and the **Mismatches** percentage is **less than 10%**, the model testing is considered favorable.", AlertType.Tip);
+        summary.AddAlert($"If the **Matches** percentage is **at least 65%** and the **Mismatches** percentage is **less than 15%**, the model testing is considered favorable.", AlertType.Tip);
     });
 }
 

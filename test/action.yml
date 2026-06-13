@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Test predictions against the Issues, Discussions, and/or Pull Requests model by downloading data and comparing predictions against existing labels."
+description: "Test predictions against the Issues, Pull Requests, and/or Discussions model by downloading data and comparing predictions against existing labels."
 
 branding:
   color: "purple"
@@ -7,7 +7,7 @@ branding:
 
 inputs:
   type:
-    description: "The model to test. Must be 'issues', 'discussions', or 'pulls'. Discussions use the issues model path."
+    description: "The model to test. Must be 'issues', 'pulls', or 'discussions'. Discussions use the issues model path."
     required: true
   label_prefix:
     description: "The label prefix to use for model training. Must end with a non-alphanumeric character."
@@ -39,10 +39,10 @@ runs:
     - name: "Validate Inputs"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'."
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" && "${{ inputs.type }}" != "discussions" ]]; then
+          echo "::error::'type' must be 'issues', 'pulls', or 'discussions'. Value provided: '${{ inputs.type }}'."
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
 

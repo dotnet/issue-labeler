@@ -1,9 +1,9 @@
 name: "Train Model"
-description: "Train the Issues, Discussions, or Pull Requests model for label prediction. Each type writes its own cached model file."
+description: "Train the Issues, Pull Requests, or Discussions model for label prediction. Each type writes its own cached model file."
 
 inputs:
   type:
-    description: "The model to train. Must be 'issues', 'discussions', or 'pulls'."
+    description: "The model to train. Must be 'issues', 'pulls', or 'discussions'."
     required: true
   data_cache_key:
     description: "The cache key suffix to use for the downloaded data. Defaults to 'staged'."
@@ -22,10 +22,10 @@ runs:
     - name: "Validate Inputs"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'."
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" && "${{ inputs.type }}" != "discussions" ]]; then
+          echo "::error::'type' must be 'issues', 'pulls', or 'discussions'. Value provided: '${{ inputs.type }}'."
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
 
@@ -92,7 +92,7 @@ runs:
       shell: bash
       run: |
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'discussions' && 'Discussions' || 'Pull Requests' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
+        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
 
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
           echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY

@@ -3,7 +3,7 @@ description: "Restore a model from cache for label prediction or cache retention
 
 inputs:
   type:
-    description: "The model to restore. Must be 'issues', 'discussions', or 'pulls'. Each type restores its own cached model file."
+    description: "The model to restore. Must be 'issues', 'pulls', or 'discussions'. Each type restores its own cached model file."
     required: true
 
   cache_key:
@@ -33,10 +33,10 @@ runs:
     - name: "Validate Inputs"
       shell: bash
       run: |
-        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "discussions" && "${{ inputs.type }}" != "pulls" ]]; then
-          echo "::error::'type' must be 'issues', 'discussions', or 'pulls'. Value provided: '${{ inputs.type }}'."
+        if [[ "${{ inputs.type }}" != "issues" && "${{ inputs.type }}" != "pulls" && "${{ inputs.type }}" != "discussions" ]]; then
+          echo "::error::'type' must be 'issues', 'pulls', or 'discussions'. Value provided: '${{ inputs.type }}'."
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "\`type\` must be 'issues', 'discussions', or 'pulls'." >> $GITHUB_STEP_SUMMARY
+          echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
 
@@ -54,10 +54,10 @@ runs:
       run: |
         if [[ "${{ steps.restore-cache.outputs.cache-hit }}" == "true" ]]; then
           echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
-          echo "> The ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'discussions' && 'Discussions' || 'Pull Requests' }} model was successfully restored from cache." >> $GITHUB_STEP_SUMMARY
+          echo "> The ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} model was successfully restored from cache." >> $GITHUB_STEP_SUMMARY
         else
           echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "> The ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'discussions' && 'Discussions' || 'Pull Requests' }} model was not restored from cache. Label prediction cannot proceed." >> $GITHUB_STEP_SUMMARY
+          echo "> The ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} model was not restored from cache. Label prediction cannot proceed." >> $GITHUB_STEP_SUMMARY
 
           if [[ "${{ inputs.fail-on-cache-miss }}" != "true" ]]; then
             echo "> The workflow is gracefully exiting without failure." >> $GITHUB_STEP_SUMMARY
