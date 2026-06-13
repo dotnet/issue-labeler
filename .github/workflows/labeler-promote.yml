@@ -14,6 +14,10 @@ on:
         description: "Pulls: Promote Model"
         type: boolean
         required: true
+      discussions:
+        description: "Discussions: Promote Model"
+        type: boolean
+        required: true
       staged_key:
         description: "The cache key suffix to use for promoting a staged model to 'ACTIVE'. Defaults to 'staged'."
         required: true
@@ -45,5 +49,16 @@ jobs:
         uses: dotnet/issue-labeler/promote@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
         with:
           type: "pulls"
+          staged_key: ${{ inputs.staged_key }}
+          backup_key: ${{ inputs.backup_key }}
+
+  promote-discussions:
+    if: ${{ inputs.discussions }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Promote Model for Discussions"
+        uses: dotnet/issue-labeler/promote@4a4de5005bcca8156f213ed6203fb787d64ed31f # v2.1.0
+        with:
+          type: "discussions"
           staged_key: ${{ inputs.staged_key }}
           backup_key: ${{ inputs.backup_key }}
