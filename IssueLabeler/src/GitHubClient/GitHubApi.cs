@@ -190,7 +190,9 @@ public class GitHubApi
             {
                 action.WriteInfo($"Exception caught during query.\n  {ex.Message}");
 
-                if (retry >= retries.Length - 1)
+                int retryDelay = retries[retry++];
+
+                if (retry >= retries.Length)
                 {
                     await action.WriteStatusAsync($"Retry limit of {retries.Length} reached. Aborting.");
 
@@ -207,10 +209,8 @@ public class GitHubApi
                 }
                 else
                 {
-                    retry++;
-
-                    await action.WriteStatusAsync($"Waiting {retries[retry]} seconds before retry {retry} of {retries.Length}...");
-                    await Task.Delay(retries[retry] * 1000);
+                    await action.WriteStatusAsync($"Waiting {retryDelay} seconds before retry {retry} of {retries.Length}...");
+                    await Task.Delay(retryDelay * 1000);
 
                     continue;
                 }
@@ -420,6 +420,8 @@ public class GitHubApi
 
         while (retry < retries.Length)
         {
+            int retryDelay = retries[retry++];
+
             try
             {
                 var response = await client.SendQueryAsync<RepositoryQuery<T>>(query);
@@ -437,7 +439,7 @@ public class GitHubApi
                         action.WriteInfo($"""
                             [{typeName} {org}/{repo}#{number}] Failed to retrieve data.
                                 Rate limit has been reached.
-                                {(retry < retries.Length ? $"Will proceed with retry {retry + 1} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                                {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retryDelay} seconds..." : $"Retry limit of {retries.Length} reached.")}
                             """);
                     }
                     else
@@ -475,19 +477,17 @@ public class GitHubApi
             )
             {
                 // Retry on exceptions as they can be temporary network issues
-                retry++;
-
                 action.WriteInfo($"""
                     [{typeName} {org}/{repo}#{number}] Failed to retrieve data.
                         Exception caught during query.
 
                         {ex.Message}
 
-                        {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                        {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retryDelay} seconds..." : $"Retry limit of {retries.Length} reached.")}
                     """);
             }
 
-            await Task.Delay(retries[retry] * 1000);
+            await Task.Delay(retryDelay * 1000);
         }
 
         return null;
@@ -533,6 +533,8 @@ public class GitHubApi
 
         while (retry < retries.Length)
         {
+            int retryDelay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
+
             var response = await client.PostAsJsonAsync(
                 $"https://api.github.com/repos/{org}/{repo}/issues/{number}/labels",
                 labels,
@@ -543,15 +545,12 @@ public class GitHubApi
                 return null;
             }
 
-            retry++;
-
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to add label(s): {labelList}. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retryDelay} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
-            int delay = Math.Min(retries[retry], MaxLabelDelaySeconds);
-            await Task.Delay(delay * 1000);
+            await Task.Delay(retryDelay * 1000);
         }
 
         return $"Failed to add label(s): {labelList}. Performed {retries.Length} retries.";
@@ -585,15 +584,14 @@ public class GitHubApi
                 return null;
             }
 
-            retry++;
+            int retryDelay = Math.Min(retries[retry++], MaxLabelDelaySeconds);
 
             action.WriteInfo($"""
                 [{type} {org}/{repo}#{number}] Failed to remove label '{label}'. {response.ReasonPhrase} ({response.StatusCode})
-                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retries[retry]} seconds..." : $"Retry limit of {retries.Length} reached.")}
+                    {(retry < retries.Length ? $"Will proceed with retry {retry} of {retries.Length} after {retryDelay} seconds..." : $"Retry limit of {retries.Length} reached.")}
                 """);
 
-            int delay = Math.Min(retries[retry], MaxLabelDelaySeconds);
-            await Task.Delay(delay * 1000);
+            await Task.Delay(retryDelay * 1000);
         }
 
         return $"Failed to remove label '{label}' after {retries.Length} retries.";
