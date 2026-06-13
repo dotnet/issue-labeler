@@ -15,7 +15,8 @@ on:
       dry_run:
         description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
         required: false
-        default: "true"
+        type: boolean
+        default: false
       cache_key:
         description: "The cache key suffix to use for restoring the model. Defaults to 'ACTIVE'."
         required: true

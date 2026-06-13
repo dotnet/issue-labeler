@@ -21,6 +21,11 @@ on:
       pulls:
         description: "Pull Request Numbers (comma-separated list of ranges)."
         required: true
+      dry_run:
+        description: "Run in dry-run mode for manual dispatches. Defaults to 'true'."
+        required: false
+        type: boolean
+        default: false
       cache_key:
         description: "The cache key suffix to use for restoring the model. Defaults to 'ACTIVE'."
         required: true
@@ -59,6 +64,7 @@ jobs:
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
+          dry_run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: ${{ !env.ALLOW_FAILURE }}
