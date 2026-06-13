@@ -26,6 +26,7 @@ env:
   LABEL_PREFIX: "area-"
   THRESHOLD: 0.40
   DEFAULT_LABEL: "needs-area-label"
+  MAX_LABELS: ${{ vars.ISSUE_LABELER_MAX_LABELS || '1' }}
 
 jobs:
   predict-issue-label:
@@ -54,6 +55,7 @@ jobs:
           threshold: ${{ env.THRESHOLD }}
           default_label: ${{ env.DEFAULT_LABEL }}
           dry_run: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+          max_labels: ${{ env.MAX_LABELS }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         continue-on-error: ${{ fromJSON(env.ALLOW_FAILURE) }}

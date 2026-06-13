@@ -53,6 +53,7 @@ if (argsData.IssuesModelPath is not null && argsData.Issues is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.Issue,
             argsData.Retries,
             argsData.Test
@@ -92,6 +93,7 @@ if (argsData.PullsModelPath is not null && argsData.Pulls is not null)
             new PullRequest(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.PullRequest,
             argsData.Retries,
             argsData.Test
@@ -134,6 +136,7 @@ if (argsData.IssuesModelPath is not null && argsData.Discussions is not null)
             new Issue(result),
             argsData.LabelPredicate,
             argsData.DefaultLabel,
+            argsData.MaxLabels,
             ModelType.Discussion,
             argsData.Retries,
             argsData.Test,
@@ -157,7 +160,7 @@ pullPredictors?.Dispose();
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, ModelType type, int[] retries, bool test, string? nodeId = null) where T : Issue
+async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, ulong number, T issueOrPull, Func<string, bool> labelPredicate, string? defaultLabel, int maxLabels, ModelType type, int[] retries, bool test, string? nodeId = null) where T : Issue
 {
     List<Action<Summary>> predictionResults = [];
     string typeName = type switch
@@ -239,7 +242,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error removing default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred removing default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
@@ -268,17 +271,17 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
         })
         // Ensure predicted labels match the expected predicate
         .Where(prediction => labelPredicate(prediction.Label))
-        // Capture the top 3 predictions for including in the output
+        // Capture a little extra headroom beyond what may be applied.
         .OrderByDescending(p => p.Score)
-        .Take(3)
+        .Take(maxLabels + 2)
         .ToList();
 
     var eligibleLabels = predictions.Where(p => p.Score >= argsData.Threshold).ToList();
-    var topLabels = eligibleLabels.Take(1).ToList();
+    var topLabels = eligibleLabels.Take(maxLabels).ToList();
 
     if (eligibleLabels.Count > 0)
     {
-        predictionResults.Add(summary => summary.AddRawMarkdown($"    - {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
+        predictionResults.Add(summary => summary.AddRawMarkdown($"    - At least {eligibleLabels.Count} label(s) meet the threshold of {argsData.Threshold}; applying {topLabels.Count}.", true));
     }
     else
     {
@@ -366,7 +369,7 @@ async Task<(ulong Number, string ResultMessage, bool Success)> ProcessPrediction
             else
             {
                 predictionResults.Add(summary => summary.AddRawMarkdown($"    - **Error applying default label `{defaultLabel}`**: {error}", true));
-                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}'");
+                resultMessageParts.Add($"Error occurred applying default label '{defaultLabel}': {error}");
                 return Failure();
             }
         }
