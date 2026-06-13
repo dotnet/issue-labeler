@@ -11,9 +11,6 @@
     <PackageReference Include="GraphQL.Client" />
     <PackageReference Include="GraphQL.Client.Serializer.SystemTextJson" />
     <PackageReference Include="Octokit" />
-
-    <!-- Transitive dependency version bumps -->
-    <PackageReference Include="System.Private.Uri" />
   </ItemGroup>
 
   <ItemGroup>
