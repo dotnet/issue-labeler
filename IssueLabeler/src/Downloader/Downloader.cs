@@ -13,11 +13,10 @@ using var provider = new ServiceCollection()
 
 var action = provider.GetRequiredService<ICoreService>();
 if (Args.Parse(args, action) is not Args argsData) return 1;
-string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
-if (excludedLabels.Length > 0)
+if (argsData.ExcludedLabels?.Length > 0)
 {
-    string excludedLabelsText = string.Join(", ", excludedLabels);
+    string excludedLabelsText = string.Join(", ", argsData.ExcludedLabels);
     action.WriteInfo($"Excluded labels from training data: {excludedLabelsText}");
     action.Summary.AddPersistent(summary =>
     {
@@ -62,7 +61,7 @@ async Task DownloadIssues(string outputPath)
     {
         await foreach (var result in GitHubApi.DownloadIssues(argsData.GitHubToken, argsData.Org, repo, argsData.LabelPredicate,
                                                               argsData.IssuesLimit, argsData.PageSize, argsData.PageLimit,
-                                                              argsData.Retries, argsData.ExcludedAuthors, excludedLabels, action, argsData.Verbose))
+                                                              argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             writer.WriteLine(FormatIssueRecord(result.Label, result.Issue.Title, result.Issue.Body));
 
@@ -90,7 +89,7 @@ async Task DownloadPullRequests(string outputPath)
     {
         await foreach (var result in GitHubApi.DownloadPullRequests(argsData.GitHubToken, argsData.Org, repo, argsData.LabelPredicate,
                                                                     argsData.PullsLimit, argsData.PageSize, argsData.PageLimit,
-                                                                    argsData.Retries, argsData.ExcludedAuthors, excludedLabels, action, argsData.Verbose))
+                                                                    argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             writer.WriteLine(FormatPullRequestRecord(result.Label, result.PullRequest.Title, result.PullRequest.Body, result.PullRequest.FileNames, result.PullRequest.FolderNames));
 
@@ -118,7 +117,7 @@ async Task DownloadDiscussions(string outputPath)
     {
         await foreach (var result in GitHubApi.DownloadDiscussions(argsData.GitHubToken, argsData.Org, repo, argsData.LabelPredicate,
                                                                    argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit,
-                                                                   argsData.Retries, argsData.ExcludedAuthors, excludedLabels, action, argsData.Verbose))
+                                                                   argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             writer.WriteLine(FormatIssueRecord(result.Label, result.Discussion.Title, result.Discussion.Body));
 
