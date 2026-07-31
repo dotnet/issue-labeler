@@ -87,6 +87,7 @@ public class GitHubApi
     /// <param name="pageLimit">The maximum number of pages to retrieve.</param>
     /// <param name="retries">An array of retry delays in seconds.</param>
     /// <param name="excludedAuthors">An array of authors to exclude from the results.</param>
+    /// <param name="excludedLabels">An array of labels to exclude from the results.</param>
     /// <param name="action">The GitHub action service.</param>
     /// <param name="verbose">Emit verbose output into the action log.</param>
     /// <returns>The downloaded issues as an async enumerable collection of tuples containing the issue and its predicate-matched label (when only one matcing label is found).</returns>
@@ -99,10 +100,11 @@ public class GitHubApi
         int? pageLimit,
         int[] retries,
         string[]? excludedAuthors,
+        string[]? excludedLabels,
         ICoreService action,
         bool verbose = false)
     {
-        await foreach (var item in DownloadItems<Issue>("issues", githubToken, org, repo, labelPredicate, issuesLimit, pageSize ?? 100, pageLimit ?? 1000, retries, excludedAuthors, action, verbose))
+        await foreach (var item in DownloadItems<Issue>("issues", githubToken, org, repo, labelPredicate, issuesLimit, pageSize ?? 100, pageLimit ?? 1000, retries, excludedAuthors, excludedLabels, action, verbose))
         {
             yield return (item.Item, item.Label);
         }
@@ -120,6 +122,7 @@ public class GitHubApi
     /// <param name="pageLimit">The maximum number of pages to retrieve.</param>
     /// <param name="retries">An array of retry delays in seconds.</param>
     /// <param name="excludedAuthors">An array of authors to exclude from the results.</param>
+    /// <param name="excludedLabels">An array of labels to exclude from the results.</param>
     /// <param name="action">The GitHub action service.</param>
     /// <param name="verbose">Emit verbose output into the action log.</param>
     /// <returns>The downloaded pull requests as an async enumerable collection of tuples containing the pull request and its predicate-matched label (when only one matching label is found).</returns>
@@ -133,10 +136,11 @@ public class GitHubApi
         int? pageLimit,
         int[] retries,
         string[]? excludedAuthors,
+        string[]? excludedLabels,
         ICoreService action,
         bool verbose = false)
     {
-        var items = DownloadItems<PullRequest>("pullRequests", githubToken, org, repo, labelPredicate, pullsLimit, pageSize ?? 25, pageLimit ?? 4000, retries, excludedAuthors, action, verbose);
+        var items = DownloadItems<PullRequest>("pullRequests", githubToken, org, repo, labelPredicate, pullsLimit, pageSize ?? 25, pageLimit ?? 4000, retries, excludedAuthors, excludedLabels, action, verbose);
 
         await foreach (var item in items)
         {
@@ -157,10 +161,11 @@ public class GitHubApi
         int? pageLimit,
         int[] retries,
         string[]? excludedAuthors,
+        string[]? excludedLabels,
         ICoreService action,
         bool verbose = false)
     {
-        await foreach (var item in DownloadDiscussionItems(githubToken, org, repo, labelPredicate, discussionsLimit, pageSize ?? 25, pageLimit ?? 1000, retries, excludedAuthors, action, verbose))
+        await foreach (var item in DownloadDiscussionItems(githubToken, org, repo, labelPredicate, discussionsLimit, pageSize ?? 25, pageLimit ?? 1000, retries, excludedAuthors, excludedLabels, action, verbose))
         {
             yield return (item.Item, item.Label);
         }
@@ -180,6 +185,7 @@ public class GitHubApi
     /// <param name="pageLimit">The maximum number of pages to retrieve.</param>
     /// <param name="retries">An array of retry delays in seconds.</param>
     /// <param name="excludedAuthors">An array of authors to exclude from the results.</param>
+    /// <param name="excludedLabels">An array of labels to exclude from the results.</param>
     /// <param name="action">The GitHub action service.</param>
     /// <param name="verbose">Emit verbose output into the action log.</param>
     /// <returns>The downloaded items as an async enumerable collection of tuples containing the item and its predicate-matched label (when only one matching label is found).</returns>
@@ -195,10 +201,12 @@ public class GitHubApi
         int pageLimit,
         int[] retries,
         string[]? excludedAuthors,
+        string[]? excludedLabels,
         ICoreService action,
         bool verbose) where T : Issue
     {
         pageSize = Math.Min(pageSize, 100);
+        HashSet<string> excludedLabelSet = new(LabelUtils.NormalizeLabels(excludedLabels), StringComparer.InvariantCultureIgnoreCase);
 
         string typeNames = typeof(T) == typeof(PullRequest) ? "Pull Requests" : "Issues";
         string typeName = typeof(T) == typeof(PullRequest) ? "Pull Request" : "Issue";
@@ -286,6 +294,12 @@ public class GitHubApi
                     continue;
                 }
 
+                if (item.LabelNames.Any(excludedLabelSet.Contains))
+                {
+                    if (verbose) action.WriteInfo($"{typeName} {org}/{repo}#{item.Number} - Excluded from output. Contains excluded label.");
+                    continue;
+                }
+
                 // Only items with exactly one applicable label are used for the model.
                 string[] labels = Array.FindAll(item.LabelNames, labelPredicate);
                 if (labels.Length != 1)
@@ -339,10 +353,12 @@ public class GitHubApi
         int pageLimit,
         int[] retries,
         string[]? excludedAuthors,
+        string[]? excludedLabels,
         ICoreService action,
         bool verbose)
     {
         pageSize = Math.Min(pageSize, 100);
+        HashSet<string> excludedLabelSet = new(LabelUtils.NormalizeLabels(excludedLabels), StringComparer.InvariantCultureIgnoreCase);
 
         int pageNumber = 0;
         string? after = null;
@@ -418,6 +434,12 @@ public class GitHubApi
                 if (item.Labels.HasNextPage)
                 {
                     if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Excluded from output. Not all labels were loaded.");
+                    continue;
+                }
+
+                if (item.LabelNames.Any(excludedLabelSet.Contains))
+                {
+                    if (verbose) action.WriteInfo($"Discussion {org}/{repo}#{item.Number} - Excluded from output. Contains excluded label.");
                     continue;
                 }
 

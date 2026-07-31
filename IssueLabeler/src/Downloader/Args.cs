@@ -18,6 +18,7 @@ public struct Args
     public int? PageLimit { get; set; }
     public int[] Retries { get; set; }
     public string[]? ExcludedAuthors { get; set; }
+    public string[]? ExcludedLabels { get; set; }
     public Predicate<string> LabelPredicate { get; set; }
     public bool Verbose { get; set; }
 
@@ -49,6 +50,7 @@ public struct Args
               --page-size             Number of items per page in GitHub API requests.
               --page-limit            Maximum number of pages to retrieve.
               --excluded-authors      Comma-separated list of authors to exclude.
+              --excluded-labels       Comma-separated list of labels to exclude.
               --retries               Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
               --verbose               Enable verbose output.
@@ -102,6 +104,14 @@ public struct Args
                         return null;
                     }
                     argsData.ExcludedAuthors = excludedAuthors;
+                    break;
+
+                case "--excluded-labels":
+                    if (!argUtils.TryGetStringArray("--excluded-labels", out string[]? excludedLabels))
+                    {
+                        return null;
+                    }
+                    argsData.ExcludedLabels = LabelUtils.NormalizeLabels(excludedLabels);
                     break;
 
                 case "--issues-data":

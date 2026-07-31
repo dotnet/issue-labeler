@@ -17,6 +17,8 @@ inputs:
     required: true
   excluded_authors:
     description: "A comma-separated list of authors to exclude."
+  excluded_labels:
+    description: "A comma-separated list of labels that should be excluded from training/test data."
   limit:
     description: "The maximum number of items to download. The newest items are downloaded."
   page_size:
@@ -67,9 +69,10 @@ runs:
           ${{ format('--threshold {0}', inputs.threshold) }} \
           ${{ inputs.type == 'pulls' && '--pulls-model "labeler-cache/pulls-model.zip"' || inputs.type == 'discussions' && '--issues-model "labeler-cache/discussions-model.zip"' || '--issues-model "labeler-cache/issues-model.zip"' }} \
           ${{ inputs.type == 'discussions' && '--discussions' || '' }} \
-          ${{ inputs.excluded_authors && format('--excluded-authors "{0}"', inputs.excluded_authors) || '' }} \
-          ${{ inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit) || '' }} \
-          ${{ inputs.page_size && format('--page-size {0}', inputs.page_size) || '' }} \
-          ${{ inputs.page_limit && format('--page-limit {0}', inputs.page_limit) || '' }} \
-          ${{ inputs.retries && format('--retries {0}', inputs.retries) || '' }} \
+          ${{ (inputs.excluded_authors && format('--excluded-authors "{0}"', inputs.excluded_authors)) || '' }} \
+          ${{ (inputs.excluded_labels && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
+          ${{ (inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit)) || '' }} \
+          ${{ (inputs.page_size && format('--page-size {0}', inputs.page_size)) || '' }} \
+          ${{ (inputs.page_limit && format('--page-limit {0}', inputs.page_limit)) || '' }} \
+          ${{ (inputs.retries && format('--retries {0}', inputs.retries)) || '' }} \
           ${{ inputs.verbose && '--verbose' || '' }}

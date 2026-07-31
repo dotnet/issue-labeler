@@ -28,6 +28,8 @@ on:
 
       repository:
         description: "The org/repo to download data from. Defaults to the current repository."
+      excluded_labels:
+        description: "Comma-separated list of labels to exclude from training and test datasets."
       limit:
         description: "Max number of items to download for training/testing the model (newest items are used). Defaults to the max number of pages times the page size."
         type: number
@@ -48,6 +50,7 @@ env:
   CACHE_KEY: ${{ github.event.inputs.cache_key_suffix }}
   REPOSITORY: ${{ github.event.inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
+  EXCLUDED_LABELS: ${{ github.event.inputs.excluded_labels }}
   THRESHOLD_ISSUES: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_ISSUES || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   THRESHOLD_PULLS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
   THRESHOLD_DISCUSSIONS: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_DISCUSSIONS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
@@ -69,6 +72,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -88,6 +92,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -107,6 +112,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
           page_limit: ${{ env.PAGE_LIMIT }}
@@ -258,6 +264,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           threshold: ${{ env.THRESHOLD_ISSUES }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
@@ -281,6 +288,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}
@@ -304,6 +312,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
+          excluded_labels: ${{ env.EXCLUDED_LABELS }}
           threshold: ${{ env.THRESHOLD_PULLS }}
           limit: ${{ env.LIMIT }}
           page_size: ${{ env.PAGE_SIZE }}

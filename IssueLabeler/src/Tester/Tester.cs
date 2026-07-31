@@ -17,8 +17,18 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
+string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];
+
+if (excludedLabels.Length > 0)
+{
+    action.Summary.AddPersistent(summary =>
+    {
+        summary.AddMarkdownHeading("Excluded Labels Supplied", 2);
+        summary.AddMarkdownList([.. excludedLabels.Select(label => $"`{label}`")]);
+    });
+}
 
 if (argsData.IssuesModelPath is not null)
 {
@@ -36,6 +46,43 @@ if (argsData.PullsModelPath is not null)
 }
 
 var (results, success) = await App.RunTasks(tasks, action);
+
+var excludedLabelDetections = results
+    .Select(result => result.Stats)
+    .Aggregate(new ExcludedLabelDetections(), static (totals, stats) =>
+    {
+        totals.ExistingCount += stats.ExcludedExistingCount;
+        totals.PredictedCount += stats.ExcludedPredictedCount;
+        AddCounts(totals.ExistingByLabel, stats.ExcludedExistingByLabel);
+        AddCounts(totals.PredictedByLabel, stats.ExcludedPredictedByLabel);
+        return totals;
+    });
+
+if (excludedLabelDetections.ExistingCount > 0 || excludedLabelDetections.PredictedCount > 0)
+{
+    action.Summary.AddPersistent(summary =>
+    {
+        summary.AddAlert(
+            $"Excluded labels were detected in test results: **{excludedLabelDetections.ExistingCount:N0}** existing-label matches and **{excludedLabelDetections.PredictedCount:N0}** predictions.",
+            AlertType.Caution);
+
+        if (excludedLabelDetections.ExistingByLabel.Count > 0)
+        {
+            summary.AddRawMarkdown("Existing labels detected:", true);
+            summary.AddMarkdownList([.. excludedLabelDetections.ExistingByLabel
+                .OrderByDescending(pair => pair.Value)
+                .Select(pair => $"`{pair.Key}`: {pair.Value:N0}")]);
+        }
+
+        if (excludedLabelDetections.PredictedByLabel.Count > 0)
+        {
+            summary.AddRawMarkdown("Predicted labels detected:", true);
+            summary.AddMarkdownList([.. excludedLabelDetections.PredictedByLabel
+                .OrderByDescending(pair => pair.Value)
+                .Select(pair => $"`{pair.Key}`: {pair.Value:N0}")]);
+        }
+    });
+}
 
 foreach (var (itemType, stats) in results)
 {
@@ -99,7 +146,7 @@ async Task<(Type, TestStats)> TestIssues()
 
     async IAsyncEnumerable<Issue> DownloadIssues(string githubToken, string repo)
     {
-        await foreach (var result in GitHubApi.DownloadIssues(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.IssuesLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
+        await foreach (var result in GitHubApi.DownloadIssues(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.IssuesLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             yield return new(repo, result.Issue, argsData.LabelPredicate);
         }
@@ -129,7 +176,7 @@ async Task<(Type, TestStats)> TestDiscussions()
 
     async IAsyncEnumerable<Discussion> DownloadDiscussions(string githubToken, string repo)
     {
-        await foreach (var result in GitHubApi.DownloadDiscussions(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
+        await foreach (var result in GitHubApi.DownloadDiscussions(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             yield return new(repo, result.Discussion, result.Label);
         }
@@ -159,7 +206,7 @@ async Task<(Type, TestStats)> TestPullRequests()
 
     async IAsyncEnumerable<PullRequest> DownloadPullRequests(string githubToken, string repo)
     {
-        await foreach (var result in GitHubApi.DownloadPullRequests(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.PullsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, action, argsData.Verbose))
+        await foreach (var result in GitHubApi.DownloadPullRequests(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.PullsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
         {
             yield return new(repo, result.PullRequest, argsData.LabelPredicate);
         }
@@ -212,6 +259,18 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         result,
         argsData.Threshold);
 
+    if (result.Label is not null && excludedLabels.Contains(result.Label, StringComparer.OrdinalIgnoreCase))
+    {
+        stats.ExcludedExistingCount++;
+        RecordExcludedLabel(stats.ExcludedExistingByLabel, result.Label);
+    }
+
+    if (predictedLabel is not null && excludedLabels.Contains(predictedLabel, StringComparer.OrdinalIgnoreCase))
+    {
+        stats.ExcludedPredictedCount++;
+        RecordExcludedLabel(stats.ExcludedPredictedByLabel, predictedLabel);
+    }
+
     if (predictedLabel is null && result.Label is not null)
     {
         stats.NoPrediction++;
@@ -246,6 +305,19 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
     action.WriteInfo($"No Prediction: {stats.NoPrediction} ({stats.NoPredictionPercentage:P2})");
     action.WriteInfo($"No Existing  : {stats.NoExisting} ({stats.NoExistingPercentage:P2})");
     action.EndGroup();
+}
+
+static void RecordExcludedLabel(Dictionary<string, int> counts, string label)
+{
+    counts[label] = counts.TryGetValue(label, out int currentCount) ? currentCount + 1 : 1;
+}
+
+static void AddCounts(Dictionary<string, int> target, Dictionary<string, int> source)
+{
+    foreach (var (label, count) in source)
+    {
+        target[label] = target.TryGetValue(label, out int currentCount) ? currentCount + count : count;
+    }
 }
 
 (string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold) where T : Issue
@@ -312,6 +384,8 @@ class TestStats
     public int Mismatches { get; set; } = 0;
     public int NoPrediction { get; set; } = 0;
     public int NoExisting { get; set; } = 0;
+    public int ExcludedExistingCount { get; set; } = 0;
+    public int ExcludedPredictedCount { get; set; } = 0;
 
     public float Total => Matches + Mismatches + NoPrediction + NoExisting;
 
@@ -322,4 +396,14 @@ class TestStats
 
     public List<float> MatchScores => [];
     public List<float> MismatchScores => [];
+    public Dictionary<string, int> ExcludedExistingByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int> ExcludedPredictedByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+class ExcludedLabelDetections
+{
+    public int ExistingCount { get; set; }
+    public int PredictedCount { get; set; }
+    public Dictionary<string, int> ExistingByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int> PredictedByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
