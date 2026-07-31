@@ -17,11 +17,11 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
-HashSet<string> excludedLabels = new(argsData.ExcludedLabels ?? [], StringComparer.OrdinalIgnoreCase);
+string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];
 
-if (excludedLabels.Count > 0)
+if (excludedLabels.Length > 0)
 {
     action.Summary.AddPersistent(summary =>
     {
@@ -259,13 +259,13 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         result,
         argsData.Threshold);
 
-    if (result.Label is not null && excludedLabels.Contains(result.Label))
+    if (result.Label is not null && excludedLabels.Contains(result.Label, StringComparer.OrdinalIgnoreCase))
     {
         stats.ExcludedExistingCount++;
         RecordExcludedLabel(stats.ExcludedExistingByLabel, result.Label);
     }
 
-    if (predictedLabel is not null && excludedLabels.Contains(predictedLabel))
+    if (predictedLabel is not null && excludedLabels.Contains(predictedLabel, StringComparer.OrdinalIgnoreCase))
     {
         stats.ExcludedPredictedCount++;
         RecordExcludedLabel(stats.ExcludedPredictedByLabel, predictedLabel);
