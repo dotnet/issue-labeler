@@ -80,8 +80,8 @@ runs:
           ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
           ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
           ${{ format('--{0}-data "{1}"', inputs.type, env.DATA_PATH) }} \
-          ${{ (inputs.excluded_authors != null && format('--excluded-authors {0}', inputs.excluded_authors)) || '' }} \
-          ${{ (inputs.excluded_labels != null && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
+          ${{ (inputs.excluded_authors && format('--excluded-authors {0}', inputs.excluded_authors)) || '' }} \
+          ${{ (inputs.excluded_labels && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
           ${{ (inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit)) || '' }} \
           ${{ (inputs.page_size && format('--page-size {0}', inputs.page_size)) || '' }} \
           ${{ (inputs.page_limit && format('--page-limit {0}', inputs.page_limit)) || '' }} \
