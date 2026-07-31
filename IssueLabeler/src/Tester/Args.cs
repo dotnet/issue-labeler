@@ -11,6 +11,7 @@ public struct Args
     public float Threshold { get; set; }
     public Predicate<string> LabelPredicate { get; set; }
     public string[]? ExcludedAuthors { get; set; }
+    public string[]? ExcludedLabels { get; set; }
     public string? IssuesModelPath { get; set; }
     public bool TestDiscussions { get; set; }
     public int? IssuesLimit { get; set; }
@@ -43,6 +44,7 @@ public struct Args
 
             Optional arguments:
               --excluded-authors      Comma-separated list of authors to exclude.
+              --excluded-labels       Comma-separated list of labels to exclude.
               --threshold             Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
               --issues-limit          Maximum number of issues to download. Defaults to: No limit.
@@ -106,6 +108,14 @@ public struct Args
                         return null;
                     }
                     argsData.ExcludedAuthors = excludedAuthors;
+                    break;
+
+                case "--excluded-labels":
+                    if (!argUtils.TryGetStringArray("--excluded-labels", out string[]? excludedLabels))
+                    {
+                        return null;
+                    }
+                    argsData.ExcludedLabels = LabelUtils.NormalizeLabels(excludedLabels);
                     break;
 
                 case "--threshold":
