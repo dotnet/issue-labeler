@@ -89,12 +89,16 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
 
     await action.WriteStatusAsync("Building pipeline...");
 
+    string[] featureColumns = type == ModelType.Issue
+        ? ["Title", "Body"]
+        : ["Title", "Body", "FileNames", "FolderNames"];
+
     var xf = mlContext.Transforms;
     var pipeline = xf.Conversion.MapValueToKey(inputColumnName: "Label", outputColumnName: "LabelKey")
         .Append(xf.Text.FeaturizeText(
             "Features",
             new TextFeaturizingEstimator.Options(),
-            columns.Where(c => c.Name is not "Label").Select(c => c.Name).ToArray()))
+            featureColumns))
         .AppendCacheCheckpoint(mlContext)
         .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("LabelKey"))
         .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
