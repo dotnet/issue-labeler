@@ -1,0 +1,16 @@
+<Project Sdk="MSTest.Sdk/4.5.1">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <UseVSTest>true</UseVSTest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MSTest.Sdk supplies its own test SDK version. -->
+    <PackageVersion Remove="Microsoft.NET.Test.Sdk" />
+    <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" />
+  </ItemGroup>
+
+</Project>
