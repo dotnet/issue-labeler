@@ -36,6 +36,8 @@ runs:
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
         echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
+        echo "EVALUATION_PATH=labeler-cache/${{ inputs.type }}-model.evaluation.json" >> $GITHUB_ENV
+        echo "EVALUATION_CACHE_KEY=${{ format('issue-labeler/evaluation/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
       id: check-cache
@@ -45,16 +47,21 @@ runs:
         key: ${{ env.MODEL_CACHE_KEY }}
         lookup-only: true
 
-    - name: "Abort if there is an existing model with the specified cache key"
+    - name: "Check for Existing Held-out Scores"
+      id: check-evaluation-cache
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ env.EVALUATION_PATH }}
+        key: ${{ env.EVALUATION_CACHE_KEY }}
+        lookup-only: true
+
+    - name: "Reject Existing Model or Evaluation Keys"
       shell: bash
       run: |
-        if [[ "${{ steps.check-cache.outputs.cache-hit }}" == "true" ]]; then
-          echo "::error::Cache key '${{ env.MODEL_CACHE_KEY }}' already exists. Cannot proceed with training."
-          echo "> [!CAUTION]" >> $GITHUB_STEP_SUMMARY
-          echo "Cache key '${{ env.MODEL_CACHE_KEY }}' already exists. Cannot proceed with training." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> [!TIP]" >> $GITHUB_STEP_SUMMARY
-          echo "Use a different \`model_cache_key\` value or delete the existing cache entry from the [Action Caches](/${{ github.repository }}/actions/caches) page and run the workflow again." >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.check-cache.outputs.cache-hit }}" == "true" || "${{ steps.check-evaluation-cache.outputs.cache-hit }}" == "true" ]]; then
+          echo "::error::A model or held-out scores already exist for this suffix. Use a fresh model_cache_key, or delete both model and evaluation entries before retrying."
+          echo "> [!CAUTION]" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Model or evaluation cache entries already exist. Use a fresh suffix, or delete both entries before retrying." >> "$GITHUB_STEP_SUMMARY"
           exit 1
         fi
 
@@ -88,14 +95,36 @@ runs:
         path: ${{ env.MODEL_PATH }}
         key: ${{ env.MODEL_CACHE_KEY }}
 
+    - name: "Save Held-out Scores to Cache"
+      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ env.EVALUATION_PATH }}
+        key: ${{ env.EVALUATION_CACHE_KEY }}
+
+    - name: "Verify Model Cache Was Saved"
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ env.MODEL_PATH }}
+        key: ${{ env.MODEL_CACHE_KEY }}
+        lookup-only: true
+        fail-on-cache-miss: true
+
+    - name: "Verify Held-out Scores Were Saved"
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ env.EVALUATION_PATH }}
+        key: ${{ env.EVALUATION_CACHE_KEY }}
+        lookup-only: true
+        fail-on-cache-miss: true
+
     - name: "Write Final Summary"
       shell: bash
       run: |
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
-
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> "$GITHUB_STEP_SUMMARY"
+        echo "Matching held-out scores were saved under the same suffix." >> "$GITHUB_STEP_SUMMARY"
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
-          echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY
+          echo "Label predictions will now use this model." >> "$GITHUB_STEP_SUMMARY"
         else
-          echo "The '${{ inputs.model_cache_key }}' model is saved to cache and available to test or promote." >> $GITHUB_STEP_SUMMARY
+          echo "The '${{ inputs.model_cache_key }}' model is saved to cache and available to test or promote." >> "$GITHUB_STEP_SUMMARY"
         fi

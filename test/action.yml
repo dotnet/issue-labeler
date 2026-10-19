@@ -1,11 +1,14 @@
 name: "Test Model"
-description: "Test predictions against the Issues, Pull Requests, and/or Discussions model by downloading data and comparing predictions against existing labels."
+description: "Evaluate saved held-out scores offline, or historically recheck a model by downloading currently labeled items."
 
 branding:
   color: "purple"
   icon: "tag"
 
 inputs:
+  mode:
+    description: "Use 'historical' to recheck current labels (may include training examples), or 'heldout' to evaluate saved scores without downloads."
+    default: "historical"
   type:
     description: "The model to test. Must be 'issues', 'pulls', or 'discussions'. Discussions use the issues model path."
     required: true
@@ -47,6 +50,19 @@ runs:
           echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
+        if [[ "$EVALUATION_MODE" != "historical" && "$EVALUATION_MODE" != "heldout" ]]; then
+          echo "::error::'mode' must be 'historical' or 'heldout'."
+          exit 1
+        fi
+        if [[ "$EVALUATION_MODE" == "heldout" && ( -n "$HISTORICAL_OPTIONS" || ( -n "$VERBOSE" && "$VERBOSE" != "false" ) ) ]]; then
+          echo "::error::Historical download/filter options cannot be combined with heldout mode."
+          exit 1
+        fi
+        echo "EVALUATION_PATH=labeler-cache/${{ inputs.type }}-model.evaluation.json" >> "$GITHUB_ENV"
+      env:
+        EVALUATION_MODE: ${{ inputs.mode }}
+        HISTORICAL_OPTIONS: ${{ format('{0}{1}{2}{3}{4}{5}{6}', inputs.repository, inputs.excluded_authors, inputs.excluded_labels, inputs.limit, inputs.page_size, inputs.page_limit, inputs.retries) }}
+        VERBOSE: ${{ inputs.verbose }}
 
     - name: "Restore model from cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -55,12 +71,21 @@ runs:
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}"
         fail-on-cache-miss: true
 
+    - name: "Restore Held-out Scores from Cache"
+      if: ${{ inputs.mode == 'heldout' }}
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        path: ${{ env.EVALUATION_PATH }}
+        key: issue-labeler/evaluation/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}
+        fail-on-cache-miss: true
+
     - name: "Set up the .NET SDK"
       uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
       with:
         dotnet-version: "10.0.x"
 
     - name: "Run Tester"
+      if: ${{ inputs.mode == 'historical' }}
       shell: bash
       run: |
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Tester" --  \
@@ -76,3 +101,23 @@ runs:
           ${{ (inputs.page_limit && format('--page-limit {0}', inputs.page_limit)) || '' }} \
           ${{ (inputs.retries && format('--retries {0}', inputs.retries)) || '' }} \
           ${{ inputs.verbose && '--verbose' || '' }}
+
+    - name: "Evaluate Saved Held-out Scores"
+      if: ${{ inputs.mode == 'heldout' }}
+      shell: bash
+      env:
+        MODEL_TYPE: ${{ inputs.type }}
+        LABEL_PREFIX: ${{ inputs.label_prefix }}
+        EVALUATION_THRESHOLD: ${{ inputs.threshold }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        if [[ "$MODEL_TYPE" == "pulls" ]]; then
+          model_args=(--pulls-model "labeler-cache/pulls-model.zip")
+        else
+          model_args=(--issues-model "labeler-cache/${MODEL_TYPE}-model.zip")
+        fi
+        dotnet run -c Release --project "$ACTION_PATH/../IssueLabeler/src/Tester" -- \
+          "${model_args[@]}" \
+          --evaluation "$EVALUATION_PATH" \
+          --label-prefix "$LABEL_PREFIX" \
+          --threshold "$EVALUATION_THRESHOLD"
