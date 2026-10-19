@@ -6,9 +6,12 @@ using Actions.Core.Markdown;
 using Actions.Core.Services;
 using Actions.Core.Summaries;
 using GitHubClient;
+using IssueLabeler.Evaluation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using System.Globalization;
+using System.Text.Json;
 
 using var provider = new ServiceCollection()
     .AddGitHubActionsCore()
@@ -17,6 +20,42 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
+if (argsData.EvaluationPath is not null)
+{
+    try
+    {
+        string modelPath = argsData.IssuesModelPath ?? argsData.PullsModelPath
+            ?? throw new InvalidOperationException("Offline evaluation requires a model.");
+        var artifact = EvaluationArtifact.Load(argsData.EvaluationPath, modelPath);
+        string expectedType = argsData.PullsModelPath is not null ? nameof(ModelType.PullRequest) : nameof(ModelType.Issue);
+        if (artifact.ModelType != expectedType)
+        {
+            throw new InvalidDataException("The saved scores were produced for a different model type.");
+        }
+
+        var result = ThresholdEvaluation.Evaluate(artifact, [argsData.Threshold], label => argsData.LabelPredicate(label)).Single();
+        string precision = result.Precision?.ToString("P2", CultureInfo.InvariantCulture) ?? "N/A";
+        string markdown = FormattableString.Invariant($"""
+            ## Held-out evaluation
+
+            Threshold: **{result.Threshold:R}**. Total: **{result.Total}**.
+            **{precision}** precision, **{result.Coverage:P2}** coverage; {result.Correct} correct, {result.Wrong} wrong, {result.Abstained} abstained.
+            """);
+        action.WriteInfo(markdown);
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY")))
+        {
+            action.Summary.AddPersistent(summary => summary.AddRawMarkdown(markdown, true));
+            await action.Summary.WritePersistentAsync();
+        }
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or ArgumentException or UnauthorizedAccessException)
+    {
+        action.WriteError($"Held-out evaluation failed: {ex.Message}");
+        return 1;
+    }
+}
+
 string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];

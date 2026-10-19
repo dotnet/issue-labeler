@@ -337,9 +337,10 @@ public class ArgUtils
     /// <param name="value">The output float value if retrieved, or <c>null</c> if there is no value specified.</param>
     /// <returns><c>true</c> if the input value was retrieved successfully, <c>false</c> otherwise.</returns>
     public bool TryGetFloat(string inputName, [NotNullWhen(true)] out float? value)
-    {
-        string? input = GetInputString(inputName);
+        => TryParseFloat(inputName, GetInputString(inputName), out value);
 
+    public bool TryParseFloat(string inputName, string? input, [NotNullWhen(true)] out float? value)
+    {
         if (input is null || !float.TryParse(input, out float parsedValue))
         {
             showUsage($"Input '{inputName}' must be a decimal value.");

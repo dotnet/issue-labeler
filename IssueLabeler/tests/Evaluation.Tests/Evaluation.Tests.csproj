@@ -1,0 +1,12 @@
+<Project Sdk="MSTest.Sdk/4.5.1">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseVSTest>true</UseVSTest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Common\Common.csproj" />
+    <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" />
+    <ProjectReference Include="..\..\src\Tester\Tester.csproj" Aliases="Tester" />
+  </ItemGroup>
+</Project>
