@@ -18,6 +18,9 @@ inputs:
   threshold:
     description: "The minimum confidence score for a label prediction. Must be a number between 0.00 and 1.00. The recommended value is 0.40."
     required: true
+  target_precisions:
+    description: "Target precisions (0-1) for heldout mode. Selects maximum-coverage cutoffs on the saved data; no production settings are changed."
+    default: "0.80,0.90,0.95"
   excluded_authors:
     description: "A comma-separated list of authors to exclude."
   excluded_labels:
@@ -59,6 +62,7 @@ runs:
           exit 1
         fi
         echo "EVALUATION_PATH=labeler-cache/${{ inputs.type }}-model.evaluation.json" >> "$GITHUB_ENV"
+        echo "REPORT_PATH=labeler-cache/${{ inputs.type }}-evaluation-report" >> "$GITHUB_ENV"
       env:
         EVALUATION_MODE: ${{ inputs.mode }}
         HISTORICAL_OPTIONS: ${{ format('{0}{1}{2}{3}{4}{5}{6}', inputs.repository, inputs.excluded_authors, inputs.excluded_labels, inputs.limit, inputs.page_size, inputs.page_limit, inputs.retries) }}
@@ -108,7 +112,8 @@ runs:
       env:
         MODEL_TYPE: ${{ inputs.type }}
         LABEL_PREFIX: ${{ inputs.label_prefix }}
-        EVALUATION_THRESHOLD: ${{ inputs.threshold }}
+        REFERENCE_THRESHOLD: ${{ inputs.threshold }}
+        TARGET_PRECISIONS: ${{ inputs.target_precisions }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         if [[ "$MODEL_TYPE" == "pulls" ]]; then
@@ -120,4 +125,6 @@ runs:
           "${model_args[@]}" \
           --evaluation "$EVALUATION_PATH" \
           --label-prefix "$LABEL_PREFIX" \
-          --threshold "$EVALUATION_THRESHOLD"
+          --threshold "$REFERENCE_THRESHOLD" \
+          --target-precisions "$TARGET_PRECISIONS" \
+          --report "$REPORT_PATH"

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Actions.Core.Services;
+using IssueLabeler.Evaluation;
 using System.Globalization;
 
 public struct Args
@@ -24,6 +25,9 @@ public struct Args
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
     public string? EvaluationPath { get; set; }
+    public double[]? TargetPrecisions { get; set; }
+    public string? ReportDirectory { get; set; }
+    public string? LabelPrefix { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -63,8 +67,12 @@ public struct Args
             Offline held-out evaluation (no GitHub token or repository required):
               --evaluation            Saved .evaluation.json from the same training run as the model.
               --issues-model          Issue model ZIP, or use --pulls-model for a pull request model.
-              --label-prefix          Prefix including every model and reference label.
-              --threshold             One invariant decimal value in [0,1]. Defaults to 0.4.
+              --label-prefix          Prefix used to select applicable model labels.
+              --target-precisions     Comma-separated target precisions in [0,1].
+                                      Defaults to 0.80,0.90,0.95. Selects maximum-coverage cutoffs.
+                                      The --threshold value remains a reference (default 0.4).
+              --report                Output directory for Markdown, JSON and CSV reports.
+                                      Defaults to a reports directory beside the saved scores.
                                       Historical download/filter options cannot be combined with this mode.
             """);
 
@@ -83,6 +91,7 @@ public struct Args
         };
 
         bool historicalOptions = false;
+        bool evaluationOptions = false;
         string? thresholdInput = null;
 
         while (arguments.Count > 0)
@@ -104,11 +113,12 @@ public struct Args
                     break;
 
                 case "--label-prefix":
-                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out Func<string, bool>? labelPredicate))
+                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out string? labelPrefix, out Func<string, bool>? labelPredicate))
                     {
                         ShowUsage("Input '--label-prefix' requires a valid, nonempty label prefix.", action);
                         return null;
                     }
+                    argsData.LabelPrefix = labelPrefix;
                     argsData.LabelPredicate = new(labelPredicate);
                     break;
 
@@ -119,6 +129,34 @@ public struct Args
                         return null;
                     }
                     argsData.EvaluationPath = evaluationPath;
+                    break;
+
+                case "--target-precisions":
+                    evaluationOptions = true;
+                    if (!argUtils.TryGetString("--target-precisions", out string? targets))
+                    {
+                        ShowUsage("Input '--target-precisions' requires a comma-separated list.", action);
+                        return null;
+                    }
+                    try
+                    {
+                        argsData.TargetPrecisions = ThresholdEvaluation.ParsePrecisionTargets(targets);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        ShowUsage(ex.Message, action);
+                        return null;
+                    }
+                    break;
+
+                case "--report":
+                    evaluationOptions = true;
+                    if (!argUtils.TryGetPath("--report", out string? reportDirectory))
+                    {
+                        ShowUsage("Input '--report' requires an output directory.", action);
+                        return null;
+                    }
+                    argsData.ReportDirectory = reportDirectory;
                     break;
 
                 case "--excluded-authors":
@@ -225,22 +263,31 @@ public struct Args
 
         if (argsData.EvaluationPath is not null)
         {
-            if (!float.TryParse(thresholdInput ?? "0.4", NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out float threshold) ||
-                !float.IsFinite(threshold) || threshold < 0 || threshold > 1)
+            if (!float.TryParse(thresholdInput ?? "0.4", NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out float reference) ||
+                !float.IsFinite(reference) || reference < 0 || reference > 1)
             {
                 ShowUsage("Input '--threshold' requires one invariant decimal value between 0 and 1.", action);
                 return null;
             }
-            argsData.Threshold = threshold;
+            argsData.Threshold = reference;
 
             if (historicalOptions || argsData.LabelPredicate is null ||
-                (argsData.IssuesModelPath is null) == (argsData.PullsModelPath is null))
+                (argsData.IssuesModelPath is null) == (argsData.PullsModelPath is null) ||
+                !float.IsFinite(argsData.Threshold) || argsData.Threshold < 0 || argsData.Threshold > 1)
             {
                 ShowUsage("Offline evaluation requires a label prefix and exactly one model; historical download/filter options are not allowed.", action);
                 return null;
             }
 
+            argsData.TargetPrecisions ??= [0.80, 0.90, 0.95];
+            argsData.ReportDirectory ??= Path.Combine(Path.GetDirectoryName(argsData.EvaluationPath)!, "evaluation-report");
             return argsData;
+        }
+
+        if (evaluationOptions)
+        {
+            ShowUsage("Inputs '--target-precisions' and '--report' require '--evaluation'.", action);
+            return null;
         }
 
         if (thresholdInput is not null)

@@ -10,7 +10,6 @@ using IssueLabeler.Evaluation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
-using System.Globalization;
 using System.Text.Json;
 
 using var provider = new ServiceCollection()
@@ -33,15 +32,13 @@ if (argsData.EvaluationPath is not null)
             throw new InvalidDataException("The saved scores were produced for a different model type.");
         }
 
-        var result = ThresholdEvaluation.Evaluate(artifact, [argsData.Threshold], label => argsData.LabelPredicate(label)).Single();
-        string precision = result.Precision?.ToString("P2", CultureInfo.InvariantCulture) ?? "N/A";
-        string markdown = FormattableString.Invariant($"""
-            ## Held-out evaluation
-
-            Threshold: **{result.Threshold:R}**. Total: **{result.Total}**.
-            **{precision}** precision, **{result.Coverage:P2}** coverage; {result.Correct} correct, {result.Wrong} wrong, {result.Abstained} abstained.
-            """);
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, argsData.TargetPrecisions!, label => argsData.LabelPredicate(label));
+        float[] thresholds = [argsData.Threshold, .. targets.Where(target => target.Threshold.HasValue).Select(target => target.Threshold!.Value)];
+        var thresholdResults = ThresholdEvaluation.Evaluate(artifact, thresholds, label => argsData.LabelPredicate(label));
+        string markdown = ThresholdEvaluation.Markdown(artifact, thresholdResults, targets, argsData.LabelPrefix!, argsData.Threshold);
+        ThresholdEvaluation.WriteReports(argsData.ReportDirectory!, artifact, thresholdResults, targets, argsData.LabelPrefix!, argsData.Threshold);
         action.WriteInfo(markdown);
+        action.WriteInfo($"Reports written to '{argsData.ReportDirectory}'.");
         if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY")))
         {
             action.Summary.AddPersistent(summary => summary.AddRawMarkdown(markdown, true));

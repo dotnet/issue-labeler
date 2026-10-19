@@ -4,44 +4,77 @@ Use machine learning models to automatically label issues and pull requests, all
 
 [Onboarding](https://github.com/dotnet/issue-labeler/wiki/Onboarding) is entirely self-service, and models can be retrained at any time.
 
-## Saved held-out evaluation
+## Train once, evaluate thresholds later
 
-Training keeps the existing random 80/20 split and saves
-`<model-name>.evaluation.json` beside the model ZIP. The evidence contains
-model/dataset SHA-256 hashes, tool version, training support, and the held-out
-reference labels and full score vectors, not issue titles or bodies. Scores
-come from the saved/reloaded model with the input `Label` empty.
+This feature requires a release containing the held-out evaluation changes and
+repinning the workflows to that release. v2.2.0 does not contain this feature.
+After upgrading, use the existing **Labeler: Training** workflow:
 
-After building, evaluate a matching model/scores pair without a GitHub token,
-source dataset, downloads, loading model weights, or retraining:
+1. Select **All** (download, train, historical recheck and threshold report) or
+   **Train Model** (reuse downloaded data, train and report). Choose the model
+   type, a fresh `cache_key_suffix`, and `target_precisions` such as
+   `0.80,0.90,0.95`. Use a staged
+   suffix rather than `ACTIVE` while reviewing a new model.
+2. For each target precision, review the suggested threshold and its observed
+   precision, coverage, accepted/correct/wrong counts, and abstentions.
+   The configured reference
+   threshold is included, but no production variable is changed.
+3. To try other targets, select **Evaluate Thresholds** with the same model
+   type and cache suffix on the same branch. This reads the saved scores without
+   downloading issues, loading weights, or retraining. **Test Model** remains the
+   historical recheck and may include training examples.
 
-```powershell
-dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15
-```
+Each evaluation uploads one bundle containing the model ZIP,
+`<model-name>.evaluation.json`, `summary.md`, `scorecard.json`, and `per-area.csv`.
+The report is produced before the historical recheck. The saved evidence
+contains model/dataset hashes, tool version, training support, and exact held-out
+labels/scores, not issue titles or bodies. Scoring uses the saved/reloaded model
+with the input `Label` empty. Missing or mismatched evidence fails explicitly;
+older models must be retrained to produce it.
 
-Use `--pulls-model` for pull request models. Exactly one model is required.
-The threshold uses an invariant decimal in [0,1] (default 0.4). Evaluation reports
-total, correct, wrong, and abstained counts, precision (correct / accepted), and
-coverage (accepted / total). Top-1 scores equal to the threshold are accepted;
-ties keep score-slot order. Precision is N/A when all examples abstain.
-The prefix must include every model and reference label. Missing, malformed,
-wrong-type, or mismatched evidence fails explicitly; older models need retraining.
+Reports cover **top-1** routing (`max_labels: 1`), accepting a score equal to or
+above the threshold and keeping score-slot order for ties. The label prefix must
+include every model and reference label. Per-area precision measures assignments
+to that area; coverage measures non-abstention on reference examples from it.
+Raw micro/macro accuracy does not change with the threshold, and scores are not
+guaranteed correctness probabilities.
 
-The `train` action preserves the existing model ZIP cache format and saves
-evidence separately under `issue-labeler/evaluation/<type>/<suffix>`.
-The `test` action defaults to `mode: historical`, which downloads currently
-labeled items and may include training examples. Use `mode: heldout` with the
-same type/cache suffix, label prefix, and a single `threshold` to replay saved
-scores. Historical repository/download/filter options cannot be combined with
-held-out mode.
+The suggested threshold maximizes coverage while meeting each **observed**
+precision target on the saved examples. Every distinct score boundary is
+checked, with equal scores kept together. An unattainable target is reported
+explicitly; accepting nothing is not treated as perfect precision. Targets do
+not use the confidence interval's lower bound and have no minimum-support gate,
+so a target may be met by only a few examples. Inspect counts and uncertainty
+before approving any policy.
+
+The existing random 80/20 split is retained. Once used for threshold selection,
+the holdout is a **tuning set**, not an untouched final test. Small per-area
+support and duplicate/related issues limit the evidence; pointwise confidence
+intervals do not guarantee the quality of a threshold selected after searching.
+
+### Actions and offline use
+
+The `train` action preserves the model ZIP cache format and saves scores under
+`issue-labeler/evaluation/<type>/<suffix>`. The `test` action defaults to
+`mode: historical`; use `mode: heldout` and `target_precisions` for saved-score evaluation.
+Its existing `threshold` input supplies the reference value. Download/filter
+options are not supported in held-out mode.
 
 Model and score caches are separate, not atomic. Use fresh suffixes; delete both
-entries before retrying a partial save. Caches can be evicted, so retain matching
-model/scores pairs before expiry for longer-lived evidence.
+entries before retrying a partial save. Caches can be evicted, and run artifacts
+follow repository retention settings. Download matching model/scores before
+expiry for longer-lived evidence.
 
-This feature requires a release containing these changes and repinning consumers;
-v2.2.0 does not contain it. The existing training workflow remains unchanged and
-pinned to its release SHA. Production prediction, promotion, and live thresholds
-are unchanged. Scores are not guaranteed correctness probabilities. Once used
-to select a threshold, this holdout is a tuning set, not an untouched final test;
-small support and duplicate/related issues limit the evidence.
+After building the tool, evaluate a downloaded model/scores pair locally without
+a GitHub token, source dataset, or network:
+
+```powershell
+dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15 --target-precisions "0.80,0.90,0.95" --report .\evaluation-report
+```
+
+Use `--pulls-model` for pull request models. Workflow actions remain pinned to
+full release commit SHAs. The [release process](https://github.com/dotnet/issue-labeler/wiki/Release-Process)
+publishes the predictor image and emits `workflow-pins.patch` to update the
+workflow references in a follow-up PR. Consumers should use the canonical SHA
+advertised in the release body, not a branch HEAD or local action path.
+Production prediction and promotion are unchanged.
