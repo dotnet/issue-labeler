@@ -6,9 +6,11 @@ using Actions.Core.Markdown;
 using Actions.Core.Services;
 using Actions.Core.Summaries;
 using GitHubClient;
+using IssueLabeler.Evaluation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using System.Text.Json;
 
 using var provider = new ServiceCollection()
     .AddGitHubActionsCore()
@@ -17,6 +19,41 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
+if (argsData.EvaluationPath is not null)
+{
+    try
+    {
+        string modelPath = argsData.IssuesModelPath ?? argsData.PullsModelPath
+            ?? throw new InvalidOperationException("Offline evaluation requires a model.");
+        var artifact = EvaluationArtifact.Load(argsData.EvaluationPath, modelPath);
+        string expectedType = argsData.PullsModelPath is not null ? nameof(ModelType.PullRequest) : nameof(ModelType.Issue);
+        if (artifact.ModelType != expectedType)
+        {
+            throw new InvalidDataException("The saved scores were produced for a different model type.");
+        }
+
+        var thresholdResults = ThresholdEvaluation.Evaluate(artifact, argsData.Thresholds!, label => argsData.LabelPredicate(label));
+        string markdown = ThresholdEvaluation.Markdown(artifact, thresholdResults, argsData.LabelPrefix!, argsData.Threshold);
+        ThresholdEvaluation.WriteReports(argsData.ReportDirectory!, artifact, thresholdResults, argsData.LabelPrefix!, argsData.Threshold);
+        action.WriteInfo(markdown);
+        action.WriteInfo($"Reports written to '{argsData.ReportDirectory}'.");
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY")))
+        {
+            action.Summary.AddPersistent(summary => summary.AddRawMarkdown(markdown, true));
+            await action.Summary.WritePersistentAsync();
+        }
+        return 0;
+    }
+    catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or ArgumentException or UnauthorizedAccessException)
+    {
+        action.WriteError($"Held-out evaluation failed: {ex.Message}");
+        return 1;
+    }
+}
+
+action.Summary.AddPersistent(summary => summary.AddAlert(
+    "Historical recheck: this mode downloads currently labeled items and may include training examples. It is not an independent held-out evaluation. Use saved-score evaluation to compare thresholds on the trainer's holdout.",
+    AlertType.Warning));
 string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];

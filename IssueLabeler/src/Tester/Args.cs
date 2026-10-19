@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Actions.Core.Services;
+using IssueLabeler.Evaluation;
 
 public struct Args
 {
@@ -22,13 +23,17 @@ public struct Args
     public int? PageLimit { get; set; }
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
+    public string? EvaluationPath { get; set; }
+    public float[]? Thresholds { get; set; }
+    public string? ReportDirectory { get; set; }
+    public string? LabelPrefix { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
         action.WriteNotice($$"""
             ERROR: Invalid or missing arguments.{{(message is null ? "" : " " + message)}}
 
-            Required environment variables:
+            Historical recheck environment variables:
               GITHUB_TOKEN            GitHub token to be used for API calls.
 
             Required arguments:
@@ -57,6 +62,16 @@ public struct Args
               --retries               Comma-separated retry delays in seconds.
                                       Defaults to: 30,30,300,300,3000,3000.
               --verbose               Enable verbose output.
+
+            Offline held-out evaluation (no GitHub token or repository required):
+              --evaluation            Saved .evaluation.json from the same training run as the model.
+              --issues-model          Issue model ZIP, or use --pulls-model for a pull request model.
+              --label-prefix          Prefix used to select applicable model labels.
+              --thresholds            Comma-separated candidate thresholds in [0,1].
+                                      The --threshold reference value is also included (default 0.4).
+              --report                Output directory for Markdown, JSON and CSV reports.
+                                      Defaults to a reports directory beside the saved scores.
+                                      Historical download/filter options cannot be combined with this mode.
             """);
 
         Environment.Exit(1);
@@ -73,15 +88,16 @@ public struct Args
             Retries = [30, 30, 300, 300, 3000, 3000]
         };
 
-        if (string.IsNullOrEmpty(argsData.GitHubToken))
-        {
-            ShowUsage("Environment variable GITHUB_TOKEN is empty.", action);
-            return null;
-        }
+        bool historicalOptions = false;
+        bool evaluationOptions = false;
+        string? thresholdInput = null;
 
         while (arguments.Count > 0)
         {
             string argument = arguments.Dequeue();
+            historicalOptions |= argument is "--repo" or "--excluded-authors" or "--excluded-labels" or
+                "--discussions" or "--issues-limit" or "--discussions-limit" or "--pulls-limit" or
+                "--page-size" or "--page-limit" or "--retries" or "--verbose";
 
             switch (argument)
             {
@@ -95,11 +111,49 @@ public struct Args
                     break;
 
                 case "--label-prefix":
-                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out Func<string, bool>? labelPredicate))
+                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out string? labelPrefix, out Func<string, bool>? labelPredicate))
                     {
                         return null;
                     }
+                    argsData.LabelPrefix = labelPrefix;
                     argsData.LabelPredicate = new(labelPredicate);
+                    break;
+
+                case "--evaluation":
+                    if (!argUtils.TryGetPath("--evaluation", out string? evaluationPath))
+                    {
+                        ShowUsage("Input '--evaluation' requires a saved-scores path.", action);
+                        return null;
+                    }
+                    argsData.EvaluationPath = evaluationPath;
+                    break;
+
+                case "--thresholds":
+                    evaluationOptions = true;
+                    if (!argUtils.TryGetString("--thresholds", out string? thresholds))
+                    {
+                        ShowUsage("Input '--thresholds' requires a comma-separated list.", action);
+                        return null;
+                    }
+                    try
+                    {
+                        argsData.Thresholds = ThresholdEvaluation.ParseThresholds(thresholds);
+                    }
+                    catch (ArgumentException ex)
+                    {
+                        ShowUsage(ex.Message, action);
+                        return null;
+                    }
+                    break;
+
+                case "--report":
+                    evaluationOptions = true;
+                    if (!argUtils.TryGetPath("--report", out string? reportDirectory))
+                    {
+                        ShowUsage("Input '--report' requires an output directory.", action);
+                        return null;
+                    }
+                    argsData.ReportDirectory = reportDirectory;
                     break;
 
                 case "--excluded-authors":
@@ -119,11 +173,11 @@ public struct Args
                     break;
 
                 case "--threshold":
-                    if (!argUtils.TryGetFloat("--threshold", out float? threshold))
+                    if (!argUtils.TryGetString("--threshold", out thresholdInput))
                     {
+                        ShowUsage("Input '--threshold' requires a decimal value.", action);
                         return null;
                     }
-                    argsData.Threshold = threshold.Value;
                     break;
 
                 case "--issues-model":
@@ -204,7 +258,59 @@ public struct Args
             }
         }
 
-        if (argsData.Org is null || argsData.Repos.Count == 0 || argsData.LabelPredicate is null ||
+        if (argsData.EvaluationPath is not null)
+        {
+            try
+            {
+                float[] reference = ThresholdEvaluation.ParseThresholds(thresholdInput ?? "0.4");
+                if (reference.Length != 1)
+                {
+                    ShowUsage("Input '--threshold' requires one decimal value.", action);
+                    return null;
+                }
+                argsData.Threshold = reference[0];
+            }
+            catch (ArgumentException ex)
+            {
+                ShowUsage(ex.Message, action);
+                return null;
+            }
+
+            if (historicalOptions || argsData.LabelPredicate is null ||
+                (argsData.IssuesModelPath is null) == (argsData.PullsModelPath is null) ||
+                !float.IsFinite(argsData.Threshold) || argsData.Threshold < 0 || argsData.Threshold > 1)
+            {
+                ShowUsage("Offline evaluation requires a label prefix and exactly one model; historical download/filter options are not allowed.", action);
+                return null;
+            }
+
+            argsData.Thresholds = [.. (argsData.Thresholds ?? []).Append(argsData.Threshold).Distinct().Order()];
+            argsData.ReportDirectory ??= Path.Combine(Path.GetDirectoryName(argsData.EvaluationPath)!, "evaluation-report");
+            return argsData;
+        }
+
+        if (evaluationOptions)
+        {
+            ShowUsage("Inputs '--thresholds' and '--report' require '--evaluation'.", action);
+            return null;
+        }
+
+        if (thresholdInput is not null)
+        {
+            if (!argUtils.TryParseFloat("--threshold", thresholdInput, out float? threshold))
+            {
+                return null;
+            }
+            argsData.Threshold = threshold.Value;
+        }
+
+        if (string.IsNullOrEmpty(argsData.GitHubToken))
+        {
+            ShowUsage("Environment variable GITHUB_TOKEN is empty.", action);
+            return null;
+        }
+
+        if (argsData.Org is null || argsData.Repos is null || argsData.Repos.Count == 0 || argsData.LabelPredicate is null ||
             (argsData.IssuesModelPath is null && argsData.PullsModelPath is null))
         {
             ShowUsage(null, action);
