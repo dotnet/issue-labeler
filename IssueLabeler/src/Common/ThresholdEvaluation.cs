@@ -88,7 +88,9 @@ public static class ThresholdEvaluation
         }).ToArray();
         string[] labels = [.. artifact.Labels.Concat(artifact.Rows.Select(row => row.Label))
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
-        var trainingSupport = new Dictionary<string, int>(artifact.TrainingSupport, StringComparer.OrdinalIgnoreCase);
+        var trainingSupport = artifact.TrainingSupport
+            .GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Sum(pair => pair.Value), StringComparer.OrdinalIgnoreCase);
         var results = new List<ThresholdResult>();
 
         foreach (float threshold in thresholds.Distinct().Order())

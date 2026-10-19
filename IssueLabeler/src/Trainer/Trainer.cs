@@ -156,6 +156,8 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     action.WriteInfo($"Saved {evaluation.Rows.Length} held-out predictions to '{evaluationPath}'.");
     action.Summary.AddPersistent(summary =>
     {
+        summary.AddNewLine();
+        summary.AddNewLine();
         summary.AddAlert(
             $"Saved **{evaluation.Rows.Length:N0}** label-free held-out predictions alongside the model. Evaluate thresholds from these saved scores without retraining or redownloading issues. Once used for threshold selection, this holdout is a tuning set, not an untouched final test.",
             AlertType.Note);

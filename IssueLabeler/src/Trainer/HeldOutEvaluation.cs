@@ -20,7 +20,7 @@ public static class HeldOutEvaluation
         VBuffer<ReadOnlyMemory<char>> slots = default;
         predictor.OutputSchema[nameof(PredictionOutput.Score)].GetSlotNames(ref slots);
         string[] labels = [.. slots.DenseValues().Select(value => value.ToString())];
-        var trainingSupport = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var trainingSupport = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var row in context.Data.CreateEnumerable<LabelValue>(trainingData, reuseRowObject: false))
         {
             trainingSupport[row.Label] = trainingSupport.GetValueOrDefault(row.Label) + 1;

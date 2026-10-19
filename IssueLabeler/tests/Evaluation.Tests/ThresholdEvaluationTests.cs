@@ -140,6 +140,43 @@ public sealed class ThresholdEvaluationTests
     }
 
     [TestMethod]
+    public void CaseVariantSlotsKeepTheirIdentityAndShareOneReportArea()
+    {
+        var artifact = new EvaluationArtifact
+        {
+            ModelSha256 = EvaluationArtifact.HashFile(modelPath),
+            DatasetSha256 = EvaluationArtifact.HashFile(modelPath),
+            ToolVersion = "test",
+            ModelType = "Issue",
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            TrainingCount = 30,
+            TrainingSupport = new() { ["area-Foo"] = 10, ["area-foo"] = 15, ["area-Bar"] = 5 },
+            Labels = ["area-Foo", "area-foo", "area-Bar"],
+            Rows =
+            [
+                new() { Index = 0, Label = "area-foo", Scores = [0.8f, 0.1f, 0.1f] },
+                new() { Index = 1, Label = "area-Foo", Scores = [0.1f, 0.8f, 0.1f] },
+                new() { Index = 2, Label = "area-Bar", Scores = [0.2f, 0.7f, 0.1f] }
+            ]
+        };
+        string path = EvaluationArtifact.GetPath(modelPath);
+        artifact.Save(path);
+        var loaded = EvaluationArtifact.Load(path, modelPath);
+        CollectionAssert.AreEqual(artifact.Labels, loaded.Labels);
+        var result = ThresholdEvaluation.Evaluate(loaded, [0.4f], IsArea).Single();
+        Assert.AreEqual(2, result.Correct);
+        Assert.AreEqual(1, result.Wrong);
+        Assert.HasCount(2, result.Areas);
+        var area = result.Areas.Single(value => value.Label.Equals("area-Foo", StringComparison.OrdinalIgnoreCase));
+        Assert.AreEqual(25, area.TrainingSupport);
+        Assert.AreEqual(2, area.HeldOutSupport);
+        Assert.AreEqual(2, area.Correct);
+        Assert.AreEqual(1, area.Wrong);
+        Assert.AreEqual(2.0 / 3, area.Precision!.Value, 0.000001);
+        Assert.AreEqual(artifact.TrainingCount, result.Areas.Sum(value => value.TrainingSupport));
+    }
+
+    [TestMethod]
     public void UnseenAndZeroHeldOutSupportAreVisible()
     {
         var artifact = CreateArtifact([new() { Index = 0, Label = "area-C", Scores = [1, 0] }]);

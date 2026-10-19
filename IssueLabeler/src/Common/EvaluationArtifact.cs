@@ -74,15 +74,15 @@ public sealed class EvaluationArtifact
 
         if (TrainingSupport is null || TrainingCount <= 0 || TrainingSupport.Count == 0 ||
             TrainingSupport.Any(pair => string.IsNullOrWhiteSpace(pair.Key) || pair.Value <= 0) ||
-            TrainingSupport.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != TrainingSupport.Count ||
+            TrainingSupport.Keys.Distinct(StringComparer.Ordinal).Count() != TrainingSupport.Count ||
             TrainingSupport.Values.Sum(value => (long)value) != TrainingCount)
         {
             throw new InvalidDataException("The evaluation artifact has invalid training support counts.");
         }
 
         if (Labels is null || Labels.Length == 0 || Labels.Length != TrainingSupport.Count || Labels.Any(string.IsNullOrWhiteSpace) ||
-            Labels.Distinct(StringComparer.OrdinalIgnoreCase).Count() != Labels.Length ||
-            Labels.Any(label => !TrainingSupport.Keys.Contains(label, StringComparer.OrdinalIgnoreCase)))
+            Labels.Distinct(StringComparer.Ordinal).Count() != Labels.Length ||
+            Labels.Any(label => !TrainingSupport.Keys.Contains(label, StringComparer.Ordinal)))
         {
             throw new InvalidDataException("The evaluation artifact has invalid score-slot labels.");
         }

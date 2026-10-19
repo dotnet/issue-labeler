@@ -5,6 +5,7 @@ extern alias Tester;
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Actions.Core.Extensions;
 using Actions.Core.Services;
 using IssueLabeler.Evaluation;
@@ -106,6 +107,31 @@ public sealed class TrainingEvaluationTests
             "--issues-model", modelPath, "--label-prefix", "area-", "--thresholds", "0,0.4,1");
         Assert.AreEqual(0, evaluation.ExitCode, evaluation.Output);
         Assert.IsTrue(File.Exists(Path.Combine(directory, "evaluation-report", "scorecard.json")));
+    }
+
+    [TestMethod]
+    public async Task TrainerSupportsCaseVariantLabelsAndSeparatesTheSummaryNote()
+    {
+        string datasetPath = Path.Combine(directory, "data.tsv");
+        string modelPath = Path.Combine(directory, "model.zip");
+        string[] labels = ["area-Foo", "area-foo", "area-Bar"];
+        string[] records = [DataFileUtils.FormatIssueRecord("Label", "Title", "Body"),
+            .. Enumerable.Range(0, 300).Select(index => DataFileUtils.FormatIssueRecord(
+                labels[index % labels.Length], $"Training example {index}", $"Content for {labels[index % labels.Length]}"))];
+        File.WriteAllLines(datasetPath, records);
+        var training = await RunTool("Trainer", "--issues-data", datasetPath, "--issues-model", modelPath);
+        Assert.AreEqual(0, training.ExitCode, training.Output);
+        var artifact = EvaluationArtifact.Load(EvaluationArtifact.GetPath(modelPath), modelPath);
+        Assert.HasCount(3, artifact.Labels);
+        Assert.HasCount(3, artifact.TrainingSupport);
+        Assert.AreEqual(300, artifact.TrainingCount + artifact.Rows.Length);
+        var result = ThresholdEvaluation.Evaluate(artifact, [0.4f],
+            label => label.StartsWith("area-", StringComparison.OrdinalIgnoreCase)).Single();
+        Assert.HasCount(2, result.Areas);
+        Assert.AreEqual(artifact.TrainingCount, result.Areas.Sum(area => area.TrainingSupport));
+        Assert.AreEqual(artifact.Rows.Length, result.Areas.Sum(area => area.HeldOutSupport));
+        string summary = File.ReadAllText(Directory.GetFiles(directory, "training-summary-*.md").Single());
+        Assert.IsTrue(Regex.IsMatch(summary, @"\r?\n\r?\n> \[!NOTE\]"), summary);
     }
 
     [TestMethod]
