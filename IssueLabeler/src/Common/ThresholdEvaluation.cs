@@ -15,28 +15,6 @@ public sealed record ThresholdResult(float Threshold, int Total, int Correct, in
     public int Accepted => Correct + Wrong;
     public double? Precision => Accepted == 0 ? null : (double)Correct / Accepted;
     public double Coverage => (double)Accepted / Total;
-    public double? PrecisionLower => Wilson(Correct, Accepted)?.Lower;
-    public double? PrecisionUpper => Wilson(Correct, Accepted)?.Upper;
-
-    public static (double Lower, double Upper)? Wilson(int successes, int count)
-    {
-        if (count < 0 || successes < 0 || successes > count)
-        {
-            throw new ArgumentOutOfRangeException(nameof(successes), "Successes must be between zero and the sample count.");
-        }
-
-        if (count == 0)
-        {
-            return null;
-        }
-
-        const double z = 1.959963984540054;
-        double proportion = (double)successes / count;
-        double denominator = 1 + z * z / count;
-        double center = (proportion + z * z / (2 * count)) / denominator;
-        double margin = z * Math.Sqrt(proportion * (1 - proportion) / count + z * z / (4.0 * count * count)) / denominator;
-        return (Math.Max(0, center - margin), Math.Min(1, center + margin));
-    }
 }
 
 public static class ThresholdEvaluation

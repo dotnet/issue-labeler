@@ -120,11 +120,12 @@ runs:
     - name: "Write Final Summary"
       shell: bash
       run: |
-        echo "" >> "$GITHUB_STEP_SUMMARY"
-        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
         echo "Matching held-out scores were saved under the same suffix." >> "$GITHUB_STEP_SUMMARY"
+
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
-          echo "Label predictions will now use this model." >> "$GITHUB_STEP_SUMMARY"
+          echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY
         else
-          echo "The '${{ inputs.model_cache_key }}' model is saved to cache and available to test or promote." >> "$GITHUB_STEP_SUMMARY"
+          echo "The '${{ inputs.model_cache_key }}' model is saved to cache and available to test or promote." >> $GITHUB_STEP_SUMMARY
         fi

@@ -188,12 +188,9 @@ public class ArgUtils
     /// <param name="inputName">The name of the input to retrieve.</param>
     /// <param name="labelPredicate">The label predicate function that checks if a label starts with the specified prefix.</param>
     /// <returns><c>true</c> if the label prefix was retrieved successfully, <c>false</c> otherwise.</returns>
-    public bool TryGetLabelPrefix(string inputName, [NotNullWhen(true)] out Func<string, bool>? labelPredicate) =>
-        TryGetLabelPrefix(inputName, out _, out labelPredicate);
-
-    public bool TryGetLabelPrefix(string inputName, [NotNullWhen(true)] out string? labelPrefix, [NotNullWhen(true)] out Func<string, bool>? labelPredicate)
+    public bool TryGetLabelPrefix(string inputName, [NotNullWhen(true)] out Func<string, bool>? labelPredicate)
     {
-        labelPrefix = GetInputString(inputName);
+        string? labelPrefix = GetInputString(inputName);
 
         if (labelPrefix is null)
         {
@@ -217,8 +214,7 @@ public class ArgUtils
             return false;
         }
 
-        string prefix = labelPrefix;
-        labelPredicate = (label) => label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        labelPredicate = (label) => label.StartsWith(labelPrefix, StringComparison.OrdinalIgnoreCase);
         return true;
     }
 

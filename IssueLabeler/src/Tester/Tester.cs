@@ -56,9 +56,6 @@ if (argsData.EvaluationPath is not null)
     }
 }
 
-action.Summary.AddPersistent(summary => summary.AddAlert(
-    "Historical recheck: this mode downloads currently labeled items and may include training examples. It is not an independent held-out evaluation. Use saved-score evaluation to compare thresholds on the trainer's holdout.",
-    AlertType.Warning));
 string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];

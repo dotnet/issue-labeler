@@ -128,7 +128,6 @@ public sealed class ThresholdEvaluationTests
         Assert.AreEqual(2.0 / 3, results[1].Coverage, 0.000001);
         Assert.AreEqual(3, results[2].Abstained);
         Assert.IsNull(results[2].Precision);
-        Assert.IsNull(results[2].PrecisionLower);
         Assert.AreEqual(0.7f, artifact.Rows[1].Scores[0]);
         var area = results[1].Areas.Single(value => value.Label == "area-B");
         Assert.AreEqual(2, area.HeldOutSupport);
@@ -211,17 +210,6 @@ public sealed class ThresholdEvaluationTests
         Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.Evaluate(CreateArtifact(), [], IsArea));
         Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.Evaluate(CreateArtifact(), [-0.1f], IsArea));
         Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.Evaluate(CreateArtifact(), [1.1f], IsArea));
-    }
-
-    [DataRow(5145, 6437, 0.7893, 0.8089)]
-    [DataRow(6885, 10500, 0.6466, 0.6647)]
-    [TestMethod]
-    public void WilsonIntervalsMatchBenchmarkCounts(int correct, int accepted, double lower, double upper)
-    {
-        var interval = ThresholdResult.Wilson(correct, accepted)!.Value;
-        Assert.AreEqual(lower, interval.Lower, 0.0001);
-        Assert.AreEqual(upper, interval.Upper, 0.0001);
-        Assert.IsNull(ThresholdResult.Wilson(0, 0));
     }
 
     private EvaluationArtifact CreateArtifact(EvaluationRow[]? rows = null) => new()

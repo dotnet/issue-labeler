@@ -24,7 +24,6 @@ public struct Args
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
     public string? EvaluationPath { get; set; }
-    public string? LabelPrefix { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -105,12 +104,11 @@ public struct Args
                     break;
 
                 case "--label-prefix":
-                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out string? labelPrefix, out Func<string, bool>? labelPredicate))
+                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out Func<string, bool>? labelPredicate))
                     {
                         ShowUsage("Input '--label-prefix' requires a valid, nonempty label prefix.", action);
                         return null;
                     }
-                    argsData.LabelPrefix = labelPrefix;
                     argsData.LabelPredicate = new(labelPredicate);
                     break;
 
