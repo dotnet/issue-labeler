@@ -177,6 +177,78 @@ public sealed class ThresholdEvaluationTests
     }
 
     [TestMethod]
+    public void PrecisionTargetsChooseMaximumCoverageEvenWhenPrecisionIsNotMonotonic()
+    {
+        var artifact = CreateArtifact(
+        [
+            new() { Index = 0, Label = "area-A", Scores = [0.93f, 0.07f] },
+            new() { Index = 1, Label = "area-B", Scores = [0.87f, 0.13f] },
+            new() { Index = 2, Label = "area-A", Scores = [0.71f, 0.29f] },
+            new() { Index = 3, Label = "area-A", Scores = [0.65f, 0.35f] }
+        ]);
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, [0.75, 0.8, 1], IsArea);
+        Assert.AreEqual(0.65f, targets[0].Threshold);
+        Assert.AreEqual(0.93f, targets[1].Threshold);
+        Assert.AreEqual(0.93f, targets[2].Threshold);
+        var result = ThresholdEvaluation.Evaluate(artifact, [targets[0].Threshold!.Value], IsArea).Single();
+        Assert.AreEqual(1, result.Coverage);
+        Assert.AreEqual(0.75, result.Precision);
+    }
+
+    [TestMethod]
+    public void PrecisionTargetSelectionNeverSplitsEqualScoreGroups()
+    {
+        var artifact = CreateArtifact(
+        [
+            new() { Index = 0, Label = "area-A", Scores = [0.8f, 0.2f] },
+            new() { Index = 1, Label = "area-A", Scores = [0.8f, 0.2f] },
+            new() { Index = 2, Label = "area-B", Scores = [0.8f, 0.2f] }
+        ]);
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, [2.0 / 3, 0.8, 1], IsArea);
+        Assert.AreEqual(0.8f, targets[0].Threshold);
+        Assert.IsNull(targets[1].Threshold);
+        Assert.IsNull(targets[2].Threshold);
+    }
+
+    [TestMethod]
+    public void TargetSelectionMatchesAnExhaustiveSearchOfObservedCutoffs()
+    {
+        var random = new Random(42);
+        for (int iteration = 0; iteration < 20; iteration++)
+        {
+            EvaluationRow[] rows = [.. Enumerable.Range(0, 60).Select(index =>
+            {
+                float score = 0.5f + random.Next(6) * 0.1f;
+                return new EvaluationRow
+                {
+                    Index = index,
+                    Label = random.Next(2) == 0 ? "area-A" : "area-B",
+                    Scores = [score, 1 - score]
+                };
+            })];
+            var artifact = CreateArtifact(rows);
+            var policies = ThresholdEvaluation.Evaluate(artifact, [.. rows.Select(row => row.Scores.Max()).Distinct()], IsArea);
+            var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, [0, 0.5, 0.8, 0.95, 1], IsArea);
+            foreach (var target in targets)
+            {
+                var expected = policies.Where(policy => policy.Precision >= target.TargetPrecision)
+                    .OrderByDescending(policy => policy.Accepted).FirstOrDefault();
+                Assert.AreEqual(expected?.Threshold, target.Threshold);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void InvalidPrecisionTargetsAndMismatchedPrefixesAreRejected()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.SelectPrecisionTargets(CreateArtifact(), [], IsArea));
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.SelectPrecisionTargets(CreateArtifact(), [double.NaN], IsArea));
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.SelectPrecisionTargets(CreateArtifact(), [double.PositiveInfinity], IsArea));
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.SelectPrecisionTargets(CreateArtifact(), [1.1], IsArea));
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.SelectPrecisionTargets(CreateArtifact(), [0.9], _ => false));
+    }
+
+    [TestMethod]
     public void UnseenAndZeroHeldOutSupportAreVisible()
     {
         var artifact = CreateArtifact([new() { Index = 0, Label = "area-C", Scores = [1, 0] }]);
@@ -197,13 +269,13 @@ public sealed class ThresholdEvaluationTests
     }
 
     [TestMethod]
-    public void ThresholdParsingIsInvariantSortedAndDeduplicated()
+    public void PrecisionTargetParsingIsInvariantSortedAndDeduplicated()
     {
         var previous = CultureInfo.CurrentCulture;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("cs-CZ");
-            CollectionAssert.AreEqual(new float[] { 0, 0.15f, 0.4f, 1 }, ThresholdEvaluation.ParseThresholds("1, 0.40,0.15,0,0.4"));
+            CollectionAssert.AreEqual(new double[] { 0, 0.8, 0.9, 1 }, ThresholdEvaluation.ParsePrecisionTargets("1, 0.90,0.80,0,0.9"));
         }
         finally
         {
@@ -219,12 +291,12 @@ public sealed class ThresholdEvaluationTests
     [DataRow("1.1")]
     [DataRow("0,5")]
     [TestMethod]
-    public void InvalidThresholdsAreRejected(string value) =>
-        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.ParseThresholds(value));
+    public void InvalidPrecisionTargetValuesAreRejected(string value) =>
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.ParsePrecisionTargets(value));
 
     [TestMethod]
-    public void ExcessiveThresholdListsAreRejected() =>
-        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.ParseThresholds(string.Join(',', Enumerable.Repeat("0.4", 51))));
+    public void ExcessivePrecisionTargetListsAreRejected() =>
+        Assert.ThrowsExactly<ArgumentException>(() => ThresholdEvaluation.ParsePrecisionTargets(string.Join(',', Enumerable.Repeat("0.9", 51))));
 
     [DataRow(5145, 6437, 0.7893, 0.8089)]
     [DataRow(6885, 10500, 0.6466, 0.6647)]
@@ -238,18 +310,41 @@ public sealed class ThresholdEvaluationTests
     }
 
     [TestMethod]
-    public void ReportsIncludeCountsProvenanceAndNoFalsePrecisionForAbstention()
+    public void ReportsAllowMultiplePrecisionTargetsToShareOneCutoff()
     {
         var artifact = CreateArtifact();
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, [0.8, 0.9, 0.95], IsArea);
+        var results = ThresholdEvaluation.Evaluate(artifact,
+            [0.15f, .. targets.Select(target => target.Threshold!.Value)], IsArea);
+        string path = Path.Combine(directory, "report");
+        ThresholdEvaluation.WriteReports(path, artifact, results, targets, "area-", 0.15f);
+        string markdown = File.ReadAllText(Path.Combine(path, "summary.md"));
+        StringAssert.Contains(markdown, "| 80.00");
+        StringAssert.Contains(markdown, "| 90.00");
+        StringAssert.Contains(markdown, "| 95.00");
+        using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(path, "scorecard.json")));
+        Assert.AreEqual(3, json.RootElement.GetProperty("precisionTargets").GetArrayLength());
+        Assert.AreEqual(2, json.RootElement.GetProperty("results").GetArrayLength());
+        Assert.AreEqual(0.15f, json.RootElement.GetProperty("referenceThreshold").GetSingle());
+    }
+
+    [TestMethod]
+    public void ReportsIncludeTargetsProvenanceAndNoFalsePrecisionForAbstention()
+    {
+        var artifact = CreateArtifact([new() { Index = 0, Label = "area-B", Scores = [0.8f, 0.2f] }]);
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, [0.9], IsArea);
         var results = ThresholdEvaluation.Evaluate(artifact, [1], IsArea);
         string path = Path.Combine(directory, "report");
-        ThresholdEvaluation.WriteReports(path, artifact, results, "area-");
+        ThresholdEvaluation.WriteReports(path, artifact, results, targets, "area-", 1);
         string markdown = File.ReadAllText(Path.Combine(path, "summary.md"));
         StringAssert.Contains(markdown, artifact.ModelSha256);
         StringAssert.Contains(markdown, "N/A");
         StringAssert.Contains(markdown, "tuning set");
+        StringAssert.Contains(markdown, "Not attainable");
+        StringAssert.Contains(markdown, "not the lower confidence bound");
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(path, "scorecard.json")));
         Assert.AreEqual(JsonValueKind.Null, json.RootElement.GetProperty("results")[0].GetProperty("precision").ValueKind);
+        Assert.AreEqual(JsonValueKind.Null, json.RootElement.GetProperty("precisionTargets")[0].GetProperty("threshold").ValueKind);
         Assert.IsTrue(File.Exists(Path.Combine(path, "per-area.csv")));
         Assert.IsFalse(File.ReadAllText(Path.Combine(path, "per-area.csv")).Replace("\r\n", string.Empty).Contains('\n'));
     }

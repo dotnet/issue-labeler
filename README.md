@@ -12,12 +12,14 @@ After upgrading, use the existing **Labeler: Training** workflow:
 
 1. Select **All** (download, train, historical recheck and threshold report) or
    **Train Model** (reuse downloaded data, train and report). Choose the model
-   type, a fresh `cache_key_suffix`, and candidate `thresholds`. Use a staged
+   type, a fresh `cache_key_suffix`, and `target_precisions` such as
+   `0.80,0.90,0.95`. Use a staged
    suffix rather than `ACTIVE` while reviewing a new model.
-2. Review the threshold table: correct/wrong accepted predictions, abstentions,
-   accepted precision, coverage, and per-area evidence. The configured reference
+2. For each target precision, review the suggested threshold and its observed
+   precision, coverage, accepted/correct/wrong counts, and abstentions.
+   The configured reference
    threshold is included, but no production variable is changed.
-3. To try other thresholds, select **Evaluate Thresholds** with the same model
+3. To try other targets, select **Evaluate Thresholds** with the same model
    type and cache suffix on the same branch. This reads the saved scores without
    downloading issues, loading weights, or retraining. **Test Model** remains the
    historical recheck and may include training examples.
@@ -35,7 +37,15 @@ above the threshold and keeping score-slot order for ties. The label prefix must
 include every model and reference label. Per-area precision measures assignments
 to that area; coverage measures non-abstention on reference examples from it.
 Raw micro/macro accuracy does not change with the threshold, and scores are not
-guaranteed correctness probabilities. No threshold is automatically recommended.
+guaranteed correctness probabilities.
+
+The suggested threshold maximizes coverage while meeting each **observed**
+precision target on the saved examples. Every distinct score boundary is
+checked, with equal scores kept together. An unattainable target is reported
+explicitly; accepting nothing is not treated as perfect precision. Targets do
+not use the confidence interval's lower bound and have no minimum-support gate,
+so a target may be met by only a few examples. Inspect counts and uncertainty
+before approving any policy.
 
 The existing random 80/20 split is retained. Once used for threshold selection,
 the holdout is a **tuning set**, not an untouched final test. Small per-area
@@ -46,7 +56,7 @@ intervals do not guarantee the quality of a threshold selected after searching.
 
 The `train` action preserves the model ZIP cache format and saves scores under
 `issue-labeler/evaluation/<type>/<suffix>`. The `test` action defaults to
-`mode: historical`; use `mode: heldout` and `thresholds` for saved-score evaluation.
+`mode: historical`; use `mode: heldout` and `target_precisions` for saved-score evaluation.
 Its existing `threshold` input supplies the reference value. Download/filter
 options are not supported in held-out mode.
 
@@ -59,7 +69,7 @@ After building the tool, evaluate a downloaded model/scores pair locally without
 a GitHub token, source dataset, or network:
 
 ```powershell
-dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15 --thresholds "0.05,0.15,0.40,0.60,0.80" --report .\evaluation-report
+dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15 --target-precisions "0.80,0.90,0.95" --report .\evaluation-report
 ```
 
 Use `--pulls-model` for pull request models. Workflow actions remain pinned to

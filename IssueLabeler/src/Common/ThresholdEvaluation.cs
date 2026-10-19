@@ -7,6 +7,8 @@ using System.Text.Json;
 
 namespace IssueLabeler.Evaluation;
 
+public sealed record PrecisionTargetResult(double TargetPrecision, float? Threshold);
+
 public sealed record AreaEvaluation(string Label, int TrainingSupport, int HeldOutSupport, int Correct, int Wrong, int Abstained, int Misrouted)
 {
     public int Missed => Abstained + Misrouted;
@@ -45,47 +47,73 @@ public sealed record ThresholdResult(float Threshold, int Total, int Correct, in
 
 public static class ThresholdEvaluation
 {
-    public static float[] ParseThresholds(string value)
+    public static double[] ParsePrecisionTargets(string value)
     {
         string[] tokens = value.Split(',');
         if (tokens.Length is 0 or > 50)
         {
-            throw new ArgumentException("Provide between 1 and 50 comma-separated thresholds.");
+            throw new ArgumentException("Provide between 1 and 50 comma-separated precision targets.");
         }
 
-        var thresholds = new List<float>();
+        var targets = new List<double>();
         foreach (string token in tokens)
         {
-            if (!float.TryParse(token.Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out float threshold) ||
-                !float.IsFinite(threshold) || threshold < 0 || threshold > 1)
+            if (!double.TryParse(token.Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double target) ||
+                !double.IsFinite(target) || target < 0 || target > 1)
             {
-                throw new ArgumentException($"Invalid threshold '{token}'. Use invariant decimal values between 0 and 1.");
+                throw new ArgumentException($"Invalid precision target '{token}'. Use invariant decimal values between 0 and 1.");
             }
 
-            thresholds.Add(threshold);
+            targets.Add(target);
         }
 
-        return [.. thresholds.Distinct().Order()];
+        return [.. targets.Distinct().Order()];
+    }
+
+    public static PrecisionTargetResult[] SelectPrecisionTargets(EvaluationArtifact artifact, double[] targets, Func<string, bool> labelPredicate)
+    {
+        ValidatePopulation(artifact, labelPredicate);
+        if (targets.Length is 0 or > 50 || targets.Any(value => !double.IsFinite(value) || value < 0 || value > 1))
+        {
+            throw new ArgumentException("Provide between 1 and 50 finite precision targets between 0 and 1.", nameof(targets));
+        }
+
+        var results = targets.Distinct().Order().Select(target => new PrecisionTargetResult(target, null)).ToArray();
+        int accepted = 0;
+        int correct = 0;
+        foreach (var group in GetPredictions(artifact).OrderByDescending(item => item.Prediction.Score).GroupBy(item => item.Prediction.Score))
+        {
+            foreach (var (row, prediction) in group)
+            {
+                accepted++;
+                if (prediction.Label.Equals(row.Label, StringComparison.OrdinalIgnoreCase))
+                {
+                    correct++;
+                }
+            }
+
+            double precision = (double)correct / accepted;
+            for (int index = 0; index < results.Length; index++)
+            {
+                if (precision >= results[index].TargetPrecision)
+                {
+                    results[index] = results[index] with { Threshold = group.Key };
+                }
+            }
+        }
+
+        return results;
     }
 
     public static ThresholdResult[] Evaluate(EvaluationArtifact artifact, float[] thresholds, Func<string, bool> labelPredicate)
     {
-        artifact.Validate();
+        ValidatePopulation(artifact, labelPredicate);
         if (thresholds.Length == 0 || thresholds.Any(value => !float.IsFinite(value) || value < 0 || value > 1))
         {
             throw new ArgumentException("At least one finite threshold between 0 and 1 is required.", nameof(thresholds));
         }
 
-        if (!artifact.Labels.All(labelPredicate) || artifact.Rows.Any(row => !labelPredicate(row.Label)))
-        {
-            throw new ArgumentException("The label prefix must include every model and reference label; a partial prefix would change the evaluation population.", nameof(labelPredicate));
-        }
-
-        var predictions = artifact.Rows.Select(row =>
-        {
-            int index = Array.IndexOf(row.Scores, row.Scores.Max());
-            return (Row: row, Prediction: (Label: artifact.Labels[index], Score: row.Scores[index]));
-        }).ToArray();
+        var predictions = GetPredictions(artifact);
         string[] labels = [.. artifact.Labels.Concat(artifact.Rows.Select(row => row.Label))
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase)];
         var trainingSupport = artifact.TrainingSupport
@@ -129,39 +157,46 @@ public static class ThresholdEvaluation
         return [.. results];
     }
 
-    public static string Markdown(EvaluationArtifact artifact, ThresholdResult[] results, string labelPrefix, float? referenceThreshold = null)
+    public static string Markdown(EvaluationArtifact artifact, ThresholdResult[] results, PrecisionTargetResult[] targets, string labelPrefix, float referenceThreshold)
     {
         var text = new StringBuilder();
-        text.AppendLine("## Held-out threshold evaluation");
+        text.AppendLine("## Held-out precision targets");
         text.AppendLine();
         text.AppendLine($"Model: `{artifact.ModelSha256}`");
         text.AppendLine($"Dataset: `{artifact.DatasetSha256}`");
         text.AppendLine($"Tool: `{artifact.ToolVersion}`");
         text.AppendLine($"Evidence created: `{artifact.CreatedAtUtc:O}`");
-        if (referenceThreshold is float reference)
-        {
-            text.AppendLine($"Reference threshold: **{Number(reference)}** (comparison only; not changed).");
-        }
+        text.AppendLine($"Reference threshold: **{Number(referenceThreshold)}** (comparison only; not changed).");
         text.AppendLine();
         text.AppendLine($"Training examples: **{artifact.TrainingCount:N0}**. Held-out examples: **{artifact.Rows.Length:N0}**. Label prefix: `{labelPrefix}`.");
         text.AppendLine("Top-1 model-level evaluation: one label is accepted when its score is **greater than or equal to** the threshold.");
         text.AppendLine("These are the saved predictions from a single random 20% split. Once used to select a threshold, this is a tuning set, not an untouched final test.");
         text.AppendLine();
-        text.AppendLine("| Threshold | Correct accepted | Wrong accepted | Abstained | Accepted precision | Precision 95% interval | Coverage |");
-        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|");
-        foreach (var result in results)
+        text.AppendLine("| Target precision | Suggested threshold | Observed precision | Precision 95% interval | Coverage | Accepted | Correct | Wrong | Abstained |");
+        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var target in targets)
         {
+            if (target.Threshold is not float threshold)
+            {
+                text.AppendLine($"| {Percent(target.TargetPrecision)} | Not attainable | N/A | N/A | N/A | N/A | N/A | N/A | N/A |");
+                continue;
+            }
+
+            var result = results.Single(result => result.Threshold == threshold);
             string interval = result.PrecisionLower is double lower && result.PrecisionUpper is double upper
                 ? $"{Percent(lower)} - {Percent(upper)}" : "N/A";
-            text.AppendLine($"| {Number(result.Threshold)} | {result.Correct} | {result.Wrong} | {result.Abstained} | {Percent(result.Precision)} | {interval} | {Percent(result.Coverage)} |");
+            text.AppendLine($"| {Percent(target.TargetPrecision)} | {Number(threshold)} | {Percent(result.Precision)} | {interval} | {Percent(result.Coverage)} | {result.Accepted} | {result.Correct} | {result.Wrong} | {result.Abstained} |");
         }
 
         text.AppendLine();
-        text.AppendLine("Precision is correct / accepted; coverage is accepted / all. N/A means no predictions were accepted. Scores are not guaranteed correctness probabilities.");
-        text.AppendLine("Intervals are pointwise Wilson intervals, not guarantees for a threshold chosen after searching this table. Small or dependent samples weaken the evidence.");
+        text.AppendLine("Each suggested cutoff has the highest coverage meeting the observed precision target on these saved examples. Every distinct score boundary is checked; equal scores are kept together.");
+        text.AppendLine("Precision is correct / accepted; coverage is accepted / all. Not attainable means no nonempty accepted set meets the target. Scores are not guaranteed correctness probabilities.");
+        text.AppendLine("Targets use observed precision, not the lower confidence bound. A target can be met by very few examples: inspect Accepted and the pointwise Wilson interval. There is no minimum-support gate or guarantee for a selected threshold.");
         text.AppendLine("No model was retrained, no issues were downloaded, and no production threshold was changed.");
         text.AppendLine();
-        var areaResult = results.FirstOrDefault(result => result.Threshold == referenceThreshold) ?? results[0];
+        var areaResult = results.Single(result => result.Threshold == referenceThreshold);
+        text.AppendLine($"At the unchanged reference threshold: **{Percent(areaResult.Precision)}** precision, **{Percent(areaResult.Coverage)}** coverage, {areaResult.Correct} correct, {areaResult.Wrong} wrong, {areaResult.Abstained} abstained.");
+        text.AppendLine();
         text.AppendLine($"### Per-area evidence at threshold {Number(areaResult.Threshold)}");
         text.AppendLine();
         text.AppendLine("| Area | Training support | Held-out support | Correct | Wrong assigned here | Abstained | Routed elsewhere | Precision | Coverage |");
@@ -176,10 +211,10 @@ public static class ThresholdEvaluation
         return text.ToString();
     }
 
-    public static void WriteReports(string directory, EvaluationArtifact artifact, ThresholdResult[] results, string labelPrefix, float? referenceThreshold = null)
+    public static void WriteReports(string directory, EvaluationArtifact artifact, ThresholdResult[] results, PrecisionTargetResult[] targets, string labelPrefix, float referenceThreshold)
     {
         Directory.CreateDirectory(directory);
-        File.WriteAllText(Path.Combine(directory, "summary.md"), Markdown(artifact, results, labelPrefix, referenceThreshold));
+        File.WriteAllText(Path.Combine(directory, "summary.md"), Markdown(artifact, results, targets, labelPrefix, referenceThreshold));
         using (var stream = File.Create(Path.Combine(directory, "scorecard.json")))
         {
             JsonSerializer.Serialize(stream, new
@@ -194,6 +229,7 @@ public static class ThresholdEvaluation
                 HeldOutCount = artifact.Rows.Length,
                 LabelPrefix = labelPrefix,
                 ReferenceThreshold = referenceThreshold,
+                PrecisionTargets = targets,
                 Results = results
             }, new JsonSerializerOptions(EvaluationArtifact.JsonOptions) { WriteIndented = true });
         }
@@ -214,6 +250,22 @@ public static class ThresholdEvaluation
     private static string Number(float value) => value.ToString("R", CultureInfo.InvariantCulture);
     private static string Percent(double? value) => value?.ToString("P2", CultureInfo.InvariantCulture) ?? "N/A";
     private static string EscapeMarkdown(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
+
+    private static void ValidatePopulation(EvaluationArtifact artifact, Func<string, bool> labelPredicate)
+    {
+        artifact.Validate();
+        if (!artifact.Labels.All(labelPredicate) || artifact.Rows.Any(row => !labelPredicate(row.Label)))
+        {
+            throw new ArgumentException("The label prefix must include every model and reference label; a partial prefix would change the evaluation population.", nameof(labelPredicate));
+        }
+    }
+
+    private static (EvaluationRow Row, (string Label, float Score) Prediction)[] GetPredictions(EvaluationArtifact artifact) =>
+        artifact.Rows.Select(row =>
+        {
+            int index = Array.IndexOf(row.Scores, row.Scores.Max());
+            return (Row: row, Prediction: (Label: artifact.Labels[index], Score: row.Scores[index]));
+        }).ToArray();
 
     private sealed class AreaCounts
     {

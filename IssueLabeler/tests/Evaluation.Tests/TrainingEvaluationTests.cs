@@ -104,7 +104,7 @@ public sealed class TrainingEvaluationTests
         Assert.AreEqual(EvaluationArtifact.HashFile(datasetPath), artifact.DatasetSha256);
         File.Delete(datasetPath);
         var evaluation = await RunTester("--evaluation", EvaluationArtifact.GetPath(modelPath),
-            "--issues-model", modelPath, "--label-prefix", "area-", "--thresholds", "0,0.4,1");
+            "--issues-model", modelPath, "--label-prefix", "area-", "--target-precisions", "0.8,0.9,0.95");
         Assert.AreEqual(0, evaluation.ExitCode, evaluation.Output);
         Assert.IsTrue(File.Exists(Path.Combine(directory, "evaluation-report", "scorecard.json")));
     }
@@ -144,13 +144,30 @@ public sealed class TrainingEvaluationTests
         CreateArtifact(modelPath).Save(scoresPath);
         string reportPath = Path.Combine(directory, "report");
         var result = await RunTester("--evaluation", scoresPath, "--issues-model", modelPath,
-            "--label-prefix", "area-", "--threshold", "0.15", "--thresholds", "0.7,1", "--report", reportPath);
+            "--label-prefix", "area-", "--threshold", "0.15", "--target-precisions", "0.8,0.95", "--report", reportPath);
         Assert.AreEqual(0, result.ExitCode, result.Output);
-        StringAssert.Contains(result.Output, "Held-out threshold evaluation");
+        StringAssert.Contains(result.Output, "Held-out precision targets");
         StringAssert.Contains(result.Output, "Reference threshold: **0.15**");
         Assert.IsTrue(File.Exists(Path.Combine(reportPath, "scorecard.json")));
         Assert.AreEqual(hash, EvaluationArtifact.HashFile(modelPath));
         Assert.IsFalse(File.Exists(Path.Combine(directory, "data.tsv")));
+    }
+
+    [TestMethod]
+    public async Task OfflineCliReportsUnattainableTargetsWithoutClaimingPerfectAbstention()
+    {
+        string modelPath = Path.Combine(directory, "model.zip");
+        File.WriteAllText(modelPath, "model identity");
+        var artifact = CreateArtifact(modelPath);
+        artifact.Rows[0] = new() { Index = 0, Label = "area-B", Scores = [0.7f, 0.3f] };
+        string scoresPath = EvaluationArtifact.GetPath(modelPath);
+        artifact.Save(scoresPath);
+        var evaluation = await RunTester("--evaluation", scoresPath, "--issues-model", modelPath,
+            "--label-prefix", "area-", "--threshold", "1", "--target-precisions", "0.9");
+        Assert.AreEqual(0, evaluation.ExitCode, evaluation.Output);
+        StringAssert.Contains(evaluation.Output, "Not attainable");
+        StringAssert.Contains(evaluation.Output, "**N/A** precision");
+        StringAssert.Contains(evaluation.Output, "0 correct, 0 wrong, 1 abstained");
     }
 
     [TestMethod]
@@ -164,10 +181,10 @@ public sealed class TrainingEvaluationTests
             var action = provider.GetRequiredService<ICoreService>();
             var parsed = Tester::Args.Parse(
                 ["--evaluation", "scores.json", "--issues-model", "model.zip", "--label-prefix", "area-",
-                 "--threshold", "0.15", "--thresholds", "0.4,0.8"], action)
+                 "--threshold", "0.15", "--target-precisions", "0.8,0.9"], action)
                 ?? throw new AssertFailedException("Valid offline arguments were rejected.");
             Assert.AreEqual(0.15f, parsed.Threshold);
-            CollectionAssert.AreEqual(new float[] { 0.15f, 0.4f, 0.8f }, parsed.Thresholds);
+            CollectionAssert.AreEqual(new double[] { 0.8, 0.9 }, parsed.TargetPrecisions);
         }
         finally
         {
@@ -201,7 +218,7 @@ public sealed class TrainingEvaluationTests
         var historical = await RunTester("--repo", "dotnet/example", "--label-prefix", "area-", "--issues-model", "model.zip");
         Assert.AreEqual(1, historical.ExitCode);
         StringAssert.Contains(historical.Output, "GITHUB_TOKEN is empty");
-        var orphan = await RunTester("--thresholds", "0.4");
+        var orphan = await RunTester("--target-precisions", "0.9");
         Assert.AreEqual(1, orphan.ExitCode);
         StringAssert.Contains(orphan.Output, "require '--evaluation'");
     }

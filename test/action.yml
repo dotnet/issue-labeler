@@ -18,9 +18,9 @@ inputs:
   threshold:
     description: "The minimum confidence score for a label prediction. Must be a number between 0.00 and 1.00. The recommended value is 0.40."
     required: true
-  thresholds:
-    description: "Candidate thresholds for heldout mode. The reference 'threshold' is also included; no production settings are changed."
-    default: "0.05,0.15,0.40,0.60,0.80"
+  target_precisions:
+    description: "Target precisions (0-1) for heldout mode. Selects maximum-coverage cutoffs on the saved data; no production settings are changed."
+    default: "0.80,0.90,0.95"
   excluded_authors:
     description: "A comma-separated list of authors to exclude."
   excluded_labels:
@@ -113,7 +113,7 @@ runs:
         MODEL_TYPE: ${{ inputs.type }}
         LABEL_PREFIX: ${{ inputs.label_prefix }}
         REFERENCE_THRESHOLD: ${{ inputs.threshold }}
-        THRESHOLDS: ${{ inputs.thresholds }}
+        TARGET_PRECISIONS: ${{ inputs.target_precisions }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         if [[ "$MODEL_TYPE" == "pulls" ]]; then
@@ -126,5 +126,5 @@ runs:
           --evaluation "$EVALUATION_PATH" \
           --label-prefix "$LABEL_PREFIX" \
           --threshold "$REFERENCE_THRESHOLD" \
-          --thresholds "$THRESHOLDS" \
+          --target-precisions "$TARGET_PRECISIONS" \
           --report "$REPORT_PATH"

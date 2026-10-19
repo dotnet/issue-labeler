@@ -27,9 +27,9 @@ on:
           - "Test Model"
           - "Evaluate Thresholds"
 
-      thresholds:
-        description: "Candidate thresholds for held-out evaluation. The configured reference threshold is also included; production settings are unchanged."
-        default: "0.05,0.15,0.40,0.60,0.80"
+      target_precisions:
+        description: "Target precisions (0-1) for held-out evaluation. Reports maximum-coverage cutoffs meeting each observed target; production settings are unchanged."
+        default: "0.80,0.90,0.95"
 
       repository:
         description: "The org/repo to download data from. Defaults to the current repository."
@@ -62,7 +62,7 @@ env:
   LIMIT: ${{ github.event.inputs.limit }}
   PAGE_SIZE: ${{ github.event.inputs.page_size }}
   PAGE_LIMIT: ${{ github.event.inputs.page_limit }}
-  THRESHOLDS: ${{ inputs.thresholds || '0.05,0.15,0.40,0.60,0.80' }}
+  TARGET_PRECISIONS: ${{ inputs.target_precisions || '0.80,0.90,0.95' }}
 
 jobs:
   download-issues:
@@ -272,7 +272,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD_ISSUES }}
-          thresholds: ${{ env.THRESHOLDS }}
+          target_precisions: ${{ env.TARGET_PRECISIONS }}
       - name: "Upload Model, Scores and Report"
         if: ${{ inputs.steps != 'Test Model' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -317,7 +317,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
-          thresholds: ${{ env.THRESHOLDS }}
+          target_precisions: ${{ env.TARGET_PRECISIONS }}
       - name: "Upload Model, Scores and Report"
         if: ${{ inputs.steps != 'Test Model' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -362,7 +362,7 @@ jobs:
           cache_key: ${{ env.CACHE_KEY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           threshold: ${{ env.THRESHOLD_PULLS }}
-          thresholds: ${{ env.THRESHOLDS }}
+          target_precisions: ${{ env.TARGET_PRECISIONS }}
       - name: "Upload Model, Scores and Report"
         if: ${{ inputs.steps != 'Test Model' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

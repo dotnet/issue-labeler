@@ -3,6 +3,7 @@
 
 using Actions.Core.Services;
 using IssueLabeler.Evaluation;
+using System.Globalization;
 
 public struct Args
 {
@@ -24,7 +25,7 @@ public struct Args
     public int[] Retries { get; set; }
     public bool Verbose { get; set; }
     public string? EvaluationPath { get; set; }
-    public float[]? Thresholds { get; set; }
+    public double[]? TargetPrecisions { get; set; }
     public string? ReportDirectory { get; set; }
     public string? LabelPrefix { get; set; }
 
@@ -67,8 +68,9 @@ public struct Args
               --evaluation            Saved .evaluation.json from the same training run as the model.
               --issues-model          Issue model ZIP, or use --pulls-model for a pull request model.
               --label-prefix          Prefix used to select applicable model labels.
-              --thresholds            Comma-separated candidate thresholds in [0,1].
-                                      The --threshold reference value is also included (default 0.4).
+              --target-precisions     Comma-separated target precisions in [0,1].
+                                      Defaults to 0.80,0.90,0.95. Selects maximum-coverage cutoffs.
+                                      The --threshold value remains a reference (default 0.4).
               --report                Output directory for Markdown, JSON and CSV reports.
                                       Defaults to a reports directory beside the saved scores.
                                       Historical download/filter options cannot be combined with this mode.
@@ -128,16 +130,16 @@ public struct Args
                     argsData.EvaluationPath = evaluationPath;
                     break;
 
-                case "--thresholds":
+                case "--target-precisions":
                     evaluationOptions = true;
-                    if (!argUtils.TryGetString("--thresholds", out string? thresholds))
+                    if (!argUtils.TryGetString("--target-precisions", out string? targets))
                     {
-                        ShowUsage("Input '--thresholds' requires a comma-separated list.", action);
+                        ShowUsage("Input '--target-precisions' requires a comma-separated list.", action);
                         return null;
                     }
                     try
                     {
-                        argsData.Thresholds = ThresholdEvaluation.ParseThresholds(thresholds);
+                        argsData.TargetPrecisions = ThresholdEvaluation.ParsePrecisionTargets(targets);
                     }
                     catch (ArgumentException ex)
                     {
@@ -260,21 +262,13 @@ public struct Args
 
         if (argsData.EvaluationPath is not null)
         {
-            try
+            if (!float.TryParse(thresholdInput ?? "0.4", NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out float reference) ||
+                !float.IsFinite(reference) || reference < 0 || reference > 1)
             {
-                float[] reference = ThresholdEvaluation.ParseThresholds(thresholdInput ?? "0.4");
-                if (reference.Length != 1)
-                {
-                    ShowUsage("Input '--threshold' requires one decimal value.", action);
-                    return null;
-                }
-                argsData.Threshold = reference[0];
-            }
-            catch (ArgumentException ex)
-            {
-                ShowUsage(ex.Message, action);
+                ShowUsage("Input '--threshold' requires one invariant decimal value between 0 and 1.", action);
                 return null;
             }
+            argsData.Threshold = reference;
 
             if (historicalOptions || argsData.LabelPredicate is null ||
                 (argsData.IssuesModelPath is null) == (argsData.PullsModelPath is null) ||
@@ -284,14 +278,14 @@ public struct Args
                 return null;
             }
 
-            argsData.Thresholds = [.. (argsData.Thresholds ?? []).Append(argsData.Threshold).Distinct().Order()];
+            argsData.TargetPrecisions ??= [0.80, 0.90, 0.95];
             argsData.ReportDirectory ??= Path.Combine(Path.GetDirectoryName(argsData.EvaluationPath)!, "evaluation-report");
             return argsData;
         }
 
         if (evaluationOptions)
         {
-            ShowUsage("Inputs '--thresholds' and '--report' require '--evaluation'.", action);
+            ShowUsage("Inputs '--target-precisions' and '--report' require '--evaluation'.", action);
             return null;
         }
 

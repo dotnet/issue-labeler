@@ -32,9 +32,11 @@ if (argsData.EvaluationPath is not null)
             throw new InvalidDataException("The saved scores were produced for a different model type.");
         }
 
-        var thresholdResults = ThresholdEvaluation.Evaluate(artifact, argsData.Thresholds!, label => argsData.LabelPredicate(label));
-        string markdown = ThresholdEvaluation.Markdown(artifact, thresholdResults, argsData.LabelPrefix!, argsData.Threshold);
-        ThresholdEvaluation.WriteReports(argsData.ReportDirectory!, artifact, thresholdResults, argsData.LabelPrefix!, argsData.Threshold);
+        var targets = ThresholdEvaluation.SelectPrecisionTargets(artifact, argsData.TargetPrecisions!, label => argsData.LabelPredicate(label));
+        float[] thresholds = [argsData.Threshold, .. targets.Where(target => target.Threshold.HasValue).Select(target => target.Threshold!.Value)];
+        var thresholdResults = ThresholdEvaluation.Evaluate(artifact, thresholds, label => argsData.LabelPredicate(label));
+        string markdown = ThresholdEvaluation.Markdown(artifact, thresholdResults, targets, argsData.LabelPrefix!, argsData.Threshold);
+        ThresholdEvaluation.WriteReports(argsData.ReportDirectory!, artifact, thresholdResults, targets, argsData.LabelPrefix!, argsData.Threshold);
         action.WriteInfo(markdown);
         action.WriteInfo($"Reports written to '{argsData.ReportDirectory}'.");
         if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY")))
