@@ -212,15 +212,13 @@ jobs:
   train-discussions:
     if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     needs:
       - download-discussions
       - check-discussions-data
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Train Model for Discussions"
-        uses: ./train
+        uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -229,15 +227,13 @@ jobs:
   train-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     needs:
       - download-issues
       - check-issues-data
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Train Model for Issues"
-        uses: ./train
+        uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -246,15 +242,13 @@ jobs:
   train-pulls:
     if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     needs:
       - download-pulls
       - check-pulls-data
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Train Model for Pull Requests"
-        uses: ./train
+        uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
           data_cache_key: ${{ env.CACHE_KEY }}
@@ -264,16 +258,14 @@ jobs:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model", "Evaluate Thresholds"]'), inputs.steps) && (inputs.steps == 'Evaluate Thresholds' || (needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result))) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       issues: read
     needs:
       - check-issues-data
       - train-issues
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Evaluate Held-out Thresholds"
         if: ${{ inputs.steps != 'Test Model' }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           mode: heldout
           type: issues
@@ -293,7 +285,7 @@ jobs:
           if-no-files-found: error
       - name: "Historical Recheck for Issues"
         if: ${{ contains(fromJSON('["All", "Test Model"]'), inputs.steps) }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
           cache_key: ${{ env.CACHE_KEY }}
@@ -311,16 +303,14 @@ jobs:
     if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model", "Evaluate Thresholds"]'), inputs.steps) && (inputs.steps == 'Evaluate Thresholds' || (needs.check-discussions-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-discussions.result))) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       discussions: read
     needs:
       - check-discussions-data
       - train-discussions
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Evaluate Held-out Thresholds"
         if: ${{ inputs.steps != 'Test Model' }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           mode: heldout
           type: discussions
@@ -340,7 +330,7 @@ jobs:
           if-no-files-found: error
       - name: "Historical Recheck for Discussions"
         if: ${{ contains(fromJSON('["All", "Test Model"]'), inputs.steps) }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
           cache_key: ${{ env.CACHE_KEY }}
@@ -358,16 +348,14 @@ jobs:
     if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model", "Evaluate Thresholds"]'), inputs.steps) && (inputs.steps == 'Evaluate Thresholds' || (needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-pulls.result))) }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
       pull-requests: read
     needs:
       - check-pulls-data
       - train-pulls
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: "Evaluate Held-out Thresholds"
         if: ${{ inputs.steps != 'Test Model' }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           mode: heldout
           type: pulls
@@ -387,7 +375,7 @@ jobs:
           if-no-files-found: error
       - name: "Historical Recheck for Pull Requests"
         if: ${{ contains(fromJSON('["All", "Test Model"]'), inputs.steps) }}
-        uses: ./test
+        uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
           cache_key: ${{ env.CACHE_KEY }}

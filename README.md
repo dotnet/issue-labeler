@@ -6,7 +6,9 @@ Use machine learning models to automatically label issues and pull requests, all
 
 ## Train once, evaluate thresholds later
 
-Use the existing **Labeler: Training** workflow:
+This feature requires a release containing the held-out evaluation changes and
+repinning the workflows to that release. v2.2.0 does not contain this feature.
+After upgrading, use the existing **Labeler: Training** workflow:
 
 1. Select **All** (download, train, historical recheck and threshold report) or
    **Train Model** (reuse downloaded data, train and report). Choose the model
@@ -60,8 +62,9 @@ a GitHub token, source dataset, or network:
 dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15 --thresholds "0.05,0.15,0.40,0.60,0.80" --report .\evaluation-report
 ```
 
-Use `--pulls-model` for pull request models. This repository's training workflow
-checks out its selected revision to run local train/test actions. Other
-repositories should reference a published action SHA containing this feature,
-not copy the local-action paths. v2.2.0 does not contain it. Production prediction
-and promotion are unchanged.
+Use `--pulls-model` for pull request models. Workflow actions remain pinned to
+full release commit SHAs. The [release process](https://github.com/dotnet/issue-labeler/wiki/Release-Process)
+publishes the predictor image and emits `workflow-pins.patch` to update the
+workflow references in a follow-up PR. Consumers should use the canonical SHA
+advertised in the release body, not a branch HEAD or local action path.
+Production prediction and promotion are unchanged.
