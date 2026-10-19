@@ -1,7 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+
 namespace IssueLabeler.Evaluation;
+
+public sealed record PrecisionTargetResult(double TargetPrecision, float? Threshold);
 
 public sealed record AreaEvaluation(string Label, int TrainingSupport, int HeldOutSupport, int Correct, int Wrong, int Abstained, int Misrouted)
 {
@@ -15,10 +21,90 @@ public sealed record ThresholdResult(float Threshold, int Total, int Correct, in
     public int Accepted => Correct + Wrong;
     public double? Precision => Accepted == 0 ? null : (double)Correct / Accepted;
     public double Coverage => (double)Accepted / Total;
+    public double? PrecisionLower => Wilson(Correct, Accepted)?.Lower;
+    public double? PrecisionUpper => Wilson(Correct, Accepted)?.Upper;
+
+    public static (double Lower, double Upper)? Wilson(int successes, int count)
+    {
+        if (count < 0 || successes < 0 || successes > count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(successes), "Successes must be between zero and the sample count.");
+        }
+
+        if (count == 0)
+        {
+            return null;
+        }
+
+        const double z = 1.959963984540054;
+        double proportion = (double)successes / count;
+        double denominator = 1 + z * z / count;
+        double center = (proportion + z * z / (2 * count)) / denominator;
+        double margin = z * Math.Sqrt(proportion * (1 - proportion) / count + z * z / (4.0 * count * count)) / denominator;
+        return (Math.Max(0, center - margin), Math.Min(1, center + margin));
+    }
 }
 
 public static class ThresholdEvaluation
 {
+    public static double[] ParsePrecisionTargets(string value)
+    {
+        string[] tokens = value.Split(',');
+        if (tokens.Length is 0 or > 50)
+        {
+            throw new ArgumentException("Provide between 1 and 50 comma-separated precision targets.");
+        }
+
+        var targets = new List<double>();
+        foreach (string token in tokens)
+        {
+            if (!double.TryParse(token.Trim(), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out double target) ||
+                !double.IsFinite(target) || target < 0 || target > 1)
+            {
+                throw new ArgumentException($"Invalid precision target '{token}'. Use invariant decimal values between 0 and 1.");
+            }
+
+            targets.Add(target);
+        }
+
+        return [.. targets.Distinct().Order()];
+    }
+
+    public static PrecisionTargetResult[] SelectPrecisionTargets(EvaluationArtifact artifact, double[] targets, Func<string, bool> labelPredicate)
+    {
+        ValidatePopulation(artifact, labelPredicate);
+        if (targets.Length is 0 or > 50 || targets.Any(value => !double.IsFinite(value) || value < 0 || value > 1))
+        {
+            throw new ArgumentException("Provide between 1 and 50 finite precision targets between 0 and 1.", nameof(targets));
+        }
+
+        var results = targets.Distinct().Order().Select(target => new PrecisionTargetResult(target, null)).ToArray();
+        int accepted = 0;
+        int correct = 0;
+        foreach (var group in GetPredictions(artifact).OrderByDescending(item => item.Prediction.Score).GroupBy(item => item.Prediction.Score))
+        {
+            foreach (var (row, prediction) in group)
+            {
+                accepted++;
+                if (prediction.Label.Equals(row.Label, StringComparison.OrdinalIgnoreCase))
+                {
+                    correct++;
+                }
+            }
+
+            double precision = (double)correct / accepted;
+            for (int index = 0; index < results.Length; index++)
+            {
+                if (precision >= results[index].TargetPrecision)
+                {
+                    results[index] = results[index] with { Threshold = group.Key };
+                }
+            }
+        }
+
+        return results;
+    }
+
     public static ThresholdResult[] Evaluate(EvaluationArtifact artifact, float[] thresholds, Func<string, bool> labelPredicate)
     {
         ValidatePopulation(artifact, labelPredicate);
@@ -70,6 +156,100 @@ public static class ThresholdEvaluation
 
         return [.. results];
     }
+
+    public static string Markdown(EvaluationArtifact artifact, ThresholdResult[] results, PrecisionTargetResult[] targets, string labelPrefix, float referenceThreshold)
+    {
+        var text = new StringBuilder();
+        text.AppendLine("## Held-out precision targets");
+        text.AppendLine();
+        text.AppendLine($"Model: `{artifact.ModelSha256}`");
+        text.AppendLine($"Dataset: `{artifact.DatasetSha256}`");
+        text.AppendLine($"Tool: `{artifact.ToolVersion}`");
+        text.AppendLine($"Evidence created: `{artifact.CreatedAtUtc:O}`");
+        text.AppendLine($"Reference threshold: **{Number(referenceThreshold)}** (comparison only; not changed).");
+        text.AppendLine();
+        text.AppendLine($"Training examples: **{artifact.TrainingCount:N0}**. Held-out examples: **{artifact.Rows.Length:N0}**. Label prefix: `{labelPrefix}`.");
+        text.AppendLine("Top-1 model-level evaluation: one label is accepted when its score is **greater than or equal to** the threshold.");
+        text.AppendLine("These are the saved predictions from a single random 20% split. Once used to select a threshold, this is a tuning set, not an untouched final test.");
+        text.AppendLine();
+        text.AppendLine("| Target precision | Suggested threshold | Observed precision | Precision 95% interval | Coverage | Accepted | Correct | Wrong | Abstained |");
+        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var target in targets)
+        {
+            if (target.Threshold is not float threshold)
+            {
+                text.AppendLine($"| {Percent(target.TargetPrecision)} | Not attainable | N/A | N/A | N/A | N/A | N/A | N/A | N/A |");
+                continue;
+            }
+
+            var result = results.Single(result => result.Threshold == threshold);
+            string interval = result.PrecisionLower is double lower && result.PrecisionUpper is double upper
+                ? $"{Percent(lower)} - {Percent(upper)}" : "N/A";
+            text.AppendLine($"| {Percent(target.TargetPrecision)} | {Number(threshold)} | {Percent(result.Precision)} | {interval} | {Percent(result.Coverage)} | {result.Accepted} | {result.Correct} | {result.Wrong} | {result.Abstained} |");
+        }
+
+        text.AppendLine();
+        text.AppendLine("Each suggested cutoff has the highest coverage meeting the observed precision target on these saved examples. Every distinct score boundary is checked; equal scores are kept together.");
+        text.AppendLine("Precision is correct / accepted; coverage is accepted / all. Not attainable means no nonempty accepted set meets the target. Scores are not guaranteed correctness probabilities.");
+        text.AppendLine("Targets use observed precision, not the lower confidence bound. A target can be met by very few examples: inspect Accepted and the pointwise Wilson interval. There is no minimum-support gate or guarantee for a selected threshold.");
+        text.AppendLine("No model was retrained, no issues were downloaded, and no production threshold was changed.");
+        text.AppendLine();
+        var areaResult = results.Single(result => result.Threshold == referenceThreshold);
+        text.AppendLine($"At the unchanged reference threshold: **{Percent(areaResult.Precision)}** precision, **{Percent(areaResult.Coverage)}** coverage, {areaResult.Correct} correct, {areaResult.Wrong} wrong, {areaResult.Abstained} abstained.");
+        text.AppendLine();
+        text.AppendLine($"### Per-area evidence at threshold {Number(areaResult.Threshold)}");
+        text.AppendLine();
+        text.AppendLine("| Area | Training support | Held-out support | Correct | Wrong assigned here | Abstained | Routed elsewhere | Precision | Coverage |");
+        text.AppendLine("|---|---:|---:|---:|---:|---:|---:|---:|---:|");
+        foreach (var area in areaResult.Areas)
+        {
+            text.AppendLine($"| {EscapeMarkdown(area.Label)} | {area.TrainingSupport} | {area.HeldOutSupport} | {area.Correct} | {area.Wrong} | {area.Abstained} | {area.Misrouted} | {Percent(area.Precision)} | {Percent(area.Coverage)} |");
+        }
+
+        text.AppendLine();
+        text.AppendLine("Per-area precision uses assignments to that area; coverage uses reference examples from that area. Zero or small support is insufficient evidence for reliable per-area decisions. Counts for every threshold are included in the report files.");
+        return text.ToString();
+    }
+
+    public static void WriteReports(string directory, EvaluationArtifact artifact, ThresholdResult[] results, PrecisionTargetResult[] targets, string labelPrefix, float referenceThreshold)
+    {
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "summary.md"), Markdown(artifact, results, targets, labelPrefix, referenceThreshold));
+        using (var stream = File.Create(Path.Combine(directory, "scorecard.json")))
+        {
+            JsonSerializer.Serialize(stream, new
+            {
+                artifact.SchemaVersion,
+                artifact.ModelSha256,
+                artifact.DatasetSha256,
+                artifact.ToolVersion,
+                artifact.ModelType,
+                artifact.CreatedAtUtc,
+                artifact.TrainingCount,
+                HeldOutCount = artifact.Rows.Length,
+                LabelPrefix = labelPrefix,
+                ReferenceThreshold = referenceThreshold,
+                PrecisionTargets = targets,
+                Results = results
+            }, new JsonSerializerOptions(EvaluationArtifact.JsonOptions) { WriteIndented = true });
+        }
+
+        var areas = new StringBuilder("threshold,label,trainingSupport,heldOutSupport,truePositives,falsePositives,falseNegatives,abstained,misrouted,precision,coverage\r\n");
+        foreach (var result in results)
+        {
+            foreach (var area in result.Areas)
+            {
+                string label = $"\"{area.Label.Replace("\"", "\"\"")}\"";
+                areas.Append(FormattableString.Invariant($"{result.Threshold:R},{label},{area.TrainingSupport},{area.HeldOutSupport},{area.Correct},{area.Wrong},{area.Missed},{area.Abstained},{area.Misrouted},{area.Precision?.ToString("R", CultureInfo.InvariantCulture)},{area.Coverage?.ToString("R", CultureInfo.InvariantCulture)}")).Append("\r\n");
+            }
+        }
+
+        File.WriteAllText(Path.Combine(directory, "per-area.csv"), areas.ToString());
+    }
+
+    private static string Number(float value) => value.ToString("R", CultureInfo.InvariantCulture);
+    private static string Percent(double? value) => value?.ToString("P2", CultureInfo.InvariantCulture) ?? "N/A";
+    private static string EscapeMarkdown(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
     private static void ValidatePopulation(EvaluationArtifact artifact, Func<string, bool> labelPredicate)
     {
