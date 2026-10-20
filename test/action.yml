@@ -1,40 +1,43 @@
 name: "Test Model"
-description: "Evaluate saved held-out scores offline, or historically recheck a model by downloading currently labeled items."
+description: "Evaluate a model against the exact held-out dataset saved during its training."
 
 branding:
   color: "purple"
   icon: "tag"
 
 inputs:
-  mode:
-    description: "Use 'historical' to recheck current labels (may include training examples), or 'heldout' to evaluate saved scores without downloads."
-    default: "historical"
   type:
-    description: "The model to test. Must be 'issues', 'pulls', or 'discussions'. Discussions use the issues model path."
+    description: "The model to test. Must be 'issues', 'pulls', or 'discussions'."
     required: true
   label_prefix:
-    description: "The label prefix to use for model training. Must end with a non-alphanumeric character."
-    required: true
+    description: "Deprecated. The label selection is frozen in the saved test set."
+    deprecationMessage: "label_prefix is ignored; the tester evaluates the saved held-out dataset."
   threshold:
     description: "The minimum confidence score for a label prediction. Must be a number between 0.00 and 1.00. The recommended value is 0.40."
     required: true
   excluded_authors:
-    description: "A comma-separated list of authors to exclude."
+    description: "Deprecated. Author selection is frozen in the saved test set."
+    deprecationMessage: "excluded_authors is ignored; configure it when downloading training data."
   excluded_labels:
-    description: "A comma-separated list of labels that should be excluded from training/test data."
+    description: "A comma-separated list of labels to report if detected. Does not filter the saved test set."
   limit:
-    description: "The maximum number of items to download. The newest items are downloaded."
+    description: "Deprecated. All saved held-out rows are evaluated."
+    deprecationMessage: "limit is ignored; the tester evaluates the entire saved held-out dataset."
   page_size:
-    description: "The number of items per page in GitHub API requests. Defaults to 100 for Issues and 25 for Pull Requests."
+    description: "Deprecated. Testing no longer makes GitHub API requests."
+    deprecationMessage: "page_size is ignored; testing no longer downloads GitHub items."
   page_limit:
-    description: "The maximum number of pages to retrieve. Defaults to 1000 for Issues and 4000 for Pull Requests."
+    description: "Deprecated. Testing no longer makes GitHub API requests."
+    deprecationMessage: "page_limit is ignored; testing no longer downloads GitHub items."
   retries:
-    description: "A comma-separated list of retry delays in seconds. Defaults to '30,30,300,300,3000,3000'."
+    description: "Deprecated. Testing no longer makes GitHub API requests."
+    deprecationMessage: "retries is ignored; testing no longer downloads GitHub items."
   cache_key:
-    description: "The cache key suffix to use for saving data. Defaults to 'staged'."
+    description: "The model cache key suffix to restore. Its held-out data is located using the model's content hash."
     default: staged
   repository:
-    description: "The org/repo to download data from. Defaults to the current repository."
+    description: "Deprecated. Repository selection is frozen in the saved test set."
+    deprecationMessage: "repository is ignored; the tester evaluates the data saved during training."
   verbose:
     description: "Enable verbose output."
 
@@ -50,34 +53,37 @@ runs:
           echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
-        if [[ "$EVALUATION_MODE" != "historical" && "$EVALUATION_MODE" != "heldout" ]]; then
-          echo "::error::'mode' must be 'historical' or 'heldout'."
-          exit 1
-        fi
-        if [[ "$EVALUATION_MODE" == "heldout" && ( -n "$HISTORICAL_OPTIONS" || ( -n "$VERBOSE" && "$VERBOSE" != "false" ) ) ]]; then
-          echo "::error::Historical download/filter options cannot be combined with heldout mode."
-          exit 1
-        fi
-        echo "EVALUATION_PATH=labeler-cache/${{ inputs.type }}-model.evaluation.json" >> "$GITHUB_ENV"
-      env:
-        EVALUATION_MODE: ${{ inputs.mode }}
-        HISTORICAL_OPTIONS: ${{ format('{0}{1}{2}{3}{4}{5}{6}', inputs.repository, inputs.excluded_authors, inputs.excluded_labels, inputs.limit, inputs.page_size, inputs.page_limit, inputs.retries) }}
-        VERBOSE: ${{ inputs.verbose }}
+        echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> "$GITHUB_ENV"
+        echo "TEST_DATA_PATH=labeler-cache/${{ inputs.type }}-model.test-data.bin" >> "$GITHUB_ENV"
 
     - name: "Restore model from cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: "labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || inputs.type == 'discussions' && 'discussions' || 'issues' }}-model.zip"
+        path: ${{ env.MODEL_PATH }}
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}"
         fail-on-cache-miss: true
 
-    - name: "Restore Held-out Scores from Cache"
-      if: ${{ inputs.mode == 'heldout' }}
+    - name: "Check Restored Model"
+      shell: bash
+      run: |
+        if [[ ! -s "$MODEL_PATH" ]]; then
+          echo "::error::The restored model file is missing or empty."
+          exit 1
+        fi
+
+    - name: "Restore Held-Out Data from Cache"
+      id: restore-test-data
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ env.EVALUATION_PATH }}
-        key: issue-labeler/evaluation/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}
-        fail-on-cache-miss: true
+        path: ${{ env.TEST_DATA_PATH }}
+        key: issue-labeler/test-data/${{ inputs.type }}/${{ hashFiles(env.MODEL_PATH) }}
+
+    - name: "Require the Original Held-Out Data"
+      if: ${{ steps.restore-test-data.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        echo "::error::The held-out dataset for this model is unavailable. Retrain the model; live GitHub data cannot replace the original split."
+        exit 1
 
     - name: "Set up the .NET SDK"
       uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
@@ -85,39 +91,11 @@ runs:
         dotnet-version: "10.0.x"
 
     - name: "Run Tester"
-      if: ${{ inputs.mode == 'historical' }}
       shell: bash
       run: |
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Tester" --  \
-          ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
-          ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
           ${{ format('--threshold {0}', inputs.threshold) }} \
-          ${{ inputs.type == 'pulls' && '--pulls-model "labeler-cache/pulls-model.zip"' || inputs.type == 'discussions' && '--issues-model "labeler-cache/discussions-model.zip"' || '--issues-model "labeler-cache/issues-model.zip"' }} \
+          ${{ inputs.type == 'pulls' && '--pulls-model' || '--issues-model' }} "${{ env.MODEL_PATH }}" \
           ${{ inputs.type == 'discussions' && '--discussions' || '' }} \
-          ${{ (inputs.excluded_authors && format('--excluded-authors "{0}"', inputs.excluded_authors)) || '' }} \
           ${{ (inputs.excluded_labels && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
-          ${{ (inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit)) || '' }} \
-          ${{ (inputs.page_size && format('--page-size {0}', inputs.page_size)) || '' }} \
-          ${{ (inputs.page_limit && format('--page-limit {0}', inputs.page_limit)) || '' }} \
-          ${{ (inputs.retries && format('--retries {0}', inputs.retries)) || '' }} \
           ${{ inputs.verbose && '--verbose' || '' }}
-
-    - name: "Evaluate Saved Held-out Scores"
-      if: ${{ inputs.mode == 'heldout' }}
-      shell: bash
-      env:
-        MODEL_TYPE: ${{ inputs.type }}
-        LABEL_PREFIX: ${{ inputs.label_prefix }}
-        EVALUATION_THRESHOLD: ${{ inputs.threshold }}
-        ACTION_PATH: ${{ github.action_path }}
-      run: |
-        if [[ "$MODEL_TYPE" == "pulls" ]]; then
-          model_args=(--pulls-model "labeler-cache/pulls-model.zip")
-        else
-          model_args=(--issues-model "labeler-cache/${MODEL_TYPE}-model.zip")
-        fi
-        dotnet run -c Release --project "$ACTION_PATH/../IssueLabeler/src/Tester" -- \
-          "${model_args[@]}" \
-          --evaluation "$EVALUATION_PATH" \
-          --label-prefix "$LABEL_PREFIX" \
-          --threshold "$EVALUATION_THRESHOLD"

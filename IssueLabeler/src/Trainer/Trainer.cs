@@ -4,8 +4,6 @@
 using Actions.Core.Extensions;
 using Actions.Core.Markdown;
 using Actions.Core.Services;
-using IssueLabeler.Evaluation;
-using IssueLabeler.Training;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
@@ -57,7 +55,6 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
         throw new InvalidOperationException($"The data file '{dataPath}' does not contain enough data for training. A minimum of 10 records is required, but only {recordsCounted} exist.");
     }
 
-    string datasetSha256 = EvaluationArtifact.HashFile(dataPath);
     await action.WriteStatusAsync("Loading data into train/test sets...");
     MLContext mlContext = new();
 
@@ -89,8 +86,20 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     var loader = mlContext.Data.CreateTextLoader(textLoaderOptions);
     var data = loader.Load(dataPath);
     var split = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
-    var trainingData = split.TrainSet;
-    var heldOutData = split.TestSet;
+
+    string testDataPath = Path.ChangeExtension(modelPath, ".test-data.bin");
+    EnsureOutputDirectory(testDataPath);
+    using (var stream = File.Create(testDataPath))
+    {
+        mlContext.Data.SaveAsBinary(split.TestSet, stream);
+    }
+
+    var testSet = mlContext.Data.LoadFromBinary(testDataPath);
+    using var testSetLifetime = testSet as IDisposable;
+    if (testSet.GetRowCount() is 0)
+    {
+        throw new InvalidOperationException("The held-out test set is empty. Download more data before training.");
+    }
 
     await action.WriteStatusAsync("Building pipeline...");
 
@@ -109,8 +118,8 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
         .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
 
     await action.WriteStatusAsync("Fitting the model with the training data set...");
-    var trainedModel = pipeline.Fit(trainingData);
-    var testModel = trainedModel.Transform(heldOutData);
+    var trainedModel = pipeline.Fit(split.TrainSet);
+    var testModel = trainedModel.Transform(testSet);
 
     await action.WriteStatusAsync("Evaluating against the test set...");
     var metrics = mlContext.MulticlassClassification.Evaluate(testModel, labelColumnName: "LabelKey");
@@ -150,17 +159,4 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     action.WriteInfo($"Saving model to '{modelPath}'...");
     EnsureOutputDirectory(modelPath);
     mlContext.Model.Save(trainedModel, split.TrainSet.Schema, modelPath);
-
-    var evaluation = HeldOutEvaluation.Save(mlContext, trainingData, heldOutData, type, dataPath, modelPath, datasetSha256);
-    string evaluationPath = EvaluationArtifact.GetPath(modelPath);
-    action.WriteInfo($"Saved {evaluation.Rows.Length} held-out predictions to '{evaluationPath}'.");
-    action.Summary.AddPersistent(summary =>
-    {
-        summary.AddNewLine();
-        summary.AddNewLine();
-        summary.AddAlert(
-            $"Saved **{evaluation.Rows.Length:N0}** label-free held-out predictions alongside the model. Evaluate thresholds from these saved scores without retraining or redownloading issues. Once used for threshold selection, this holdout is a tuning set, not an untouched final test.",
-            AlertType.Note);
-    });
-    await action.Summary.WritePersistentAsync();
 }

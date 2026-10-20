@@ -4,44 +4,37 @@ Use machine learning models to automatically label issues and pull requests, all
 
 [Onboarding](https://github.com/dotnet/issue-labeler/wiki/Onboarding) is entirely self-service, and models can be retrained at any time.
 
-## Saved held-out evaluation
+## Held-out model evaluation
 
-Training keeps the existing random 80/20 split and saves
-`<model-name>.evaluation.json` beside the model ZIP. The evidence contains
-model/dataset SHA-256 hashes, tool version, training support, and the held-out
-reference labels and full score vectors, not issue titles or bodies. Scores
-come from the saved/reloaded model with the input `Label` empty.
+Training saves the exact 20% held-out split beside each model as
+`<model-name>.test-data.bin`. Both the training metrics and the Tester evaluate
+this frozen dataset. The Tester does not download current GitHub items and does
+not require a GitHub token.
 
-After building, evaluate a matching model/scores pair without a GitHub token,
-source dataset, downloads, loading model weights, or retraining:
+The training action caches the held-out data separately under
+`issue-labeler/test-data/<type>/<model-content-hash>`. The test action restores
+the model first, then restores only its matching test set. Promoting or backing
+up a model preserves its content hash, so the same test set remains associated
+with it without changing the model ZIP or prediction downloads.
+
+Keep the test-data cache while retaining its matching model. The cache-retention
+workflow refreshes both the selected model and its test set. Neither cache has
+guaranteed durability: if the test set is evicted, deleted, or was never saved
+for an older model, evaluation fails with a retraining instruction instead of
+using different data. Predictions still require only the model ZIP.
+
+For local evaluation, keep the two files beside each other and run:
 
 ```powershell
-dotnet run --no-build --project .\IssueLabeler\src\Tester -- --evaluation .\issues-model.evaluation.json --issues-model .\issues-model.zip --label-prefix area- --threshold 0.15
+dotnet run --project .\IssueLabeler\src\Tester -- --issues-model .\labeler-cache\issues-model.zip --threshold 0.4
 ```
 
-Use `--pulls-model` for pull request models. Exactly one model is required.
-The threshold uses an invariant decimal in [0,1] (default 0.4). Evaluation reports
-total, correct, wrong, and abstained counts, precision (correct / accepted), and
-coverage (accepted / total). Top-1 scores equal to the threshold are accepted;
-ties keep score-slot order. Precision is N/A when all examples abstain.
-The prefix must include every model and reference label. Missing, malformed,
-wrong-type, or mismatched evidence fails explicitly; older models need retraining.
+Use `--pulls-model` for pull requests, or `--issues-model` with `--discussions`
+for a discussion model. Download-related test-action inputs (`repository`,
+`label_prefix`, `excluded_authors`, `limit`, `page_size`, `page_limit`, and
+`retries`) are deprecated and ignored. `excluded_labels` reports excluded labels
+found in the results without filtering or changing the saved test set.
 
-The `train` action preserves the existing model ZIP cache format and saves
-evidence separately under `issue-labeler/evaluation/<type>/<suffix>`.
-The `test` action defaults to `mode: historical`, which downloads currently
-labeled items and may include training examples. Use `mode: heldout` with the
-same type/cache suffix, label prefix, and a single `threshold` to replay saved
-scores. Historical repository/download/filter options cannot be combined with
-held-out mode.
-
-Model and score caches are separate, not atomic. Use fresh suffixes; delete both
-entries before retrying a partial save. Caches can be evicted, so retain matching
-model/scores pairs before expiry for longer-lived evidence.
-
-This feature requires a release containing these changes and repinning consumers;
-v2.2.0 does not contain it. The existing training workflow remains unchanged and
-pinned to its release SHA. Production prediction, promotion, and live thresholds
-are unchanged. Scores are not guaranteed correctness probabilities. Once used
-to select a threshold, this holdout is a tuning set, not an untouched final test;
-small support and duplicate/related issues limit the evidence.
+Publish and pin the updated `train` and `test` actions together using the normal
+release process. Existing models must be retrained to create their saved test
+sets; older action releases continue to use their previous testing behavior.

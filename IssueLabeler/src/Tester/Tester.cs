@@ -5,13 +5,7 @@ using Actions.Core.Extensions;
 using Actions.Core.Markdown;
 using Actions.Core.Services;
 using Actions.Core.Summaries;
-using GitHubClient;
-using IssueLabeler.Evaluation;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.ML;
-using Microsoft.ML.Data;
-using System.Globalization;
-using System.Text.Json;
 
 using var provider = new ServiceCollection()
     .AddGitHubActionsCore()
@@ -20,45 +14,9 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
-if (argsData.EvaluationPath is not null)
-{
-    try
-    {
-        string modelPath = argsData.IssuesModelPath ?? argsData.PullsModelPath
-            ?? throw new InvalidOperationException("Offline evaluation requires a model.");
-        var artifact = EvaluationArtifact.Load(argsData.EvaluationPath, modelPath);
-        string expectedType = argsData.PullsModelPath is not null ? nameof(ModelType.PullRequest) : nameof(ModelType.Issue);
-        if (artifact.ModelType != expectedType)
-        {
-            throw new InvalidDataException("The saved scores were produced for a different model type.");
-        }
-
-        var result = ThresholdEvaluation.Evaluate(artifact, [argsData.Threshold], label => argsData.LabelPredicate(label)).Single();
-        string precision = result.Precision?.ToString("P2", CultureInfo.InvariantCulture) ?? "N/A";
-        string markdown = FormattableString.Invariant($"""
-            ## Held-out evaluation
-
-            Threshold: **{result.Threshold:R}**. Total: **{result.Total}**.
-            **{precision}** precision, **{result.Coverage:P2}** coverage; {result.Correct} correct, {result.Wrong} wrong, {result.Abstained} abstained.
-            """);
-        action.WriteInfo(markdown);
-        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY")))
-        {
-            action.Summary.AddPersistent(summary => summary.AddRawMarkdown(markdown, true));
-            await action.Summary.WritePersistentAsync();
-        }
-        return 0;
-    }
-    catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or ArgumentException or UnauthorizedAccessException)
-    {
-        action.WriteError($"Held-out evaluation failed: {ex.Message}");
-        return 1;
-    }
-}
-
 string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
-List<Task<(Type ItemType, TestStats Stats)>> tasks = [];
+List<Task<(string ItemType, TestStats Stats)>> tasks = [];
 
 if (excludedLabels.Length > 0)
 {
@@ -71,17 +29,12 @@ if (excludedLabels.Length > 0)
 
 if (argsData.IssuesModelPath is not null)
 {
-    tasks.Add(Task.Run(() => TestIssues()));
-}
-
-if (argsData.IssuesModelPath is not null && argsData.TestDiscussions)
-{
-    tasks.Add(Task.Run(() => TestDiscussions()));
+    tasks.Add(Task.Run(() => TestModel(argsData.IssuesModelPath, argsData.TestDiscussions ? "Discussions" : "Issues")));
 }
 
 if (argsData.PullsModelPath is not null)
 {
-    tasks.Add(Task.Run(() => TestPullRequests()));
+    tasks.Add(Task.Run(() => TestModel(argsData.PullsModelPath, "Pull Requests")));
 }
 
 var (results, success) = await App.RunTasks(tasks, action);
@@ -126,11 +79,12 @@ if (excludedLabelDetections.ExistingCount > 0 || excludedLabelDetections.Predict
 foreach (var (itemType, stats) in results)
 {
     AlertType resultAlert = (stats.MatchesPercentage >= 0.65f && stats.MismatchesPercentage < 0.15f) ? AlertType.Note : AlertType.Warning;
-    string itemTypeName = GetItemTypeNamePlural(itemType);
+    string itemTypeName = itemType;
 
     action.Summary.AddPersistent(summary =>
     {
         summary.AddMarkdownHeading($"Finished Testing {itemTypeName}", 2);
+        summary.AddRawMarkdown("Evaluated only the frozen held-out split saved when this model was trained.", true);
         summary.AddAlert($"**{stats.Total}** items were tested with **{stats.MatchesPercentage:P2} matches** and **{stats.MismatchesPercentage:P2} mismatches**.", resultAlert);
         summary.AddRawMarkdown($"Testing complete. **{stats.Total}** items tested, with the following results.", true);
         summary.AddNewLine();
@@ -178,92 +132,16 @@ foreach (var (itemType, stats) in results)
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-async Task<(Type, TestStats)> TestIssues()
+(string, TestStats) TestModel(string modelPath, string itemType)
 {
-    var predictor = GetPredictionEngine<Issue>(argsData.IssuesModelPath);
     var stats = new TestStats();
-
-    async IAsyncEnumerable<Issue> DownloadIssues(string githubToken, string repo)
+    action.WriteInfo($"Testing {itemType} using the saved held-out dataset for '{modelPath}'.");
+    foreach (var (label, predictedLabel, score) in HeldOutModelTester.Predict(modelPath, argsData.Threshold))
     {
-        await foreach (var result in GitHubApi.DownloadIssues(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.IssuesLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
-        {
-            yield return new(repo, result.Issue, argsData.LabelPredicate);
-        }
+        TestPrediction(itemType, label, predictedLabel, score, stats);
     }
 
-    action.WriteInfo($"Testing issues from {argsData.Repos.Count} repositories.");
-
-    foreach (var repo in argsData.Repos)
-    {
-        await action.WriteStatusAsync($"Downloading and testing issues from {argsData.Org}/{repo}.");
-
-        await foreach (var issue in DownloadIssues(argsData.GitHubToken, repo))
-        {
-            TestPrediction(issue, predictor, stats);
-        }
-
-        await action.WriteStatusAsync($"Finished Testing Issues from {argsData.Org}/{repo}.");
-    }
-
-    return (typeof(Issue), stats);
-}
-
-async Task<(Type, TestStats)> TestDiscussions()
-{
-    var predictor = GetPredictionEngine<Discussion>(argsData.IssuesModelPath!);
-    var stats = new TestStats();
-
-    async IAsyncEnumerable<Discussion> DownloadDiscussions(string githubToken, string repo)
-    {
-        await foreach (var result in GitHubApi.DownloadDiscussions(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.DiscussionsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
-        {
-            yield return new(repo, result.Discussion, result.Label);
-        }
-    }
-
-    action.WriteInfo($"Testing discussions from {argsData.Repos.Count} repositories.");
-
-    foreach (var repo in argsData.Repos)
-    {
-        await action.WriteStatusAsync($"Downloading and testing discussions from {argsData.Org}/{repo}.");
-
-        await foreach (var discussion in DownloadDiscussions(argsData.GitHubToken, repo))
-        {
-            TestPrediction(discussion, predictor, stats);
-        }
-
-        await action.WriteStatusAsync($"Finished Testing Discussions from {argsData.Org}/{repo}.");
-    }
-
-    return (typeof(Discussion), stats);
-}
-
-async Task<(Type, TestStats)> TestPullRequests()
-{
-    var predictor = GetPredictionEngine<PullRequest>(argsData.PullsModelPath);
-    var stats = new TestStats();
-
-    async IAsyncEnumerable<PullRequest> DownloadPullRequests(string githubToken, string repo)
-    {
-        await foreach (var result in GitHubApi.DownloadPullRequests(githubToken, argsData.Org, repo, argsData.LabelPredicate, argsData.PullsLimit, argsData.PageSize, argsData.PageLimit, argsData.Retries, argsData.ExcludedAuthors, argsData.ExcludedLabels, action, argsData.Verbose))
-        {
-            yield return new(repo, result.PullRequest, argsData.LabelPredicate);
-        }
-    }
-
-    foreach (var repo in argsData.Repos)
-    {
-        await action.WriteStatusAsync($"Downloading and testing pull requests from {argsData.Org}/{repo}.");
-
-        await foreach (var pull in DownloadPullRequests(argsData.GitHubToken, repo))
-        {
-            TestPrediction(pull, predictor, stats);
-        }
-
-        await action.WriteStatusAsync($"Finished Testing Pull Requests from {argsData.Org}/{repo}.");
-    }
-
-    return (typeof(PullRequest), stats);
+    return (itemType, stats);
 }
 
 static string GetStats(List<float> values)
@@ -281,27 +159,12 @@ static string GetStats(List<float> values)
     return $"{min} | {average} | {max} | {deviation}";
 }
 
-PredictionEngine<T, LabelPrediction> GetPredictionEngine<T>(string modelPath) where T : Issue
+void TestPrediction(string itemType, string? label, string? predictedLabel, float? score, TestStats stats)
 {
-    var context = new MLContext();
-    var model = context.Model.Load(modelPath, out _);
-
-    return context.Model.CreatePredictionEngine<T, LabelPrediction>(model);
-}
-
-void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor, TestStats stats) where T : Issue
-{
-    var itemType = GetItemTypeNameSingular(typeof(T));
-
-    (string? predictedLabel, float? score) = GetPrediction(
-        predictor,
-        result,
-        argsData.Threshold);
-
-    if (result.Label is not null && excludedLabels.Contains(result.Label, StringComparer.OrdinalIgnoreCase))
+    if (label is not null && excludedLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
     {
         stats.ExcludedExistingCount++;
-        RecordExcludedLabel(stats.ExcludedExistingByLabel, result.Label);
+        RecordExcludedLabel(stats.ExcludedExistingByLabel, label);
     }
 
     if (predictedLabel is not null && excludedLabels.Contains(predictedLabel, StringComparer.OrdinalIgnoreCase))
@@ -310,15 +173,15 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         RecordExcludedLabel(stats.ExcludedPredictedByLabel, predictedLabel);
     }
 
-    if (predictedLabel is null && result.Label is not null)
+    if (predictedLabel is null && label is not null)
     {
         stats.NoPrediction++;
     }
-    else if (predictedLabel is not null && result.Label is null)
+    else if (predictedLabel is not null && label is null)
     {
         stats.NoExisting++;
     }
-    else if (predictedLabel?.ToLower() == result.Label?.ToLower())
+    else if (string.Equals(predictedLabel, label, StringComparison.OrdinalIgnoreCase))
     {
         stats.Matches++;
 
@@ -337,13 +200,16 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         }
     }
 
-    action.StartGroup($"{itemType} {argsData.Org}/{result.Repo}#{result.Number} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(result.Label ?? "<NONE>")}");
-    action.WriteInfo($"Total        : {stats.Total}");
-    action.WriteInfo($"Matches      : {stats.Matches} ({stats.MatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MatchScores)}");
-    action.WriteInfo($"Mismatches   : {stats.Mismatches} ({stats.MismatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MismatchScores)}");
-    action.WriteInfo($"No Prediction: {stats.NoPrediction} ({stats.NoPredictionPercentage:P2})");
-    action.WriteInfo($"No Existing  : {stats.NoExisting} ({stats.NoExistingPercentage:P2})");
-    action.EndGroup();
+    if (argsData.Verbose)
+    {
+        action.StartGroup($"{itemType} held-out row {stats.Total} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(label ?? "<NONE>")}");
+        action.WriteInfo($"Total        : {stats.Total}");
+        action.WriteInfo($"Matches      : {stats.Matches} ({stats.MatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MatchScores)}");
+        action.WriteInfo($"Mismatches   : {stats.Mismatches} ({stats.MismatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MismatchScores)}");
+        action.WriteInfo($"No Prediction: {stats.NoPrediction} ({stats.NoPredictionPercentage:P2})");
+        action.WriteInfo($"No Existing  : {stats.NoExisting} ({stats.NoExistingPercentage:P2})");
+        action.EndGroup();
+    }
 }
 
 static void RecordExcludedLabel(Dictionary<string, int> counts, string label)
@@ -357,62 +223,6 @@ static void AddCounts(Dictionary<string, int> target, Dictionary<string, int> so
     {
         target[label] = target.TryGetValue(label, out int currentCount) ? currentCount + count : count;
     }
-}
-
-(string? PredictedLabel, float? PredictionScore) GetPrediction<T>(PredictionEngine<T, LabelPrediction> predictor, T issueOrPull, float? threshold) where T : Issue
-{
-    var prediction = predictor.Predict(issueOrPull);
-    var itemType = GetItemTypeNameSingular(typeof(T));
-
-    if (prediction.Score is null || prediction.Score.Length == 0)
-    {
-        action.WriteInfo($"No prediction was made for {itemType} {argsData.Org}/{issueOrPull.Repo}#{issueOrPull.Number}.");
-        return (null, null);
-    }
-
-    VBuffer<ReadOnlyMemory<char>> labels = default;
-    predictor.OutputSchema[nameof(LabelPrediction.Score)].GetSlotNames(ref labels);
-
-    var bestScore = prediction.Score
-        .Select((score, index) => new
-        {
-            Score = score,
-            Label = labels.GetItemOrDefault(index).ToString()
-        })
-        .OrderByDescending(p => p.Score)
-        .FirstOrDefault(p => threshold is null || p.Score >= threshold);
-
-    return bestScore is not null ? (bestScore.Label, bestScore.Score) : ((string?)null, (float?)null);
-}
-
-static string GetItemTypeNamePlural(Type type)
-{
-    if (type == typeof(PullRequest))
-    {
-        return "Pull Requests";
-    }
-
-    if (type == typeof(Discussion))
-    {
-        return "Discussions";
-    }
-
-    return "Issues";
-}
-
-static string GetItemTypeNameSingular(Type type)
-{
-    if (type == typeof(PullRequest))
-    {
-        return "Pull Request";
-    }
-
-    if (type == typeof(Discussion))
-    {
-        return "Discussion";
-    }
-
-    return "Issue";
 }
 
 class TestStats
@@ -433,8 +243,8 @@ class TestStats
     public float NoPredictionPercentage => (float)NoPrediction / Total;
     public float NoExistingPercentage => (float)NoExisting / Total;
 
-    public List<float> MatchScores => [];
-    public List<float> MismatchScores => [];
+    public List<float> MatchScores { get; } = [];
+    public List<float> MismatchScores { get; } = [];
     public Dictionary<string, int> ExcludedExistingByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, int> ExcludedPredictedByLabel { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
