@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Globalization;
 using Actions.Core.Services;
 
 public struct Args
@@ -9,6 +10,7 @@ public struct Args
     public string? IssuesModelPath { get; set; }
     public string? PullsDataPath { get; set; }
     public string? PullsModelPath { get; set; }
+    public float Threshold { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -26,8 +28,10 @@ public struct Args
               --pulls-data            Path to existing pull request data file (TSV file).
               --pulls-model           Path to existing pull request prediction model file (ZIP file).
 
-            Each dataset requires the adjacent .split.json manifest created by Downloader.
-            Training uses only its designated training rows and preserves the fixed test rows.
+            Optional arguments:
+              --threshold             Score cutoff for held-out evaluation in [0,1].
+                                      Uses an invariant decimal. Defaults to: 0.4.
+                                      Does not change production prediction settings.
             """);
 
         Environment.Exit(1);
@@ -37,7 +41,7 @@ public struct Args
     {
         Queue<string> arguments = new(args);
         ArgUtils argUtils = new(action, ShowUsage, arguments);
-        Args argsData = new();
+        Args argsData = new() { Threshold = 0.4f };
 
         while (arguments.Count > 0)
         {
@@ -75,6 +79,17 @@ public struct Args
                         return null;
                     }
                     argsData.PullsModelPath = PullsModelPath;
+                    break;
+
+                case "--threshold":
+                    if (!argUtils.TryGetString("--threshold", out string? input) ||
+                        !float.TryParse(input, NumberStyles.Float, CultureInfo.InvariantCulture, out float threshold) ||
+                        !float.IsFinite(threshold) || threshold is < 0 or > 1)
+                    {
+                        ShowUsage("Input '--threshold' requires a finite invariant decimal between 0 and 1.", action);
+                        return null;
+                    }
+                    argsData.Threshold = threshold;
                     break;
 
                 default:

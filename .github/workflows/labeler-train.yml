@@ -43,14 +43,11 @@ on:
         description: "The cache key suffix to use for staged data/models (use 'ACTIVE' to bypass staging). Defaults to 'staged'."
         required: true
         default: "staged"
-      data_cache_key_suffix:
-        description: "For Test Model only: the original dataset suffix, if different from the model suffix (for example after promotion)."
 
 permissions: {}
 
 env:
   CACHE_KEY: ${{ github.event.inputs.cache_key_suffix }}
-  DATA_CACHE_KEY: ${{ github.event.inputs.steps == 'Test Model' && github.event.inputs.data_cache_key_suffix || github.event.inputs.cache_key_suffix }}
   REPOSITORY: ${{ github.event.inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
   EXCLUDED_LABELS: ${{ github.event.inputs.excluded_labels }}
@@ -133,10 +130,8 @@ jobs:
       - name: "Restore Issue Data from Cache"
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            labeler-cache/issues-data.tsv
-            labeler-cache/issues-data.split.json
-          key: issue-labeler/data/issues/${{ env.DATA_CACHE_KEY }}
+          path: labeler-cache/issues-data.tsv
+          key: issue-labeler/data/issues/${{ env.CACHE_KEY }}
           fail-on-cache-miss: true
 
       - name: "Check Issue Training Data"
@@ -163,10 +158,8 @@ jobs:
       - name: "Restore Pull Request Data from Cache"
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            labeler-cache/pulls-data.tsv
-            labeler-cache/pulls-data.split.json
-          key: issue-labeler/data/pulls/${{ env.DATA_CACHE_KEY }}
+          path: labeler-cache/pulls-data.tsv
+          key: issue-labeler/data/pulls/${{ env.CACHE_KEY }}
           fail-on-cache-miss: true
 
       - name: "Check Pull Request Training Data"
@@ -193,10 +186,8 @@ jobs:
       - name: "Restore Discussion Data from Cache"
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
-          path: |
-            labeler-cache/discussions-data.tsv
-            labeler-cache/discussions-data.split.json
-          key: issue-labeler/data/discussions/${{ env.DATA_CACHE_KEY }}
+          path: labeler-cache/discussions-data.tsv
+          key: issue-labeler/data/discussions/${{ env.CACHE_KEY }}
           fail-on-cache-miss: true
 
       - name: "Check Discussion Training Data"
@@ -226,6 +217,7 @@ jobs:
           type: "discussions"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
+          threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
 
   train-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
@@ -241,6 +233,7 @@ jobs:
           type: "issues"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
+          threshold: ${{ env.THRESHOLD_ISSUES }}
 
   train-pulls:
     if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
@@ -256,6 +249,7 @@ jobs:
           type: "pulls"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
+          threshold: ${{ env.THRESHOLD_PULLS }}
 
   test-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
@@ -271,7 +265,6 @@ jobs:
         with:
           type: "issues"
           cache_key: ${{ env.CACHE_KEY }}
-          data_cache_key: ${{ env.DATA_CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -296,7 +289,6 @@ jobs:
         with:
           type: "discussions"
           cache_key: ${{ env.CACHE_KEY }}
-          data_cache_key: ${{ env.DATA_CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -321,7 +313,6 @@ jobs:
         with:
           type: "pulls"
           cache_key: ${{ env.CACHE_KEY }}
-          data_cache_key: ${{ env.DATA_CACHE_KEY }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}

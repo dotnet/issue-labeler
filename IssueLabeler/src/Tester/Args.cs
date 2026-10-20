@@ -5,13 +5,22 @@ using Actions.Core.Services;
 
 public struct Args
 {
+    public readonly string GitHubToken => Environment.GetEnvironmentVariable("GITHUB_TOKEN")!;
+    public string Org { get; set; }
+    public List<string> Repos { get; set; }
     public float Threshold { get; set; }
+    public Predicate<string> LabelPredicate { get; set; }
+    public string[]? ExcludedAuthors { get; set; }
     public string[]? ExcludedLabels { get; set; }
     public string? IssuesModelPath { get; set; }
-    public string? IssuesDataPath { get; set; }
     public bool TestDiscussions { get; set; }
+    public int? IssuesLimit { get; set; }
+    public int? DiscussionsLimit { get; set; }
     public string? PullsModelPath { get; set; }
-    public string? PullsDataPath { get; set; }
+    public int? PullsLimit { get; set; }
+    public int? PageSize { get; set; }
+    public int? PageLimit { get; set; }
+    public int[] Retries { get; set; }
     public bool Verbose { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
@@ -19,23 +28,35 @@ public struct Args
         action.WriteNotice($$"""
             ERROR: Invalid or missing arguments.{{(message is null ? "" : " " + message)}}
 
-            Supply at least one model:
-              --issues-model          Path to the issue prediction model (ZIP file).
-              --pulls-model           Path to the pull request prediction model (ZIP file).
+            Required environment variables:
+              GITHUB_TOKEN            GitHub token to be used for API calls.
 
-            Supply the original downloaded dataset for each model:
-              --issues-data           Issue/discussion TSV with its adjacent .split.json manifest.
-              --pulls-data            Pull request TSV with its adjacent .split.json manifest.
-                                      The dataset and fixed split must match the model.
-                                      Expired datasets cannot be replaced with new downloads for evaluation.
+            Required arguments:
+              --repo                  The GitHub repositories in format org/repo (comma separated for multiple).
+              --label-prefix          Prefix for label predictions. Must end with a character other than a letter or number.
+
+            Required for testing the issues model:
+              --issues-model          Path to existing issue prediction model file (ZIP file).
+              --discussions           Also evaluate discussions using the issues prediction model.
+
+            Required for testing the pull requests model:
+              --pulls-model           Path to existing pull request prediction model file (ZIP file).
 
             Optional arguments:
-              --discussions           Treat --issues-model as a discussion model instead.
-              --excluded-labels       Comma-separated labels to report if detected.
-                                      Does not change the held-out dataset.
-              --threshold             Minimum prediction confidence threshold. Range [0,1].
+              --excluded-authors      Comma-separated list of authors to exclude.
+              --excluded-labels       Comma-separated list of labels to exclude.
+              --threshold             Minimum prediction confidence threshold. Range (0,1].
                                       Defaults to: 0.4.
-              --verbose               Log predictions for individual held-out rows.
+              --issues-limit          Maximum number of issues to download. Defaults to: No limit.
+              --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.
+              --pulls-limit           Maximum number of pull requests to download. Defaults to: No limit.
+              --page-size             Number of items per page in GitHub API requests.
+                                      Defaults to: 100 for issues, 25 for pull requests.
+              --page-limit            Maximum number of pages to retrieve.
+                                      Defaults to: 1000 for issues, 4000 for pull requests.
+              --retries               Comma-separated retry delays in seconds.
+                                      Defaults to: 30,30,300,300,3000,3000.
+              --verbose               Enable verbose output.
             """);
 
         Environment.Exit(1);
@@ -45,10 +66,18 @@ public struct Args
     {
         Queue<string> arguments = new(args);
         ArgUtils argUtils = new(action, ShowUsage, arguments);
+
         Args argsData = new()
         {
-            Threshold = 0.4f
+            Threshold = 0.4f,
+            Retries = [30, 30, 300, 300, 3000, 3000]
         };
+
+        if (string.IsNullOrEmpty(argsData.GitHubToken))
+        {
+            ShowUsage("Environment variable GITHUB_TOKEN is empty.", action);
+            return null;
+        }
 
         while (arguments.Count > 0)
         {
@@ -56,66 +85,113 @@ public struct Args
 
             switch (argument)
             {
-                case "--issues-model":
-                    if (!argUtils.TryGetPath(argument, out string? issuesModelPath))
+                case "--repo":
+                    if (!argUtils.TryGetRepoList("--repo", out string? org, out List<string>? repos))
                     {
-                        ShowUsage($"Input '{argument}' requires a path.", action);
                         return null;
                     }
-                    argsData.IssuesModelPath = issuesModelPath;
+                    argsData.Org = org;
+                    argsData.Repos = repos;
                     break;
 
-                case "--pulls-model":
-                    if (!argUtils.TryGetPath(argument, out string? pullsModelPath))
+                case "--label-prefix":
+                    if (!argUtils.TryGetLabelPrefix("--label-prefix", out Func<string, bool>? labelPredicate))
                     {
-                        ShowUsage($"Input '{argument}' requires a path.", action);
                         return null;
                     }
-                    argsData.PullsModelPath = pullsModelPath;
+                    argsData.LabelPredicate = new(labelPredicate);
                     break;
 
-                case "--issues-data":
-                    if (!argUtils.TryGetPath(argument, out string? issuesDataPath))
+                case "--excluded-authors":
+                    if (!argUtils.TryGetStringArray("--excluded-authors", out string[]? excludedAuthors))
                     {
-                        ShowUsage($"Input '{argument}' requires a path.", action);
                         return null;
                     }
-                    argsData.IssuesDataPath = issuesDataPath;
-                    break;
-
-                case "--pulls-data":
-                    if (!argUtils.TryGetPath(argument, out string? pullsDataPath))
-                    {
-                        ShowUsage($"Input '{argument}' requires a path.", action);
-                        return null;
-                    }
-                    argsData.PullsDataPath = pullsDataPath;
-                    break;
-
-                case "--discussions":
-                    argsData.TestDiscussions = true;
+                    argsData.ExcludedAuthors = excludedAuthors;
                     break;
 
                 case "--excluded-labels":
-                    if (!argUtils.TryGetStringArray(argument, out string[]? excludedLabels))
+                    if (!argUtils.TryGetStringArray("--excluded-labels", out string[]? excludedLabels))
                     {
-                        ShowUsage($"Input '{argument}' requires a label list.", action);
                         return null;
                     }
                     argsData.ExcludedLabels = LabelUtils.NormalizeLabels(excludedLabels);
                     break;
 
                 case "--threshold":
-                    if (!argUtils.TryGetFloat(argument, out float? threshold))
+                    if (!argUtils.TryGetFloat("--threshold", out float? threshold))
                     {
-                        return null;
-                    }
-                    if (!float.IsFinite(threshold.Value) || threshold.Value is < 0 or > 1)
-                    {
-                        ShowUsage("The threshold must be between 0 and 1, inclusive.", action);
                         return null;
                     }
                     argsData.Threshold = threshold.Value;
+                    break;
+
+                case "--issues-model":
+                    if (!argUtils.TryGetPath("--issues-model", out string? IssuesModelPath))
+                    {
+                        return null;
+                    }
+                    argsData.IssuesModelPath = IssuesModelPath;
+                    break;
+
+                case "--discussions":
+                    argsData.TestDiscussions = true;
+                    break;
+
+                case "--issues-limit":
+                    if (!argUtils.TryGetInt("--issues-limit", out int? IssuesLimit))
+                    {
+                        return null;
+                    }
+                    argsData.IssuesLimit = IssuesLimit;
+                    break;
+
+                case "--discussions-limit":
+                    if (!argUtils.TryGetInt("--discussions-limit", out int? discussionsLimit))
+                    {
+                        return null;
+                    }
+                    argsData.DiscussionsLimit = discussionsLimit;
+                    break;
+
+                case "--pulls-model":
+                    if (!argUtils.TryGetPath("--pulls-model", out string? PullsModelPath))
+                    {
+                        return null;
+                    }
+                    argsData.PullsModelPath = PullsModelPath;
+                    break;
+
+                case "--pulls-limit":
+                    if (!argUtils.TryGetInt("--pulls-limit", out int? PullsLimit))
+                    {
+                        return null;
+                    }
+                    argsData.PullsLimit = PullsLimit;
+                    break;
+
+                case "--page-size":
+                    if (!argUtils.TryGetInt("--page-size", out int? pageSize))
+                    {
+                        return null;
+                    }
+                    argsData.PageSize = pageSize;
+                    break;
+
+                case "--page-limit":
+                    if (!argUtils.TryGetInt("--page-limit", out int? pageLimit))
+                    {
+                        return null;
+                    }
+                    argsData.PageLimit = pageLimit;
+                    break;
+
+                case "--retries":
+                    if (!argUtils.TryGetIntArray("--retries", out int[]? retries))
+                    {
+                        return null;
+                    }
+                    argsData.Retries = retries;
                     break;
 
                 case "--verbose":
@@ -128,11 +204,10 @@ public struct Args
             }
         }
 
-        if ((argsData.IssuesDataPath is null != argsData.IssuesModelPath is null) ||
-            (argsData.PullsDataPath is null != argsData.PullsModelPath is null) ||
+        if (argsData.Org is null || argsData.Repos.Count == 0 || argsData.LabelPredicate is null ||
             (argsData.IssuesModelPath is null && argsData.PullsModelPath is null))
         {
-            ShowUsage("Supply a model and its original dataset path for each model type to evaluate.", action);
+            ShowUsage(null, action);
             return null;
         }
 

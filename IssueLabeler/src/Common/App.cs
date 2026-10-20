@@ -30,13 +30,13 @@ public static class App
     /// <typeparam name="TResult">The Task result type.</typeparam>
     /// <param name="tasks">The list of tasks to run, waiting for all tasks to complete.</param>
     /// <param name="action">The GitHub action service.</param>
-    /// <returns>A tuple containing the results of successfully completed tasks and a boolean indicating whether all tasks were completed successfully.</returns>
+    /// <returns>A tuple containing the results of the tasks and a boolean indicating whether all tasks were completed successfully.</returns>
     public async static Task<(TResult[], bool)> RunTasks<TResult>(List<Task<TResult>> tasks, ICoreService action)
     {
         var allTasks = Task.WhenAll(tasks);
         var success = await RunTasks(allTasks, action);
 
-        return (tasks.Where(task => task.IsCompletedSuccessfully).Select(task => task.Result).ToArray(), success);
+        return (allTasks.Result, success);
     }
 
     /// <summary>

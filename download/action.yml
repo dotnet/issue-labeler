@@ -1,5 +1,5 @@
 name: "Download Data"
-description: "Download GitHub items and cache the dataset with a fixed 80/20 train/test split."
+description: "Download GitHub issues, pull requests, or discussions and cache the data."
 
 branding:
   color: "purple"
@@ -44,16 +44,13 @@ runs:
         fi
 
         echo "DATA_PATH=${{ format('labeler-cache/{0}-data.tsv', inputs.type) }}" >> $GITHUB_ENV
-        echo "SPLIT_PATH=${{ format('labeler-cache/{0}-data.split.json', inputs.type) }}" >> $GITHUB_ENV
         echo "CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.cache_key || 'staged') }}" >> $GITHUB_ENV
 
     - name: "Check for Existing Cache Entry"
       id: check-cache
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: |
-          ${{ env.DATA_PATH }}
-          ${{ env.SPLIT_PATH }}
+        path: ${{ env.DATA_PATH }}
         key: ${{ env.CACHE_KEY }}
         lookup-only: true
         fail-on-cache-miss: false
@@ -93,9 +90,7 @@ runs:
     - name: "Save the Downloaded Data to Cache"
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: |
-          ${{ env.DATA_PATH }}
-          ${{ env.SPLIT_PATH }}
+        path: ${{ env.DATA_PATH }}
         key: ${{ env.CACHE_KEY }}
 
     - name: "Write Final Summary"
@@ -104,4 +99,3 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Data Available as '${{ inputs.cache_key }}'" >> $GITHUB_STEP_SUMMARY
         echo "The '${{ inputs.cache_key }}' data is saved to cache and available for training a model." >> $GITHUB_STEP_SUMMARY
-        echo "Its fixed train/test split expires with the dataset under the normal cache policy." >> $GITHUB_STEP_SUMMARY

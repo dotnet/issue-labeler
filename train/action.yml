@@ -1,16 +1,19 @@
 name: "Train Model"
-description: "Train the Issues, Pull Requests, or Discussions model for label prediction. Each type writes its own cached model file."
+description: "Train a model, evaluate its held-out test split, and cache the model for label prediction."
 
 inputs:
   type:
     description: "The model to train. Must be 'issues', 'pulls', or 'discussions'."
     required: true
   data_cache_key:
-    description: "The cache key suffix for the downloaded dataset and its fixed split manifest. Older datasets without a manifest must be downloaded again."
+    description: "The cache key suffix to use for the downloaded data. Defaults to 'staged'."
     default: staged
   model_cache_key:
     description: "The cache key suffix to use for the trained model. Defaults to 'staged'."
     default: staged
+  threshold:
+    description: "Score cutoff in [0,1] for the held-out evaluation performed during training. Does not change production prediction settings."
+    default: "0.4"
 
 branding:
   color: "purple"
@@ -35,7 +38,6 @@ runs:
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
         echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
-        echo "SPLIT_PATH=labeler-cache/${{ inputs.type }}-data.split.json" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
@@ -62,9 +64,7 @@ runs:
     - name: "Restore Data from Cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: |
-          ${{ env.DATA_PATH }}
-          ${{ env.SPLIT_PATH }}
+        path: ${{ env.DATA_PATH }}
         key: ${{ env.DATA_CACHE_KEY }}
         fail-on-cache-miss: true
 
@@ -75,6 +75,8 @@ runs:
 
     - name: "Run Trainer"
       shell: bash
+      env:
+        EVALUATION_THRESHOLD: ${{ inputs.threshold }}
       run: |
         if [[ "${{ inputs.type }}" == "pulls" ]]; then
           trainer_args=(--pulls-data "${{ env.DATA_PATH }}" --pulls-model "${{ env.MODEL_PATH }}")
@@ -83,7 +85,7 @@ runs:
           trainer_args=(--issues-data "${{ env.DATA_PATH }}" --issues-model "${{ env.MODEL_PATH }}")
         fi
 
-        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}"
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}" --threshold "$EVALUATION_THRESHOLD"
 
     - name: "Save Model to Cache"
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -96,7 +98,6 @@ runs:
       run: |
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
-        echo "Evaluation uses the fixed split in the original dataset cache. If it expires, later evaluation is unavailable; prediction still needs only the model." >> $GITHUB_STEP_SUMMARY
 
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
           echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY

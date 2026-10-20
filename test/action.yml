@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Evaluate a model using the fixed test rows in its original downloaded dataset."
+description: "Recheck predictions against current GitHub labels (may include training data). Use the training job for held-out evaluation."
 
 branding:
   color: "purple"
@@ -7,39 +7,31 @@ branding:
 
 inputs:
   type:
-    description: "The model to test. Must be 'issues', 'pulls', or 'discussions'."
+    description: "The model to test. Must be 'issues', 'pulls', or 'discussions'. Discussions use the issues model path."
     required: true
   label_prefix:
-    description: "Deprecated. The label selection is frozen in the saved test set."
-    deprecationMessage: "label_prefix is ignored; the tester evaluates the saved held-out dataset."
+    description: "The label prefix to use for model training. Must end with a non-alphanumeric character."
+    required: true
   threshold:
     description: "The minimum confidence score for a label prediction. Must be a number between 0.00 and 1.00. The recommended value is 0.40."
     required: true
   excluded_authors:
-    description: "Deprecated. Author selection is frozen in the saved test set."
-    deprecationMessage: "excluded_authors is ignored; configure it when downloading training data."
+    description: "A comma-separated list of authors to exclude."
   excluded_labels:
-    description: "A comma-separated list of labels to report if detected. Does not filter the saved test set."
+    description: "A comma-separated list of labels that should be excluded from training/test data."
   limit:
-    description: "Deprecated. All saved held-out rows are evaluated."
-    deprecationMessage: "limit is ignored; the tester evaluates the entire saved held-out dataset."
+    description: "The maximum number of items to download. The newest items are downloaded."
   page_size:
-    description: "Deprecated. Testing no longer makes GitHub API requests."
-    deprecationMessage: "page_size is ignored; testing no longer downloads GitHub items."
+    description: "The number of items per page in GitHub API requests. Defaults to 100 for Issues and 25 for Pull Requests."
   page_limit:
-    description: "Deprecated. Testing no longer makes GitHub API requests."
-    deprecationMessage: "page_limit is ignored; testing no longer downloads GitHub items."
+    description: "The maximum number of pages to retrieve. Defaults to 1000 for Issues and 4000 for Pull Requests."
   retries:
-    description: "Deprecated. Testing no longer makes GitHub API requests."
-    deprecationMessage: "retries is ignored; testing no longer downloads GitHub items."
+    description: "A comma-separated list of retry delays in seconds. Defaults to '30,30,300,300,3000,3000'."
   cache_key:
-    description: "The model cache key suffix to restore."
+    description: "The cache key suffix to use for saving data. Defaults to 'staged'."
     default: staged
-  data_cache_key:
-    description: "The original dataset cache key suffix used for training. Defaults to cache_key. Set this explicitly for a promoted model whose dataset has a different suffix."
   repository:
-    description: "Deprecated. Repository selection is frozen in the saved test set."
-    deprecationMessage: "repository is ignored; the tester evaluates the data saved during training."
+    description: "The org/repo to download data from. Defaults to the current repository."
   verbose:
     description: "Enable verbose output."
 
@@ -55,32 +47,13 @@ runs:
           echo "\`type\` must be 'issues', 'pulls', or 'discussions'." >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
-        echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> "$GITHUB_ENV"
-        echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> "$GITHUB_ENV"
-        echo "SPLIT_PATH=labeler-cache/${{ inputs.type }}-data.split.json" >> "$GITHUB_ENV"
 
     - name: "Restore model from cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ env.MODEL_PATH }}
+        path: "labeler-cache/${{ inputs.type == 'pulls' && 'pulls' || inputs.type == 'discussions' && 'discussions' || 'issues' }}-model.zip"
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}"
         fail-on-cache-miss: true
-
-    - name: "Restore Original Dataset and Split"
-      id: restore-data
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-      with:
-        path: |
-          ${{ env.DATA_PATH }}
-          ${{ env.SPLIT_PATH }}
-        key: issue-labeler/data/${{ inputs.type }}/${{ inputs.data_cache_key || inputs.cache_key || 'staged' }}
-
-    - name: "Require the Original Dataset"
-      if: ${{ steps.restore-data.outputs.cache-hit != 'true' }}
-      shell: bash
-      run: |
-        echo "::error::The original dataset and split manifest are unavailable or expired. Set data_cache_key to the source dataset suffix. Prediction is unaffected; a new download cannot evaluate this existing model."
-        exit 1
 
     - name: "Set up the .NET SDK"
       uses: actions/setup-dotnet@9a946fdbd5fb07b82b2f5a4466058b876ab72bb2 # v5.3.0
@@ -91,9 +64,15 @@ runs:
       shell: bash
       run: |
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Tester" --  \
+          ${{ format('--repo "{0}"', inputs.repository || github.repository) }} \
+          ${{ format('--label-prefix "{0}"', inputs.label_prefix) }} \
           ${{ format('--threshold {0}', inputs.threshold) }} \
-          ${{ inputs.type == 'pulls' && '--pulls-model' || '--issues-model' }} "${{ env.MODEL_PATH }}" \
-          ${{ inputs.type == 'pulls' && '--pulls-data' || '--issues-data' }} "${{ env.DATA_PATH }}" \
+          ${{ inputs.type == 'pulls' && '--pulls-model "labeler-cache/pulls-model.zip"' || inputs.type == 'discussions' && '--issues-model "labeler-cache/discussions-model.zip"' || '--issues-model "labeler-cache/issues-model.zip"' }} \
           ${{ inputs.type == 'discussions' && '--discussions' || '' }} \
+          ${{ (inputs.excluded_authors && format('--excluded-authors "{0}"', inputs.excluded_authors)) || '' }} \
           ${{ (inputs.excluded_labels && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
+          ${{ (inputs.limit && format('--{0}-limit {1}', inputs.type, inputs.limit)) || '' }} \
+          ${{ (inputs.page_size && format('--page-size {0}', inputs.page_size)) || '' }} \
+          ${{ (inputs.page_limit && format('--page-limit {0}', inputs.page_limit)) || '' }} \
+          ${{ (inputs.retries && format('--retries {0}', inputs.retries)) || '' }} \
           ${{ inputs.verbose && '--verbose' || '' }}

@@ -43,8 +43,6 @@ public struct Args
             Required for downloading pull request data:
               --pulls-data            Path for pull request data file to create (TSV file).
 
-            Each dataset includes an adjacent .split.json manifest with a fixed 80/20 split.
-
             Optional arguments:
               --issues-limit          Maximum number of issues to download. Defaults to: No limit.
               --discussions-limit     Maximum number of discussions to download. Defaults to: No limit.

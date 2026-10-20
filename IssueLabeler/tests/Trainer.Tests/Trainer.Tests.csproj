@@ -1,15 +1,12 @@
 <Project Sdk="MSTest.Sdk/4.5.1">
-
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <UseVSTest>true</UseVSTest>
   </PropertyGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Tester\Tester.csproj" />
-    <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" Aliases="Trainer" />
+    <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" />
+    <ProjectReference Include="..\..\src\Tester\Tester.csproj" Aliases="Tester" />
   </ItemGroup>
-
 </Project>
