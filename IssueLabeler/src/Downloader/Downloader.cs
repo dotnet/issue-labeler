@@ -51,6 +51,7 @@ return success ? 0 : 1;
 async Task DownloadIssues(string outputPath)
 {
     action.WriteInfo($"Issues Data Path: {outputPath}");
+    File.Delete(DatasetSplit.GetPath(outputPath));
 
     byte perFlushCount = 0;
 
@@ -74,11 +75,13 @@ async Task DownloadIssues(string outputPath)
     }
 
     writer.Close();
+    DatasetSplit.Create(outputPath);
 }
 
 async Task DownloadPullRequests(string outputPath)
 {
     action.WriteInfo($"Pulls Data Path: {outputPath}");
+    File.Delete(DatasetSplit.GetPath(outputPath));
 
     byte perFlushCount = 0;
 
@@ -102,11 +105,13 @@ async Task DownloadPullRequests(string outputPath)
     }
 
     writer.Close();
+    DatasetSplit.Create(outputPath);
 }
 
 async Task DownloadDiscussions(string outputPath)
 {
     action.WriteInfo($"Discussions Data Path: {outputPath}");
+    File.Delete(DatasetSplit.GetPath(outputPath));
 
     byte perFlushCount = 0;
 
@@ -130,4 +135,5 @@ async Task DownloadDiscussions(string outputPath)
     }
 
     writer.Close();
+    DatasetSplit.Create(outputPath);
 }

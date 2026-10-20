@@ -6,7 +6,6 @@ using Actions.Core.Markdown;
 using Actions.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
-using Microsoft.ML.Data;
 using Microsoft.ML.Transforms.Text;
 using static DataFileUtils;
 
@@ -58,48 +57,25 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     await action.WriteStatusAsync("Loading data into train/test sets...");
     MLContext mlContext = new();
 
-    TextLoader.Column[] columns = type == ModelType.Issue ? [
-        new("Label", DataKind.String, 0),
-        new("Title", DataKind.String, 1),
-        new("Body", DataKind.String, 2),
-    ] : [
-        new("Label", DataKind.String, 0),
-        new("Title", DataKind.String, 1),
-        new("Body", DataKind.String, 2),
-        new("FileNames", DataKind.String, 3),
-        new("FolderNames", DataKind.String, 4)
-    ];
-
-    TextLoader.Options textLoaderOptions = new()
+    var split = DatasetSplit.Load(dataPath);
+    if (split.ColumnCount != (type == ModelType.Issue ? 3 : 5))
     {
-        AllowQuoting = false,
-        AllowSparse = false,
-        EscapeChar = '"',
-        HasHeader = true,
-        ReadMultilines = false,
-        Separators = ['\t'],
-        TrimWhitespace = true,
-        UseThreads = true,
-        Columns = columns
-    };
-
-    var loader = mlContext.Data.CreateTextLoader(textLoaderOptions);
-    var data = loader.Load(dataPath);
-    var split = mlContext.Data.TrainTestSplit(data, testFraction: 0.2);
-
-    string testDataPath = Path.ChangeExtension(modelPath, ".test-data.bin");
-    EnsureOutputDirectory(testDataPath);
-    using (var stream = File.Create(testDataPath))
-    {
-        mlContext.Data.SaveAsBinary(split.TestSet, stream);
+        throw new InvalidDataException("The dataset columns do not match the requested model type.");
     }
-
-    var testSet = mlContext.Data.LoadFromBinary(testDataPath);
-    using var testSetLifetime = testSet as IDisposable;
-    if (testSet.GetRowCount() is 0)
+    if (split.TestRows.Length == 0)
     {
         throw new InvalidOperationException("The held-out test set is empty. Download more data before training.");
     }
+
+    // ML.NET can keep source enumerators alive across cursors; do not give them open file readers.
+    var trainingRows = split.ReadRows(dataPath, test: false).ToArray();
+    var testRows = split.ReadRows(dataPath, test: true).ToArray();
+    var trainingData = type == ModelType.Issue
+        ? mlContext.Data.LoadFromEnumerable(trainingRows)
+        : mlContext.Data.LoadFromEnumerable(trainingRows.Cast<PullRequestDatasetRow>());
+    var testData = type == ModelType.Issue
+        ? mlContext.Data.LoadFromEnumerable(testRows)
+        : mlContext.Data.LoadFromEnumerable(testRows.Cast<PullRequestDatasetRow>());
 
     await action.WriteStatusAsync("Building pipeline...");
 
@@ -118,8 +94,8 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
         .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
 
     await action.WriteStatusAsync("Fitting the model with the training data set...");
-    var trainedModel = pipeline.Fit(split.TrainSet);
-    var testModel = trainedModel.Transform(testSet);
+    var trainedModel = pipeline.Fit(trainingData);
+    var testModel = trainedModel.Transform(testData);
 
     await action.WriteStatusAsync("Evaluating against the test set...");
     var metrics = mlContext.MulticlassClassification.Evaluate(testModel, labelColumnName: "LabelKey");
@@ -158,5 +134,6 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
 
     action.WriteInfo($"Saving model to '{modelPath}'...");
     EnsureOutputDirectory(modelPath);
-    mlContext.Model.Save(trainedModel, split.TrainSet.Schema, modelPath);
+    mlContext.Model.Save(trainedModel, trainingData.Schema, modelPath);
+    split.WriteModelReference(modelPath);
 }

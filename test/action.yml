@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Evaluate a model against the exact held-out dataset saved during its training."
+description: "Evaluate a model using the fixed test rows in its original downloaded dataset."
 
 branding:
   color: "purple"
@@ -33,8 +33,10 @@ inputs:
     description: "Deprecated. Testing no longer makes GitHub API requests."
     deprecationMessage: "retries is ignored; testing no longer downloads GitHub items."
   cache_key:
-    description: "The model cache key suffix to restore. Its held-out data is located using the model's content hash."
+    description: "The model cache key suffix to restore."
     default: staged
+  data_cache_key:
+    description: "The original dataset cache key suffix used for training. Defaults to cache_key. Set this explicitly for a promoted model whose dataset has a different suffix."
   repository:
     description: "Deprecated. Repository selection is frozen in the saved test set."
     deprecationMessage: "repository is ignored; the tester evaluates the data saved during training."
@@ -54,7 +56,8 @@ runs:
           exit 1
         fi
         echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> "$GITHUB_ENV"
-        echo "TEST_DATA_PATH=labeler-cache/${{ inputs.type }}-model.test-data.bin" >> "$GITHUB_ENV"
+        echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> "$GITHUB_ENV"
+        echo "SPLIT_PATH=labeler-cache/${{ inputs.type }}-data.split.json" >> "$GITHUB_ENV"
 
     - name: "Restore model from cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
@@ -63,26 +66,20 @@ runs:
         key: "issue-labeler/model/${{ inputs.type }}/${{ inputs.cache_key || 'staged' }}"
         fail-on-cache-miss: true
 
-    - name: "Check Restored Model"
-      shell: bash
-      run: |
-        if [[ ! -s "$MODEL_PATH" ]]; then
-          echo "::error::The restored model file is missing or empty."
-          exit 1
-        fi
-
-    - name: "Restore Held-Out Data from Cache"
-      id: restore-test-data
+    - name: "Restore Original Dataset and Split"
+      id: restore-data
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ env.TEST_DATA_PATH }}
-        key: issue-labeler/test-data/${{ inputs.type }}/${{ hashFiles(env.MODEL_PATH) }}
+        path: |
+          ${{ env.DATA_PATH }}
+          ${{ env.SPLIT_PATH }}
+        key: issue-labeler/data/${{ inputs.type }}/${{ inputs.data_cache_key || inputs.cache_key || 'staged' }}
 
-    - name: "Require the Original Held-Out Data"
-      if: ${{ steps.restore-test-data.outputs.cache-hit != 'true' }}
+    - name: "Require the Original Dataset"
+      if: ${{ steps.restore-data.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
-        echo "::error::The held-out dataset for this model is unavailable. Retrain the model; live GitHub data cannot replace the original split."
+        echo "::error::The original dataset and split manifest are unavailable or expired. Set data_cache_key to the source dataset suffix. Prediction is unaffected; a new download cannot evaluate this existing model."
         exit 1
 
     - name: "Set up the .NET SDK"
@@ -96,6 +93,7 @@ runs:
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Tester" --  \
           ${{ format('--threshold {0}', inputs.threshold) }} \
           ${{ inputs.type == 'pulls' && '--pulls-model' || '--issues-model' }} "${{ env.MODEL_PATH }}" \
+          ${{ inputs.type == 'pulls' && '--pulls-data' || '--issues-data' }} "${{ env.DATA_PATH }}" \
           ${{ inputs.type == 'discussions' && '--discussions' || '' }} \
           ${{ (inputs.excluded_labels && format('--excluded-labels "{0}"', inputs.excluded_labels)) || '' }} \
           ${{ inputs.verbose && '--verbose' || '' }}

@@ -1,4 +1,4 @@
-# Regularly restore models and their held-out datasets to prevent cache eviction
+# Regularly restore the prediction models from cache to prevent cache eviction
 name: "Labeler: Cache Retention"
 
 # For more information about GitHub's action cache limits and eviction policy, see:
@@ -31,22 +31,7 @@ jobs:
         type: ["issues", "pulls", "discussions"]
     steps:
       - uses: dotnet/issue-labeler/restore@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
-        id: restore-model
         with:
           type: ${{ matrix.type }}
           cache_key: ${{ env.CACHE_KEY }}
           fail-on-cache-miss: true
-
-      - name: "Restore Held-Out Data for Retention"
-        if: ${{ steps.restore-model.outputs.cache-hit == 'true' }}
-        id: restore-test-data
-        uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: labeler-cache/${{ matrix.type }}-model.test-data.bin
-          key: issue-labeler/test-data/${{ matrix.type }}/${{ hashFiles(format('labeler-cache/{0}-model.zip', matrix.type)) }}
-
-      - name: "Report Missing Held-Out Data"
-        if: ${{ steps.restore-model.outputs.cache-hit == 'true' && steps.restore-test-data.outputs.cache-hit != 'true' }}
-        shell: bash
-        run: |
-          echo "::warning::The held-out dataset for this model is unavailable. Predictions are unaffected, but the model must be retrained before held-out evaluation."

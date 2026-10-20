@@ -6,19 +6,25 @@ using Microsoft.ML.Data;
 
 public static class HeldOutModelTester
 {
-    public static IEnumerable<(string? Label, string? PredictedLabel, float? Score)> Predict(string modelPath, float threshold)
+    public static IEnumerable<(string? Label, string? PredictedLabel, float? Score)> Predict(
+        string modelPath, string dataPath, float threshold, ModelType type = ModelType.Issue)
     {
-        string testDataPath = Path.ChangeExtension(modelPath, ".test-data.bin");
-        if (!File.Exists(testDataPath))
+        var split = DatasetSplit.Load(dataPath);
+        split.VerifyModelReference(modelPath);
+        if (split.ColumnCount != (type == ModelType.Issue ? 3 : 5))
         {
-            throw new FileNotFoundException(
-                "The saved held-out dataset is missing. Retrain the model to create it; live GitHub data cannot replace it.",
-                testDataPath);
+            throw new InvalidDataException("The dataset columns do not match the requested model type.");
+        }
+        if (split.TestRows.Length == 0)
+        {
+            throw new InvalidOperationException("The dataset has no held-out rows. Download more data before training.");
         }
 
         var context = new MLContext();
-        var data = context.Data.LoadFromBinary(testDataPath);
-        using var dataLifetime = data as IDisposable;
+        var rows = split.ReadRows(dataPath, test: true).ToArray();
+        var data = type == ModelType.Issue
+            ? context.Data.LoadFromEnumerable(rows)
+            : context.Data.LoadFromEnumerable(rows.Cast<PullRequestDatasetRow>());
         var model = context.Model.Load(modelPath, out _);
         var predictions = model.Transform(data);
 
@@ -36,7 +42,7 @@ public static class HeldOutModelTester
 
         if (!hasRows)
         {
-            throw new InvalidOperationException("The saved held-out dataset is empty. Retrain the model with more data.");
+            throw new InvalidOperationException("The dataset has no held-out rows. Download more data before training.");
         }
     }
 

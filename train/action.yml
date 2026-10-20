@@ -6,7 +6,7 @@ inputs:
     description: "The model to train. Must be 'issues', 'pulls', or 'discussions'."
     required: true
   data_cache_key:
-    description: "The cache key suffix to use for the downloaded data. Defaults to 'staged'."
+    description: "The cache key suffix for the downloaded dataset and its fixed split manifest. Older datasets without a manifest must be downloaded again."
     default: staged
   model_cache_key:
     description: "The cache key suffix to use for the trained model. Defaults to 'staged'."
@@ -35,7 +35,7 @@ runs:
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
         echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
-        echo "TEST_DATA_PATH=labeler-cache/${{ inputs.type }}-model.test-data.bin" >> $GITHUB_ENV
+        echo "SPLIT_PATH=labeler-cache/${{ inputs.type }}-data.split.json" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
@@ -62,7 +62,9 @@ runs:
     - name: "Restore Data from Cache"
       uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
-        path: ${{ env.DATA_PATH }}
+        path: |
+          ${{ env.DATA_PATH }}
+          ${{ env.SPLIT_PATH }}
         key: ${{ env.DATA_CACHE_KEY }}
         fail-on-cache-miss: true
 
@@ -83,35 +85,6 @@ runs:
 
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}"
 
-    - name: "Check Generated Model and Held-Out Data"
-      shell: bash
-      run: |
-        if [[ ! -s "$MODEL_PATH" || ! -s "$TEST_DATA_PATH" ]]; then
-          echo "::error::Training must produce both a model and its saved held-out dataset."
-          exit 1
-        fi
-
-    - name: "Save Held-Out Data to Cache"
-      uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-      with:
-        path: ${{ env.TEST_DATA_PATH }}
-        key: issue-labeler/test-data/${{ inputs.type }}/${{ hashFiles(env.MODEL_PATH) }}
-
-    - name: "Verify Held-Out Data Was Cached"
-      id: check-test-cache
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-      with:
-        path: ${{ env.TEST_DATA_PATH }}
-        key: issue-labeler/test-data/${{ inputs.type }}/${{ hashFiles(env.MODEL_PATH) }}
-        lookup-only: true
-
-    - name: "Require Cached Held-Out Data"
-      if: ${{ steps.check-test-cache.outputs.cache-hit != 'true' }}
-      shell: bash
-      run: |
-        echo "::error::The held-out dataset was not cached. The model will not be published."
-        exit 1
-
     - name: "Save Model to Cache"
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
@@ -123,7 +96,7 @@ runs:
       run: |
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## ${{ inputs.type == 'issues' && 'Issues' || inputs.type == 'pulls' && 'Pull Requests' || 'Discussions' }} Model Available as '${{ inputs.model_cache_key }}'." >> $GITHUB_STEP_SUMMARY
-        echo "The exact held-out test split is cached separately using the model's content hash. Prediction restores only the model." >> $GITHUB_STEP_SUMMARY
+        echo "Evaluation uses the fixed split in the original dataset cache. If it expires, later evaluation is unavailable; prediction still needs only the model." >> $GITHUB_STEP_SUMMARY
 
         if [[ "${{ inputs.model_cache_key }}" == "ACTIVE" ]]; then
           echo "Label predictions will now use this model." >> $GITHUB_STEP_SUMMARY

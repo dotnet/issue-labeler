@@ -25,6 +25,9 @@ public struct Args
             Required for training the pull requests model:
               --pulls-data            Path to existing pull request data file (TSV file).
               --pulls-model           Path to existing pull request prediction model file (ZIP file).
+
+            Each dataset requires the adjacent .split.json manifest created by Downloader.
+            Training uses only its designated training rows and preserves the fixed test rows.
             """);
 
         Environment.Exit(1);

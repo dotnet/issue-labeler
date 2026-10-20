@@ -8,8 +8,10 @@ public struct Args
     public float Threshold { get; set; }
     public string[]? ExcludedLabels { get; set; }
     public string? IssuesModelPath { get; set; }
+    public string? IssuesDataPath { get; set; }
     public bool TestDiscussions { get; set; }
     public string? PullsModelPath { get; set; }
+    public string? PullsDataPath { get; set; }
     public bool Verbose { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
@@ -21,10 +23,11 @@ public struct Args
               --issues-model          Path to the issue prediction model (ZIP file).
               --pulls-model           Path to the pull request prediction model (ZIP file).
 
-            Each model requires its saved held-out dataset beside it:
-              example-model.zip       Model file.
-              example-model.test-data.bin
-                                      The exact test split saved during training.
+            Supply the original downloaded dataset for each model:
+              --issues-data           Issue/discussion TSV with its adjacent .split.json manifest.
+              --pulls-data            Pull request TSV with its adjacent .split.json manifest.
+                                      The dataset and fixed split must match the model.
+                                      Expired datasets cannot be replaced with new downloads for evaluation.
 
             Optional arguments:
               --discussions           Treat --issues-model as a discussion model instead.
@@ -71,6 +74,24 @@ public struct Args
                     argsData.PullsModelPath = pullsModelPath;
                     break;
 
+                case "--issues-data":
+                    if (!argUtils.TryGetPath(argument, out string? issuesDataPath))
+                    {
+                        ShowUsage($"Input '{argument}' requires a path.", action);
+                        return null;
+                    }
+                    argsData.IssuesDataPath = issuesDataPath;
+                    break;
+
+                case "--pulls-data":
+                    if (!argUtils.TryGetPath(argument, out string? pullsDataPath))
+                    {
+                        ShowUsage($"Input '{argument}' requires a path.", action);
+                        return null;
+                    }
+                    argsData.PullsDataPath = pullsDataPath;
+                    break;
+
                 case "--discussions":
                     argsData.TestDiscussions = true;
                     break;
@@ -107,9 +128,11 @@ public struct Args
             }
         }
 
-        if (argsData.IssuesModelPath is null && argsData.PullsModelPath is null)
+        if ((argsData.IssuesDataPath is null != argsData.IssuesModelPath is null) ||
+            (argsData.PullsDataPath is null != argsData.PullsModelPath is null) ||
+            (argsData.IssuesModelPath is null && argsData.PullsModelPath is null))
         {
-            ShowUsage("At least one model path is required.", action);
+            ShowUsage("Supply a model and its original dataset path for each model type to evaluate.", action);
             return null;
         }
 

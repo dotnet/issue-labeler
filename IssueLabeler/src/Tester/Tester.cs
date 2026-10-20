@@ -27,14 +27,15 @@ if (excludedLabels.Length > 0)
     });
 }
 
-if (argsData.IssuesModelPath is not null)
+if (argsData.IssuesModelPath is not null && argsData.IssuesDataPath is not null)
 {
-    tasks.Add(Task.Run(() => TestModel(argsData.IssuesModelPath, argsData.TestDiscussions ? "Discussions" : "Issues")));
+    tasks.Add(Task.Run(() => TestModel(argsData.IssuesModelPath, argsData.IssuesDataPath, ModelType.Issue,
+        argsData.TestDiscussions ? "Discussions" : "Issues")));
 }
 
-if (argsData.PullsModelPath is not null)
+if (argsData.PullsModelPath is not null && argsData.PullsDataPath is not null)
 {
-    tasks.Add(Task.Run(() => TestModel(argsData.PullsModelPath, "Pull Requests")));
+    tasks.Add(Task.Run(() => TestModel(argsData.PullsModelPath, argsData.PullsDataPath, ModelType.PullRequest, "Pull Requests")));
 }
 
 var (results, success) = await App.RunTasks(tasks, action);
@@ -132,11 +133,11 @@ foreach (var (itemType, stats) in results)
 await action.Summary.WritePersistentAsync();
 return success ? 0 : 1;
 
-(string, TestStats) TestModel(string modelPath, string itemType)
+(string, TestStats) TestModel(string modelPath, string dataPath, ModelType type, string itemType)
 {
     var stats = new TestStats();
-    action.WriteInfo($"Testing {itemType} using the saved held-out dataset for '{modelPath}'.");
-    foreach (var (label, predictedLabel, score) in HeldOutModelTester.Predict(modelPath, argsData.Threshold))
+    action.WriteInfo($"Testing {itemType} using the fixed held-out rows from '{dataPath}'.");
+    foreach (var (label, predictedLabel, score) in HeldOutModelTester.Predict(modelPath, dataPath, argsData.Threshold, type))
     {
         TestPrediction(itemType, label, predictedLabel, score, stats);
     }
