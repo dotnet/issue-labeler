@@ -9,10 +9,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [assembly: DoNotParallelize]
 
-namespace Tester.Tests;
+namespace IssueLabeler.Tests;
 
 [TestClass]
-public sealed class HeldOutModelTesterTests
+public sealed class TesterTests
 {
     private string directory = string.Empty;
 
@@ -110,11 +110,11 @@ public sealed class HeldOutModelTesterTests
             }
         }
         var modelType = isPull ? ModelType.PullRequest : ModelType.Issue;
-        var actual = HeldOutModelTester.Predict(modelPath, dataPath, 0.4f, modelType).ToArray();
+        var actual = Tester.Predict(modelPath, dataPath, 0.4f, modelType).ToArray();
         Assert.AreEqual(heldOutTitles.Length, actual.Length);
         CollectionAssert.AreEqual(expected.Select(row => row.Label).ToArray(), actual.Select(row => row.Label).ToArray());
 
-        CollectionAssert.AreEqual(actual, HeldOutModelTester.Predict(modelPath, dataPath, 0.4f, modelType).ToArray());
+        CollectionAssert.AreEqual(actual, Tester.Predict(modelPath, dataPath, 0.4f, modelType).ToArray());
 
         List<string> testArgs = [isPull ? "--pulls-model" : "--issues-model", modelPath,
             isPull ? "--pulls-data" : "--issues-data", dataPath, "--threshold", threshold];
@@ -122,7 +122,7 @@ public sealed class HeldOutModelTesterTests
         {
             testArgs.Add("--discussions");
         }
-        var testing = await Run(typeof(HeldOutModelTester).Assembly.Location, [.. testArgs]);
+        var testing = await Run(typeof(Tester).Assembly.Location, [.. testArgs]);
         Assert.AreEqual(0, testing.ExitCode, testing.Output);
         StringAssert.Contains(testing.Output, $"Finished Testing {heading}");
         StringAssert.Contains(testing.Output, $"**{heldOutTitles.Length}** items were tested");
@@ -138,11 +138,11 @@ public sealed class HeldOutModelTesterTests
                 "--issues-data", dataPath, "--issues-model", secondModel);
             Assert.AreEqual(0, secondTraining.ExitCode, secondTraining.Output);
             CollectionAssert.AreEqual(manifest, File.ReadAllBytes(DatasetSplit.GetPath(dataPath)));
-            Assert.HasCount(40, HeldOutModelTester.Predict(secondModel, dataPath, 0.4f).ToArray());
+            Assert.HasCount(40, Tester.Predict(secondModel, dataPath, 0.4f).ToArray());
 
             string promotedModel = Path.Combine(directory, "active-model.zip");
             File.Copy(modelPath, promotedModel);
-            CollectionAssert.AreEqual(actual, HeldOutModelTester.Predict(promotedModel, dataPath, 0.4f).ToArray());
+            CollectionAssert.AreEqual(actual, Tester.Predict(promotedModel, dataPath, 0.4f).ToArray());
         }
 
         File.Delete(dataPath);
@@ -150,7 +150,7 @@ public sealed class HeldOutModelTesterTests
         using var modelOnlyPredictor = context.Model.CreatePredictionEngine<TestRow, LabelPrediction>(
             context.Model.Load(modelPath, out _));
         Assert.IsGreaterThan(0, modelOnlyPredictor.Predict(new TestRow { Title = "Item 0", Body = "Details" }).Score.Length);
-        var missing = await Run(typeof(HeldOutModelTester).Assembly.Location, [.. testArgs]);
+        var missing = await Run(typeof(Tester).Assembly.Location, [.. testArgs]);
         Assert.AreEqual(1, missing.ExitCode, missing.Output);
         StringAssert.Contains(missing.Output, "original dataset or its split manifest is unavailable");
         Assert.IsFalse(missing.Output.Contains("Unhandled exception", StringComparison.Ordinal));
@@ -162,7 +162,7 @@ public sealed class HeldOutModelTesterTests
         string modelPath = Path.Combine(directory, "model.zip");
         string dataPath = Path.Combine(directory, "data.tsv");
 
-        var exception = Assert.Throws<FileNotFoundException>(() => HeldOutModelTester.Predict(modelPath, dataPath, 0.4f).ToArray());
+        var exception = Assert.Throws<FileNotFoundException>(() => Tester.Predict(modelPath, dataPath, 0.4f).ToArray());
 
         StringAssert.Contains(exception.Message, "unavailable");
         Assert.AreEqual(dataPath, exception.FileName);
@@ -176,10 +176,10 @@ public sealed class HeldOutModelTesterTests
         File.WriteAllText(dataPath, "Label\tTitle\tBody\r\n");
         DatasetSplit.Create(dataPath).WriteModelReference(modelPath);
 
-        var exception = Assert.Throws<InvalidOperationException>(() => HeldOutModelTester.Predict(modelPath, dataPath, 0.4f).ToArray());
+        var exception = Assert.Throws<InvalidOperationException>(() => Tester.Predict(modelPath, dataPath, 0.4f).ToArray());
 
         StringAssert.Contains(exception.Message, "no held-out rows");
-        var testing = await Run(typeof(HeldOutModelTester).Assembly.Location, "--issues-model", modelPath, "--issues-data", dataPath);
+        var testing = await Run(typeof(Tester).Assembly.Location, "--issues-model", modelPath, "--issues-data", dataPath);
         Assert.AreEqual(1, testing.ExitCode, testing.Output);
         StringAssert.Contains(testing.Output, "no held-out rows");
         Assert.IsFalse(testing.Output.Contains("Unhandled exception", StringComparison.Ordinal));
@@ -192,7 +192,7 @@ public sealed class HeldOutModelTesterTests
         string dataPath = Path.Combine(directory, "data.tsv");
         await File.WriteAllTextAsync(DatasetSplit.GetPath(dataPath), "Not a split manifest.");
 
-        var testing = await Run(typeof(HeldOutModelTester).Assembly.Location, "--issues-model", modelPath, "--issues-data", dataPath);
+        var testing = await Run(typeof(Tester).Assembly.Location, "--issues-model", modelPath, "--issues-data", dataPath);
 
         Assert.AreEqual(1, testing.ExitCode, testing.Output);
         StringAssert.Contains(testing.Output, "Exception occurred");
@@ -207,7 +207,7 @@ public sealed class HeldOutModelTesterTests
         string dataPath = Path.Combine(directory, "data.tsv");
 
         var testing = await Run(
-            typeof(HeldOutModelTester).Assembly.Location,
+            typeof(Tester).Assembly.Location,
             "--issues-model", modelPath, "--issues-data", dataPath,
             "--pulls-model", missingModelPath, "--pulls-data", Path.Combine(directory, "missing-data.tsv"));
 
@@ -226,7 +226,7 @@ public sealed class HeldOutModelTesterTests
     public async Task InvalidThresholdFailsExplicitly(string threshold)
     {
         var testing = await Run(
-            typeof(HeldOutModelTester).Assembly.Location,
+            typeof(Tester).Assembly.Location,
             "--issues-model", Path.Combine(directory, "model.zip"), "--issues-data", Path.Combine(directory, "data.tsv"),
             "--threshold", threshold);
 
@@ -241,14 +241,14 @@ public sealed class HeldOutModelTesterTests
         string dataPath = Path.Combine(directory, "data.tsv");
         byte[] originalData = File.ReadAllBytes(dataPath);
         File.AppendAllText(dataPath, "first\tExtra item\tDetails\r\n");
-        Assert.Throws<InvalidDataException>(() => HeldOutModelTester.Predict(modelPath, dataPath, 0.4f).ToArray());
+        Assert.Throws<InvalidDataException>(() => Tester.Predict(modelPath, dataPath, 0.4f).ToArray());
         File.WriteAllBytes(dataPath, originalData);
 
         string manifestPath = DatasetSplit.GetPath(dataPath);
         var json = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
         json["testRows"] = new JsonArray(0, 1, 2, 3);
         File.WriteAllText(manifestPath, json.ToJsonString());
-        var mismatch = Assert.Throws<InvalidDataException>(() => HeldOutModelTester.Predict(modelPath, dataPath, 0.4f).ToArray());
+        var mismatch = Assert.Throws<InvalidDataException>(() => Tester.Predict(modelPath, dataPath, 0.4f).ToArray());
         StringAssert.Contains(mismatch.Message, "different dataset or split");
     }
 
@@ -260,7 +260,7 @@ public sealed class HeldOutModelTesterTests
         {
             archive.GetEntry("DatasetSplit.sha256")!.Delete();
         }
-        var exception = Assert.Throws<InvalidDataException>(() => HeldOutModelTester.Predict(
+        var exception = Assert.Throws<InvalidDataException>(() => Tester.Predict(
             modelPath, Path.Combine(directory, "data.tsv"), 0.4f).ToArray());
         StringAssert.Contains(exception.Message, "no dataset split reference");
     }
@@ -328,7 +328,7 @@ public sealed class HeldOutModelTesterTests
     [TestMethod]
     public async Task MissingDatasetArgumentFailsExplicitly()
     {
-        var testing = await Run(typeof(HeldOutModelTester).Assembly.Location, "--issues-model", "model.zip");
+        var testing = await Run(typeof(Tester).Assembly.Location, "--issues-model", "model.zip");
         Assert.AreEqual(1, testing.ExitCode);
         StringAssert.Contains(testing.Output, "model and its original dataset path");
     }
@@ -338,7 +338,7 @@ public sealed class HeldOutModelTesterTests
     {
         string modelPath = CreateModel();
         string dataPath = Path.Combine(directory, "data.tsv");
-        using var predictions = HeldOutModelTester.Predict(modelPath, dataPath, 0.4f).GetEnumerator();
+        using var predictions = Tester.Predict(modelPath, dataPath, 0.4f).GetEnumerator();
         Assert.IsTrue(predictions.MoveNext());
         File.Delete(dataPath);
         File.Delete(DatasetSplit.GetPath(dataPath));
@@ -349,7 +349,7 @@ public sealed class HeldOutModelTesterTests
     [DataRow(0.4f)]
     public void PredictionUsesHighestScoreAndItsSlotLabel(float threshold)
     {
-        var prediction = HeldOutModelTester.SelectPrediction([0.2f, 0.7f, 0.1f], ["first", "second", "third"], threshold);
+        var prediction = Tester.SelectPrediction([0.2f, 0.7f, 0.1f], ["first", "second", "third"], threshold);
 
         Assert.AreEqual("second", prediction.Label);
         Assert.AreEqual(0.7f, prediction.Score);
@@ -358,7 +358,7 @@ public sealed class HeldOutModelTesterTests
     [TestMethod]
     public void PredictionIncludesThresholdBoundaryAndPreservesTieOrder()
     {
-        var prediction = HeldOutModelTester.SelectPrediction([0.5f, 0.5f], ["first", "second"], 0.5f);
+        var prediction = Tester.SelectPrediction([0.5f, 0.5f], ["first", "second"], 0.5f);
 
         Assert.AreEqual("first", prediction.Label);
         Assert.AreEqual(0.5f, prediction.Score);
@@ -367,7 +367,7 @@ public sealed class HeldOutModelTesterTests
     [TestMethod]
     public void PredictionBelowThresholdReturnsNoPrediction()
     {
-        var prediction = HeldOutModelTester.SelectPrediction([0.2f, 0.3f], ["first", "second"], 0.4f);
+        var prediction = Tester.SelectPrediction([0.2f, 0.3f], ["first", "second"], 0.4f);
 
         Assert.IsNull(prediction.Label);
         Assert.IsNull(prediction.Score);
@@ -376,7 +376,7 @@ public sealed class HeldOutModelTesterTests
     [TestMethod]
     public void PredictionWithNoScoresReturnsNoPrediction()
     {
-        var prediction = HeldOutModelTester.SelectPrediction([], [], 0.4f);
+        var prediction = Tester.SelectPrediction([], [], 0.4f);
 
         Assert.IsNull(prediction.Label);
         Assert.IsNull(prediction.Score);
@@ -385,7 +385,7 @@ public sealed class HeldOutModelTesterTests
     [TestMethod]
     public void InconsistentScoreSchemaFails()
     {
-        Assert.Throws<InvalidOperationException>(() => HeldOutModelTester.SelectPrediction([0.5f], [], 0.4f));
+        Assert.Throws<InvalidOperationException>(() => Tester.SelectPrediction([0.5f], [], 0.4f));
     }
 
     private string CreateModel()
