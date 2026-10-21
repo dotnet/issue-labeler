@@ -7,7 +7,6 @@ using Actions.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
-using Microsoft.ML.Transforms.Text;
 using static DataFileUtils;
 
 using var provider = new ServiceCollection()
@@ -89,19 +88,7 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
 
     await action.WriteStatusAsync("Building pipeline...");
 
-    string[] featureColumns = type == ModelType.Issue
-        ? ["Title", "Body"]
-        : ["Title", "Body", "FileNames", "FolderNames"];
-
-    var xf = mlContext.Transforms;
-    var pipeline = xf.Conversion.MapValueToKey(inputColumnName: "Label", outputColumnName: "LabelKey")
-        .Append(xf.Text.FeaturizeText(
-            "Features",
-            new TextFeaturizingEstimator.Options(),
-            featureColumns))
-        .AppendCacheCheckpoint(mlContext)
-        .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("LabelKey"))
-        .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
+    var pipeline = TrainingPipeline.Create(mlContext, type);
 
     await action.WriteStatusAsync("Fitting the model with the training data set...");
     var trainedModel = pipeline.Fit(split.TrainSet);
