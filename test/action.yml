@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Recheck predictions against current GitHub labels (may include training data). Use the training job for held-out evaluation."
+description: "Test predictions against the Issues, Pull Requests, and/or Discussions model by downloading data and comparing predictions against existing labels."
 
 branding:
   color: "purple"

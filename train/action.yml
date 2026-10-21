@@ -1,5 +1,5 @@
 name: "Train Model"
-description: "Train a model, report held-out thresholds and coverage for precision targets of 60%, 70%, 80%, 90%, and 95%, and cache the model."
+description: "Train the Issues, Pull Requests, or Discussions model for label prediction and report held-out evaluation. Each type writes its own cached model file."
 
 inputs:
   type:
