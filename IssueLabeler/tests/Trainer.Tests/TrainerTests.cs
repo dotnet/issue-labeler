@@ -5,7 +5,7 @@ using System.Diagnostics;
 using Microsoft.ML;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-[assembly: DoNotParallelize]
+[assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]
 
 namespace IssueLabeler.Tests;
 
