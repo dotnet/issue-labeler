@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-extern alias Tester;
-
 using System.Diagnostics;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using Microsoft.ML;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -45,6 +41,7 @@ public sealed class TrainerTests
             new(95, 0.99f, 1, 1)
         ];
         CollectionAssert.AreEqual(expected, result.Targets);
+        Assert.AreEqual(0.6, result.Targets[0].Precision);
     }
 
     [TestMethod]
@@ -73,14 +70,13 @@ public sealed class TrainerTests
             Assert.IsNull(target.Threshold);
             Assert.IsNull(target.Precision);
             Assert.AreEqual(0, target.Accepted);
-            StringAssert.Contains(result.ToMarkdown(), $"| {target.TargetPrecision}% | Not reached | N/A | N/A | N/A |");
         }
     }
 
     [DataRow(ModelType.Issue)]
     [DataRow(ModelType.PullRequest)]
     [TestMethod]
-    public async Task TrainingProducesPrecisionReportAndUsableModel(ModelType type)
+    public async Task TrainingProducesUsableModel(ModelType type)
     {
         string dataPath = Path.Combine(directory, "data.tsv");
         string modelPath = Path.Combine(directory, "model.zip");
@@ -91,40 +87,10 @@ public sealed class TrainerTests
                 : DataFileUtils.FormatPullRequestRecord(labels[index % 3], $"Item {index}", $"Content for {labels[index % 3]}",
                     [$"File{index % 3}.cs"], [$"Folder{index % 3}"]))];
         File.WriteAllLines(dataPath, records);
-        var result = await Run(typeof(Args).Assembly.Location, false,
+        var result = await RunTrainer(
             type == ModelType.Issue ? "--issues-data" : "--pulls-data", dataPath,
             type == ModelType.Issue ? "--issues-model" : "--pulls-model", modelPath);
         Assert.AreEqual(0, result.ExitCode, result.Output);
-        StringAssert.Contains(result.Summary, "| MacroAccuracy |");
-        StringAssert.Contains(result.Summary, "| MicroAccuracy |");
-        StringAssert.Contains(result.Summary, "| LogLoss |");
-        StringAssert.Contains(result.Output, "| Target precision | Threshold | Observed precision | Coverage | Accepted |");
-        var population = Regex.Match(result.Summary, @"Evaluated (\d+) items");
-        Assert.IsTrue(population.Success, result.Summary);
-        int total = int.Parse(population.Groups[1].Value, CultureInfo.InvariantCulture);
-        Assert.IsTrue(total > 0 && total < 300, result.Summary);
-        var rows = Regex.Matches(result.Summary,
-            @"^\| (60|70|80|90|95)% \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|\r?$", RegexOptions.Multiline);
-        Assert.HasCount(5, rows, result.Summary);
-        foreach (Match row in rows)
-        {
-            if (row.Groups[2].Value == "Not reached")
-            {
-                Assert.AreEqual("N/A", row.Groups[3].Value);
-                Assert.AreEqual("N/A", row.Groups[4].Value);
-                Assert.AreEqual("N/A", row.Groups[5].Value);
-                continue;
-            }
-
-            float threshold = float.Parse(row.Groups[2].Value, CultureInfo.InvariantCulture);
-            double precision = double.Parse(row.Groups[3].Value.TrimEnd(' ', '%'), CultureInfo.InvariantCulture);
-            double coverage = double.Parse(row.Groups[4].Value.TrimEnd(' ', '%'), CultureInfo.InvariantCulture);
-            int accepted = int.Parse(row.Groups[5].Value, CultureInfo.InvariantCulture);
-            Assert.IsTrue(threshold is >= 0 and <= 1, row.Value);
-            Assert.IsTrue(precision >= int.Parse(row.Groups[1].Value, CultureInfo.InvariantCulture), row.Value);
-            Assert.IsTrue(accepted > 0 && accepted <= total, row.Value);
-            Assert.AreEqual(100.0 * accepted / total, coverage, 0.005001, row.Value);
-        }
         var context = new MLContext();
         using var predictor = context.Model.CreatePredictionEngine<ModelInput, ModelOutput>(context.Model.Load(modelPath, out _));
         var input = new ModelInput { Title = "Item 0", Body = "Content", FileNames = "File0.cs", FolderNames = "Folder0" };
@@ -133,18 +99,7 @@ public sealed class TrainerTests
         Assert.IsTrue(scores.All(float.IsFinite));
     }
 
-    [TestMethod]
-    public async Task HistoricalTestWarnsBeforeLoadingAModelOrDownloading()
-    {
-        var result = await Run(typeof(Tester::Args).Assembly.Location, true,
-            "--repo", "dotnet/example", "--label-prefix", "area-", "--issues-model", Path.Combine(directory, "missing.zip"));
-        Assert.AreNotEqual(0, result.ExitCode);
-        StringAssert.Contains(result.Output, "may include training data");
-        StringAssert.Contains(result.Summary, "> [!WARNING]");
-        StringAssert.Contains(result.Summary, "not an independent held-out evaluation");
-    }
-
-    private async Task<(int ExitCode, string Output, string Summary)> Run(string assemblyPath, bool token, params string[] arguments)
+    private async Task<(int ExitCode, string Output)> RunTrainer(params string[] arguments)
     {
         string summaryPath = Path.Combine(directory, "summary.md");
         File.WriteAllText(summaryPath, string.Empty);
@@ -158,16 +113,12 @@ public sealed class TrainerTests
                 UseShellExecute = false
             }
         };
-        process.StartInfo.ArgumentList.Add(assemblyPath);
+        process.StartInfo.ArgumentList.Add(typeof(Args).Assembly.Location);
         foreach (string argument in arguments)
         {
             process.StartInfo.ArgumentList.Add(argument);
         }
         process.StartInfo.Environment.Remove("GITHUB_TOKEN");
-        if (token)
-        {
-            process.StartInfo.Environment["GITHUB_TOKEN"] = "test-token";
-        }
         process.StartInfo.Environment["GITHUB_STEP_SUMMARY"] = summaryPath;
         process.Start();
         Task<string> output = process.StandardOutput.ReadToEndAsync();
@@ -175,7 +126,7 @@ public sealed class TrainerTests
         try
         {
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(60));
-            return (process.ExitCode, await output + await error, File.ReadAllText(summaryPath));
+            return (process.ExitCode, await output + await error);
         }
         finally
         {

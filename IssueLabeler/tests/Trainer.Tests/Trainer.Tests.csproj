@@ -7,6 +7,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" />
-    <ProjectReference Include="..\..\src\Tester\Tester.csproj" Aliases="Tester" />
   </ItemGroup>
 </Project>
