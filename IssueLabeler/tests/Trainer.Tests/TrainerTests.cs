@@ -296,7 +296,8 @@ public sealed class TrainerTests
         StringAssert.Contains(result.Output, "may include training data");
         StringAssert.Contains(result.Summary, "> [!WARNING]");
         StringAssert.Contains(result.Summary, "not an independent held-out evaluation");
-        StringAssert.Contains(result.Summary, "training job's held-out report");
+        Assert.IsFalse(result.Output.Contains("Use the training job's held-out report", StringComparison.Ordinal));
+        Assert.IsFalse(result.Summary.Contains("Use the training job's held-out report", StringComparison.Ordinal));
     }
 
     private async Task<(int ExitCode, string Output, string Summary)> Run(string assemblyPath, bool token, params string[] arguments)
