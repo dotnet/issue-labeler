@@ -34,7 +34,7 @@ public sealed class TrainerTests
             Label = wrongRanks.Contains(rank) ? "area-B" : "area-A",
             Score = [(100 - rank) / 100f, rank / 100f]
         })];
-        var result = Trainer.Evaluate(predictions, ["area-A", "area-B"]);
+        var result = HeldOutResult.Evaluate(predictions, ["area-A", "area-B"]);
 
         Assert.AreEqual(25, result.Total);
         PrecisionTargetResult[] expected =
@@ -52,7 +52,7 @@ public sealed class TrainerTests
     [TestMethod]
     public void TiedPredictionScoresAreAcceptedTogetherAtTheThreshold()
     {
-        var result = Trainer.Evaluate(
+        var result = HeldOutResult.Evaluate(
             [new() { Label = "area-A", Score = [0.9f, 0.1f] },
              new() { Label = "area-B", Score = [0.9f, 0.1f] },
              new() { Label = "area-A", Score = [0.8f, 0.2f] }],
@@ -64,7 +64,7 @@ public sealed class TrainerTests
     [TestMethod]
     public void EqualClassScoresUseFirstSlotAndCaseInsensitiveLabels()
     {
-        var result = Trainer.Evaluate(
+        var result = HeldOutResult.Evaluate(
             [new() { Label = "AREA-A", Score = [0.5f, 0.5f] }],
             ["area-A", "area-B"]);
         foreach (var target in result.Targets)
@@ -78,7 +78,7 @@ public sealed class TrainerTests
     [TestMethod]
     public void CaseVariantSlotsAndUnseenGoldLabelsAreCountedCorrectly()
     {
-        var result = Trainer.Evaluate(
+        var result = HeldOutResult.Evaluate(
             [new() { Label = "area-Foo", Score = [0.1f, 0.8f, 0.1f] },
              new() { Label = "area-foo", Score = [0.8f, 0.1f, 0.1f] },
              new() { Label = "area-Unseen", Score = [0.1f, 0.1f, 0.8f] }],
@@ -90,7 +90,7 @@ public sealed class TrainerTests
     [TestMethod]
     public void UnreachableTargetsAreNotReportedAsPerfectPrecisionWithNoCoverage()
     {
-        var result = Trainer.Evaluate(
+        var result = HeldOutResult.Evaluate(
             [new() { Label = "area-B", Score = [1f, 0f] },
              new() { Label = "area-B", Score = [0.7f, 0.3f] }],
             ["area-A", "area-B"]);
@@ -120,7 +120,7 @@ public sealed class TrainerTests
                     Score = [score, 1 - score]
                 };
             })];
-            var result = Trainer.Evaluate(predictions, ["area-A", "area-B"]);
+            var result = HeldOutResult.Evaluate(predictions, ["area-A", "area-B"]);
             foreach (var target in result.Targets)
             {
                 var expected = predictions.Select(prediction => prediction.Score[0]).Distinct()
@@ -143,14 +143,14 @@ public sealed class TrainerTests
     [TestMethod]
     public void EmptyHoldoutAndMalformedScoresFailExplicitly()
     {
-        Assert.Throws<InvalidOperationException>(() => Trainer.Evaluate([], ["area-A"]));
-        Assert.Throws<InvalidDataException>(() => Trainer.Evaluate(
+        Assert.Throws<InvalidOperationException>(() => HeldOutResult.Evaluate([], ["area-A"]));
+        Assert.Throws<InvalidDataException>(() => HeldOutResult.Evaluate(
             [new() { Label = "area-A", Score = [] }], ["area-A"]));
-        Assert.Throws<InvalidDataException>(() => Trainer.Evaluate(
+        Assert.Throws<InvalidDataException>(() => HeldOutResult.Evaluate(
             [new() { Label = "area-A", Score = [float.NaN] }], ["area-A"]));
-        Assert.Throws<InvalidDataException>(() => Trainer.Evaluate(
+        Assert.Throws<InvalidDataException>(() => HeldOutResult.Evaluate(
             [new() { Label = "area-A", Score = [float.PositiveInfinity] }], ["area-A"]));
-        Assert.Throws<InvalidDataException>(() => Trainer.Evaluate(
+        Assert.Throws<InvalidDataException>(() => HeldOutResult.Evaluate(
             [new() { Label = string.Empty, Score = [1f] }], ["area-A"]));
     }
 
@@ -172,7 +172,7 @@ public sealed class TrainerTests
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
             float score = float.BitIncrement(0.8f);
-            var result = Trainer.Evaluate(
+            var result = HeldOutResult.Evaluate(
                 [new() { Label = "area-A", Score = [score, 1 - score] }],
                 ["area-A", "area-B"]);
             string threshold = score.ToString("R", CultureInfo.InvariantCulture);
