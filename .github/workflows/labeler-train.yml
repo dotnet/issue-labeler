@@ -217,7 +217,6 @@ jobs:
           type: "discussions"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
-          threshold: ${{ env.THRESHOLD_DISCUSSIONS }}
 
   train-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
@@ -233,7 +232,6 @@ jobs:
           type: "issues"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
-          threshold: ${{ env.THRESHOLD_ISSUES }}
 
   train-pulls:
     if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
@@ -249,7 +247,6 @@ jobs:
           type: "pulls"
           data_cache_key: ${{ env.CACHE_KEY }}
           model_cache_key: ${{ env.CACHE_KEY }}
-          threshold: ${{ env.THRESHOLD_PULLS }}
 
   test-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}

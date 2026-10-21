@@ -1,5 +1,5 @@
 name: "Train Model"
-description: "Train a model, evaluate its held-out test split, and cache the model for label prediction."
+description: "Train a model, report held-out thresholds and coverage for precision targets of 60%, 70%, 80%, 90%, and 95%, and cache the model."
 
 inputs:
   type:
@@ -11,9 +11,6 @@ inputs:
   model_cache_key:
     description: "The cache key suffix to use for the trained model. Defaults to 'staged'."
     default: staged
-  threshold:
-    description: "Score cutoff in [0,1] for the held-out evaluation performed during training. Does not change production prediction settings."
-    default: "0.4"
 
 branding:
   color: "purple"
@@ -75,8 +72,6 @@ runs:
 
     - name: "Run Trainer"
       shell: bash
-      env:
-        EVALUATION_THRESHOLD: ${{ inputs.threshold }}
       run: |
         if [[ "${{ inputs.type }}" == "pulls" ]]; then
           trainer_args=(--pulls-data "${{ env.DATA_PATH }}" --pulls-model "${{ env.MODEL_PATH }}")
@@ -85,7 +80,7 @@ runs:
           trainer_args=(--issues-data "${{ env.DATA_PATH }}" --issues-model "${{ env.MODEL_PATH }}")
         fi
 
-        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}" --threshold "$EVALUATION_THRESHOLD"
+        dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}"
 
     - name: "Save Model to Cache"
       uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
