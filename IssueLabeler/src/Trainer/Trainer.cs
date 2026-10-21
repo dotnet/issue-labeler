@@ -7,6 +7,7 @@ using Actions.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Transforms.Text;
 using static DataFileUtils;
 
 using var provider = new ServiceCollection()
@@ -88,7 +89,25 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
 
     await action.WriteStatusAsync("Building pipeline...");
 
-    var pipeline = TrainingPipeline.Create(mlContext, type);
+    string[] featureColumns = type == ModelType.Issue
+        ? ["Title", "Body"]
+        : ["Title", "Body", "FileNames", "FolderNames"];
+
+    var textOptions = new TextFeaturizingEstimator.Options();
+    var characters = textOptions.CharFeatureExtractor;
+    characters.Weighting = NgramExtractingEstimator.WeightingCriteria.TfIdf;
+    // Assign back because the setter snapshots the extractor configuration.
+    textOptions.CharFeatureExtractor = characters;
+
+    var xf = mlContext.Transforms;
+    var pipeline = xf.Conversion.MapValueToKey(inputColumnName: "Label", outputColumnName: "LabelKey")
+        .Append(xf.Text.FeaturizeText(
+            "Features",
+            textOptions,
+            featureColumns))
+        .AppendCacheCheckpoint(mlContext)
+        .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("LabelKey", l2Regularization: 3e-6f))
+        .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
 
     await action.WriteStatusAsync("Fitting the model with the training data set...");
     var trainedModel = pipeline.Fit(split.TrainSet);

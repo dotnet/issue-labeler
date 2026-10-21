@@ -16,7 +16,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Common\Common.csproj" />
-    <ProjectReference Include="..\..\src\Trainer\Trainer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
