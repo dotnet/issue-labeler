@@ -108,39 +108,46 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     var testModel = trainedModel.Transform(split.TestSet);
 
     await action.WriteStatusAsync("Evaluating against the test set...");
+    VBuffer<ReadOnlyMemory<char>> slots = default;
+    testModel.Schema[nameof(HeldOutPrediction.Score)].GetSlotNames(ref slots);
+    string[] labels = [.. slots.DenseValues().Select(label => label.ToString())];
+    var evaluation = HeldOutResult.Evaluate(
+        mlContext.Data.CreateEnumerable<HeldOutPrediction>(testModel, reuseRowObject: false), labels);
     var metrics = mlContext.MulticlassClassification.Evaluate(testModel, labelColumnName: "LabelKey");
+    var classLosses = metrics.PerClassLogLoss.Take(3)
+        .Select((loss, index) => FormattableString.Invariant($"| Class {index + 1} | {loss:0.####} |"));
+    string metricsReport = FormattableString.Invariant($"""
+        These metrics use all held-out items, without a score cutoff.
+
+        | Metric | Value | Meaning |
+        |---|---:|---|
+        | MacroAccuracy | {metrics.MacroAccuracy:0.####} | Average accuracy across labels, each weighted equally (higher is better). |
+        | MicroAccuracy | {metrics.MicroAccuracy:0.####} | Fraction of all items predicted correctly (higher is better). |
+        | LogLoss | {metrics.LogLoss:0.####} | Penalizes low scores for the correct label (lower is better). |
+
+        **Per-class LogLoss** (first three label categories, lower is better)
+
+        | Class | LogLoss |
+        |---|---:|
+        {string.Join(Environment.NewLine, classLosses)}
+        """);
 
     action.Summary.AddPersistent(summary =>
     {
         summary.AddMarkdownHeading($"Finished Training {(type == ModelType.Issue ? "Issues" : "Pull Requests")} Model", 2);
 
-        summary.AddRawMarkdown($"""
-            * MacroAccuracy: {metrics.MacroAccuracy:0.####} (a value between 0 and 1; the closer to 1, the better)
-            * MicroAccuracy: {metrics.MicroAccuracy:0.####} (a value between 0 and 1; the closer to 1, the better)
-            * LogLoss: {metrics.LogLoss:0.####} (the closer to 0, the better)
-            {(metrics.PerClassLogLoss.Count() > 0 ? $"    * Class 1: {metrics.PerClassLogLoss[0]:0.####}" : "")}
-            {(metrics.PerClassLogLoss.Count() > 1 ? $"    * Class 2: {metrics.PerClassLogLoss[1]:0.####}" : "")}
-            {(metrics.PerClassLogLoss.Count() > 2 ? $"    * Class 3: {metrics.PerClassLogLoss[2]:0.####}" : "")}
-            """);
+        summary.AddRawMarkdown(metricsReport);
+        summary.AddNewLine();
+        summary.AddNewLine();
+        summary.AddRawMarkdown(evaluation.ToMarkdown(), true);
     });
 
     await action.Summary.WriteAsync();
 
     action.WriteInfo($"************************************************************");
-    action.WriteInfo($"MacroAccuracy = {metrics.MacroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
-    action.WriteInfo($"MicroAccuracy = {metrics.MicroAccuracy:0.####}, a value between 0 and 1, the closer to 1, the better");
-    action.WriteInfo($"LogLoss = {metrics.LogLoss:0.####}, the closer to 0, the better");
-
-    if (metrics.PerClassLogLoss.Count() > 0)
-        action.WriteInfo($"LogLoss for class 1 = {metrics.PerClassLogLoss[0]:0.####}, the closer to 0, the better");
-
-    if (metrics.PerClassLogLoss.Count() > 1)
-        action.WriteInfo($"LogLoss for class 2 = {metrics.PerClassLogLoss[1]:0.####}, the closer to 0, the better");
-
-    if (metrics.PerClassLogLoss.Count() > 2)
-        action.WriteInfo($"LogLoss for class 3 = {metrics.PerClassLogLoss[2]:0.####}, the closer to 0, the better");
-
+    action.WriteInfo(metricsReport);
     action.WriteInfo($"************************************************************");
+    action.WriteInfo(evaluation.ToMarkdown());
 
     action.WriteInfo($"Saving model to '{modelPath}'...");
     EnsureOutputDirectory(modelPath);

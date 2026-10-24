@@ -1,5 +1,5 @@
 name: "Train Model"
-description: "Train the Issues, Pull Requests, or Discussions model for label prediction. Each type writes its own cached model file."
+description: "Train the Issues, Pull Requests, or Discussions model for label prediction and report held-out evaluation. Each type writes its own cached model file."
 
 inputs:
   type:

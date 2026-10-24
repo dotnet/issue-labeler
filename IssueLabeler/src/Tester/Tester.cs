@@ -17,6 +17,12 @@ using var provider = new ServiceCollection()
 var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
+
+const string disclaimer = "This test downloads currently labeled GitHub items and may include training data. It is not an independent held-out evaluation.";
+action.WriteWarning(disclaimer);
+action.Summary.AddPersistent(summary => summary.AddAlert(disclaimer, AlertType.Warning));
+await action.Summary.WritePersistentAsync();
+
 string[] excludedLabels = argsData.ExcludedLabels ?? [];
 
 List<Task<(Type ItemType, TestStats Stats)>> tasks = [];

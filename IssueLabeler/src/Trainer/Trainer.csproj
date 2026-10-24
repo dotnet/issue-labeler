@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.csproj" />
+    <InternalsVisibleTo Include="Trainer.Tests" />
   </ItemGroup>
 
 </Project>
