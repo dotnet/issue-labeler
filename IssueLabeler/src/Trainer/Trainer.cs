@@ -93,14 +93,20 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
         ? ["Title", "Body"]
         : ["Title", "Body", "FileNames", "FolderNames"];
 
+    var textOptions = new TextFeaturizingEstimator.Options();
+    var characters = textOptions.CharFeatureExtractor;
+    characters.Weighting = NgramExtractingEstimator.WeightingCriteria.TfIdf;
+    // Assign back because the setter snapshots the extractor configuration.
+    textOptions.CharFeatureExtractor = characters;
+
     var xf = mlContext.Transforms;
     var pipeline = xf.Conversion.MapValueToKey(inputColumnName: "Label", outputColumnName: "LabelKey")
         .Append(xf.Text.FeaturizeText(
             "Features",
-            new TextFeaturizingEstimator.Options(),
+            textOptions,
             featureColumns))
         .AppendCacheCheckpoint(mlContext)
-        .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("LabelKey"))
+        .Append(mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy("LabelKey", l2Regularization: 3e-6f))
         .Append(xf.Conversion.MapKeyToValue("PredictedLabel"));
 
     await action.WriteStatusAsync("Fitting the model with the training data set...");
