@@ -1,5 +1,5 @@
 name: "Test Model"
-description: "Test predictions against the Issues, Pull Requests, and/or Discussions model by downloading data and comparing predictions against existing labels."
+description: "Test predictions against the Issues, Pull Requests, and/or Discussions model by downloading data and comparing predictions against existing labels. Existing labels are used only for scoring, not as prediction inputs."
 
 branding:
   color: "purple"

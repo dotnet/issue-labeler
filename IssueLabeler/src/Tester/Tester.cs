@@ -260,15 +260,19 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
 {
     var itemType = GetItemTypeNameSingular(typeof(T));
 
+    // Existing labels are for scoring only, never prediction inputs.
+    string? expectedLabel = result.Label;
+    result.Label = null;
+
     (string? predictedLabel, float? score) = GetPrediction(
         predictor,
         result,
         argsData.Threshold);
 
-    if (result.Label is not null && excludedLabels.Contains(result.Label, StringComparer.OrdinalIgnoreCase))
+    if (expectedLabel is not null && excludedLabels.Contains(expectedLabel, StringComparer.OrdinalIgnoreCase))
     {
         stats.ExcludedExistingCount++;
-        RecordExcludedLabel(stats.ExcludedExistingByLabel, result.Label);
+        RecordExcludedLabel(stats.ExcludedExistingByLabel, expectedLabel);
     }
 
     if (predictedLabel is not null && excludedLabels.Contains(predictedLabel, StringComparer.OrdinalIgnoreCase))
@@ -277,15 +281,15 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         RecordExcludedLabel(stats.ExcludedPredictedByLabel, predictedLabel);
     }
 
-    if (predictedLabel is null && result.Label is not null)
+    if (predictedLabel is null && expectedLabel is not null)
     {
         stats.NoPrediction++;
     }
-    else if (predictedLabel is not null && result.Label is null)
+    else if (predictedLabel is not null && expectedLabel is null)
     {
         stats.NoExisting++;
     }
-    else if (predictedLabel?.ToLower() == result.Label?.ToLower())
+    else if (predictedLabel?.ToLower() == expectedLabel?.ToLower())
     {
         stats.Matches++;
 
@@ -304,7 +308,7 @@ void TestPrediction<T>(T result, PredictionEngine<T, LabelPrediction> predictor,
         }
     }
 
-    action.StartGroup($"{itemType} {argsData.Org}/{result.Repo}#{result.Number} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(result.Label ?? "<NONE>")}");
+    action.StartGroup($"{itemType} {argsData.Org}/{result.Repo}#{result.Number} - Predicted: {(predictedLabel ?? "<NONE>")} - Existing: {(expectedLabel ?? "<NONE>")}");
     action.WriteInfo($"Total        : {stats.Total}");
     action.WriteInfo($"Matches      : {stats.Matches} ({stats.MatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MatchScores)}");
     action.WriteInfo($"Mismatches   : {stats.Mismatches} ({stats.MismatchesPercentage:P2}) - Min | Avg | Max | StdDev: {GetStats(stats.MismatchScores)}");
