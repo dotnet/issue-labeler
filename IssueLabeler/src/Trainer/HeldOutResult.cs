@@ -66,7 +66,7 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
             throw new InvalidOperationException("The held-out test set is empty. Download more data before training.");
         }
 
-        int[] precisionTargets = [40, 50, 60, 70, 80, 85, 90, 95, 98, 99];
+        int[] precisionTargets = [.. Enumerable.Range(40, 56)];
         PrecisionTargetResult[] results = [.. precisionTargets.Select(target => new PrecisionTargetResult(target, null, 0, 0))];
         ranked.Sort((left, right) => right.Score.CompareTo(left.Score));
         int correct = 0;
@@ -99,24 +99,25 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
 
     public string ToMarkdown(HeldOutResult? active = null, string? activeSkipReason = null)
     {
+        int[] highlightedTargets = [40, 50, 60, 70, 80, 85, 90, 95];
         string activeNotice = (active, activeSkipReason) switch
         {
             (not null, _) => "> Note: ACTIVE may have trained on these items, so its results may be optimistic.",
             (null, not null) => $"> Warning: ACTIVE comparison skipped. {activeSkipReason}",
             _ => "No ACTIVE model was provided."
         };
-        string activeHeader = active is null ? string.Empty : " ACTIVE threshold | ACTIVE precision | ACTIVE coverage |";
-        string activeSeparator = active is null ? string.Empty : "---:|---:|---:|";
-        var rows = Targets.Select((target, index) =>
+        string chartLines = string.Join(Environment.NewLine, new[] { this, active }
+            .OfType<HeldOutResult>()
+            .Select((result, index) => $"    line \"{(index == 0 ? "New" : "ACTIVE")}\" [{FormatValues(result, index == 0)}]"));
+        string seriesKey = active is null ? "Blue: New." : "Blue: New. Orange: ACTIVE.";
+
+        string FormatValues(HeldOutResult result, bool highlight) => string.Join(", ", result.Targets.Select(target =>
         {
-            string activeCells = active is null ? string.Empty : $" {FormatResult(active.Targets[index])} |";
-            return $"| {target.TargetPrecision}% | {FormatResult(target)} |{activeCells}";
-        });
-        string chartTitle = active is null
-            ? "Coverage at each minimum precision"
-            : "Coverage at each minimum precision (blue: New, orange: ACTIVE)";
-        string chartLines = string.Join(Environment.NewLine, new[] { this, active }.OfType<HeldOutResult>()
-            .Select(result => $"    line [{string.Join(", ", result.Targets.Select(target => FormatCoverage(target, result.Total)))}]"));
+            string coverage = FormatCoverage(target, result.Total);
+            return highlight && highlightedTargets.Contains(target.TargetPrecision)
+                ? $"{coverage} \"{target.TargetPrecision}%\""
+                : coverage;
+        }));
 
         return FormattableString.Invariant($"""
             ### Held-out evaluation
@@ -133,26 +134,16 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
                   plotColorPalette: "#0969da, #bc4c00"
             ---
             xychart-beta
-                title "{chartTitle}"
-                x-axis "Minimum precision" [{string.Join(", ", Targets.Select(target => $"\"{target.TargetPrecision}%\""))}]
+                title "Held-out coverage by minimum precision"
+                x-axis "Minimum precision (%)" {Targets[0].TargetPrecision} --> {Targets[^1].TargetPrecision}
                 y-axis "Coverage (%)" 0 --> 100
             {chartLines}
             ```
 
-            Each row maximizes coverage at or above the minimum precision. Threshold is the minimum prediction score.
-
-            | Minimum precision | New threshold | New precision | New coverage |{activeHeader}
-            |---:|---:|---:|---:|{activeSeparator}
-            {string.Join(Environment.NewLine, rows)}
-
-            Only the top-scoring label of each item is evaluated. Precision is the percentage of accepted predictions that are correct. Coverage is the percentage of test items accepted (count in parentheses).
-            Not reached means no cutoff with accepted predictions met the minimum precision.
-            Thresholds are selected and evaluated on this same split. Promotion does not update the prediction threshold.
+            {seriesKey} Each point shows the maximum test-set coverage while meeting its minimum precision target. Labels on the New curve mark selected targets.
+            Thresholds are selected and evaluated on this same split, so the curve may be optimistic. Promotion does not update the prediction threshold.
+            Only the top-scoring label per item is evaluated.
             """);
-
-        string FormatResult(PrecisionTargetResult target) => target.Threshold is float threshold
-            ? FormattableString.Invariant($"{threshold:R} | {target.Precision:P2} | {(double)target.Accepted / Total:P2} ({target.Accepted})")
-            : "Not reached | N/A | N/A";
 
         // A target that is not reached accepts no items.
         static string FormatCoverage(PrecisionTargetResult target, int total) => target.Threshold is null

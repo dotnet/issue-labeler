@@ -33,20 +33,15 @@ public sealed class TrainerTests
         var result = HeldOutResult.Evaluate(predictions, ["area-A", "area-B"]);
 
         Assert.AreEqual(25, result.Total);
-        PrecisionTargetResult[] expected =
-        [
-            new(40, 0.75f, 15, 25),
-            new(50, 0.75f, 15, 25),
-            new(60, 0.75f, 15, 25),
-            new(70, 0.8f, 14, 20),
-            new(80, 0.85f, 12, 15),
-            new(85, 0.9f, 9, 10),
-            new(90, 0.9f, 9, 10),
-            new(95, 0.99f, 1, 1),
-            new(98, 0.99f, 1, 1),
-            new(99, 0.99f, 1, 1)
-        ];
-        CollectionAssert.AreEqual(expected, result.Targets);
+        Assert.HasCount(56, result.Targets);
+        Assert.AreEqual(new PrecisionTargetResult(40, 0.75f, 15, 25), result.Targets[0]);
+        Assert.AreEqual(new PrecisionTargetResult(50, 0.75f, 15, 25), result.Targets[10]);
+        Assert.AreEqual(new PrecisionTargetResult(60, 0.75f, 15, 25), result.Targets[20]);
+        Assert.AreEqual(new PrecisionTargetResult(70, 0.8f, 14, 20), result.Targets[30]);
+        Assert.AreEqual(new PrecisionTargetResult(80, 0.85f, 12, 15), result.Targets[40]);
+        Assert.AreEqual(new PrecisionTargetResult(85, 0.9f, 9, 10), result.Targets[45]);
+        Assert.AreEqual(new PrecisionTargetResult(90, 0.9f, 9, 10), result.Targets[50]);
+        Assert.AreEqual(new PrecisionTargetResult(95, 0.99f, 1, 1), result.Targets[55]);
         Assert.AreEqual(0.6, result.Targets[0].Precision);
     }
 
@@ -59,9 +54,9 @@ public sealed class TrainerTests
              new() { Label = "area-A", Score = [0.8f, 0.2f] }],
             ["area-A", "area-B"]);
         Assert.AreEqual(new PrecisionTargetResult(40, 0.8f, 2, 3), result.Targets[0]);
-        Assert.AreEqual(new PrecisionTargetResult(50, 0.8f, 2, 3), result.Targets[1]);
-        Assert.AreEqual(new PrecisionTargetResult(60, 0.8f, 2, 3), result.Targets[2]);
-        Assert.IsTrue(result.Targets.Skip(3).All(target => target.Threshold is null));
+        Assert.AreEqual(new PrecisionTargetResult(41, 0.8f, 2, 3), result.Targets[1]);
+        Assert.AreEqual(new PrecisionTargetResult(66, 0.8f, 2, 3), result.Targets[26]);
+        Assert.IsNull(result.Targets[27].Threshold);
     }
 
     [TestMethod]
@@ -72,7 +67,7 @@ public sealed class TrainerTests
              new() { Label = "area-B", Score = [0.7f, 0.3f] }],
             ["area-A", "area-B"]);
         Assert.AreEqual(2, result.Total);
-        Assert.HasCount(10, result.Targets);
+        Assert.HasCount(56, result.Targets);
         foreach (var target in result.Targets)
         {
             Assert.IsNull(target.Threshold);
@@ -132,25 +127,27 @@ public sealed class TrainerTests
     }
 
     [TestMethod]
-    public void ComparisonReportUsesOneRowPerTargetAndInvariantDeployableThresholds()
+    public void HeldOutReportChartsNewAndActiveAcrossPrecisionTargets()
     {
-        var candidate = new HeldOutResult(3, [new(40, 0.8f, 2, 3), new(99, null, 0, 0)]);
-        var active = new HeldOutResult(3, [new(40, 0.8123457f, 3, 3), new(99, 0.9f, 2, 2)]);
+        PrecisionTargetResult[] targets = [.. Enumerable.Range(40, 56)
+            .Select(target => new PrecisionTargetResult(target, 0.8f, 100 - target, 100 - target))];
+        var result = new HeldOutResult(100, targets);
+        var active = new HeldOutResult(100, targets.Select(target => target with { Accepted = target.Accepted / 2 }).ToArray());
         CultureInfo previousCulture = CultureInfo.CurrentCulture;
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-            string report = candidate.ToMarkdown(active);
+            string report = result.ToMarkdown(active);
 
-            StringAssert.Contains(report, "| Minimum precision | New threshold | New precision | New coverage | ACTIVE threshold | ACTIVE precision | ACTIVE coverage |");
-            StringAssert.Contains(report, "| 40% | 0.8 | 66.67 % | 100.00 % (3) | 0.8123457 | 100.00 % | 100.00 % (3) |");
-            StringAssert.Contains(report, "| 99% | Not reached | N/A | N/A | 0.9 | 100.00 % | 66.67 % (2) |");
-            StringAssert.Contains(report, "> Note: ACTIVE may have trained on these items, so its results may be optimistic.");
-            StringAssert.Contains(report, "Promotion does not update the prediction threshold.");
-            StringAssert.Contains(report, "x-axis \"Minimum precision\" [\"40%\", \"99%\"]");
-            StringAssert.Contains(report, $"    line [100, 0]{Environment.NewLine}    line [100, 66.7]");
-            Assert.AreEqual(1, candidate.ToMarkdown().Split("line [").Length - 1);
-            Assert.AreEqual(2, report.Split('\n').Count(line => line.StartsWith("| ") && line.Contains("% |")));
+            StringAssert.Contains(report, "x-axis \"Minimum precision (%)\" 40 --> 95");
+            StringAssert.Contains(report, "line \"New\" [60 \"40%\", 59, 58");
+            StringAssert.Contains(report, "10 \"90%\", 9, 8, 7, 6, 5 \"95%\"]");
+            StringAssert.Contains(report, "line \"ACTIVE\" [30, 29, 29, 28, 28, 27, 27");
+            StringAssert.Contains(report, "Each point shows the maximum test-set coverage");
+            StringAssert.Contains(report, "Blue: New. Orange: ACTIVE.");
+            StringAssert.Contains(report, "ACTIVE may have trained on these items");
+            StringAssert.Contains(report, "Thresholds are selected and evaluated on this same split");
+            Assert.IsFalse(report.Split('\n').Any(line => line.StartsWith("| ")));
         }
         finally
         {
@@ -169,9 +166,9 @@ public sealed class TrainerTests
         string modelArgument = type == ModelType.Issue ? "--issues-model" : "--pulls-model";
         var result = await RunTrainer(dataArgument, dataPath, modelArgument, modelPath);
         Assert.AreEqual(0, result.ExitCode, result.Output);
-        StringAssert.Contains(result.Summary, "No ACTIVE model was provided.");
-        Assert.IsFalse(result.Summary.Contains("| ACTIVE threshold |"));
-        Assert.IsFalse(result.Summary.Contains("> Note: ACTIVE"));
+        StringAssert.Contains(result.Summary, "x-axis \"Minimum precision (%)\" 40 --> 95");
+        StringAssert.Contains(result.Summary, "line \"New\"");
+        Assert.IsFalse(result.Summary.Contains("line \"ACTIVE\"", StringComparison.Ordinal));
 
         string activeModelPath = Path.Combine(directory, "active.zip");
         File.Move(modelPath, activeModelPath);
@@ -180,12 +177,12 @@ public sealed class TrainerTests
             type == ModelType.Issue ? "--issues-active-model" : "--pulls-active-model", activeModelPath);
 
         Assert.AreEqual(0, result.ExitCode, result.Output);
-        StringAssert.Contains(result.Summary, "| ACTIVE threshold | ACTIVE precision | ACTIVE coverage |");
-        StringAssert.Contains(result.Summary, "ACTIVE may have trained on these items");
+        StringAssert.Contains(result.Summary, "line \"New\"");
+        StringAssert.Contains(result.Summary, "line \"ACTIVE\"");
         CollectionAssert.AreEqual(activeModelBytes, File.ReadAllBytes(activeModelPath));
 
-        StringAssert.Contains(result.Summary, "| 40% |");
-        StringAssert.Contains(result.Summary, "| 99% |");
+        StringAssert.Contains(result.Summary, "40%\"");
+        StringAssert.Contains(result.Summary, "95%\"");
         var context = new MLContext();
         using var predictor = context.Model.CreatePredictionEngine<ModelInput, ModelOutput>(context.Model.Load(modelPath, out _));
         var input = new ModelInput { Title = "Item 0", Body = "Content", FileNames = "File0.cs", FolderNames = "Folder0" };
@@ -221,7 +218,7 @@ public sealed class TrainerTests
         Assert.AreEqual(0, result.ExitCode, result.Output);
         StringAssert.Contains(result.Output, $"ACTIVE model '{activeModelPath}' could not be evaluated");
         StringAssert.Contains(result.Summary, "> Warning: ACTIVE comparison skipped.");
-        Assert.IsFalse(result.Summary.Contains("| ACTIVE threshold |"));
+        Assert.IsFalse(result.Summary.Contains("line \"ACTIVE\"", StringComparison.Ordinal));
         Assert.IsTrue(File.Exists(modelPath));
     }
 
