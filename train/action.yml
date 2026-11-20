@@ -1,5 +1,5 @@
 name: "Train Model"
-description: "Train the Issues, Pull Requests, or Discussions model for label prediction and report held-out evaluation. Each type writes its own cached model file."
+description: "Train an Issues, Pull Requests, or Discussions model and compare it with ACTIVE on the training run's held-out items."
 
 inputs:
   type:
@@ -35,6 +35,7 @@ runs:
         echo "DATA_PATH=labeler-cache/${{ inputs.type }}-data.tsv" >> $GITHUB_ENV
         echo "DATA_CACHE_KEY=${{ format('issue-labeler/data/{0}/{1}', inputs.type, inputs.data_cache_key) }}" >> $GITHUB_ENV
         echo "MODEL_PATH=labeler-cache/${{ inputs.type }}-model.zip" >> $GITHUB_ENV
+        echo "ACTIVE_MODEL_PATH=labeler-cache/${{ inputs.type }}-active-model.zip" >> $GITHUB_ENV
         echo "MODEL_CACHE_KEY=${{ format('issue-labeler/model/{0}/{1}', inputs.type, inputs.model_cache_key) }}" >> $GITHUB_ENV
 
     - name: "Check for an existing model"
@@ -70,6 +71,16 @@ runs:
       with:
         dotnet-version: 10.0.x
 
+    - name: "Restore ACTIVE Model for Comparison"
+      id: restore-active
+      continue-on-error: true
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      with:
+        # Cache versions depend on the path, so restore at the original path before moving.
+        path: ${{ env.MODEL_PATH }}
+        key: issue-labeler/model/${{ inputs.type }}/ACTIVE
+        fail-on-cache-miss: false
+
     - name: "Run Trainer"
       shell: bash
       run: |
@@ -78,6 +89,14 @@ runs:
         else
           # Discussions intentionally reuse the issues training pipeline and schema.
           trainer_args=(--issues-data "${{ env.DATA_PATH }}" --issues-model "${{ env.MODEL_PATH }}")
+        fi
+
+        if [[ "${{ steps.restore-active.outputs.cache-hit }}" == "true" ]]; then
+          if mv "${{ env.MODEL_PATH }}" "${{ env.ACTIVE_MODEL_PATH }}"; then
+            trainer_args+=("${{ inputs.type == 'pulls' && '--pulls-active-model' || '--issues-active-model' }}" "${{ env.ACTIVE_MODEL_PATH }}")
+          else
+            echo "::warning::Could not prepare the ACTIVE model for comparison. Training continues without it."
+          fi
         fi
 
         dotnet run -c Release --project "${{ github.action_path }}/../IssueLabeler/src/Trainer" -- "${trainer_args[@]}"
