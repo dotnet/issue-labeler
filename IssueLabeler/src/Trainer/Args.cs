@@ -7,8 +7,10 @@ public struct Args
 {
     public string? IssuesDataPath { get; set; }
     public string? IssuesModelPath { get; set; }
+    public string? IssuesActiveModelPath { get; set; }
     public string? PullsDataPath { get; set; }
     public string? PullsModelPath { get; set; }
+    public string? PullsActiveModelPath { get; set; }
 
     static void ShowUsage(string? message, ICoreService action)
     {
@@ -25,6 +27,10 @@ public struct Args
             Required for training the pull requests model:
               --pulls-data            Path to existing pull request data file (TSV file).
               --pulls-model           Path to existing pull request prediction model file (ZIP file).
+
+            Optional comparison models (require the corresponding training paths):
+              --issues-active-model   Path to the ACTIVE issue model (ZIP file).
+              --pulls-active-model    Path to the ACTIVE pull request model (ZIP file).
             """);
 
         Environment.Exit(1);
@@ -58,6 +64,15 @@ public struct Args
                     argsData.IssuesModelPath = IssuesModelPath;
                     break;
 
+                case "--issues-active-model":
+                    if (!argUtils.TryGetPath("--issues-active-model", out string? issuesActiveModelPath))
+                    {
+                        ShowUsage("--issues-active-model requires a path.", action);
+                        return null;
+                    }
+                    argsData.IssuesActiveModelPath = issuesActiveModelPath;
+                    break;
+
                 case "--pulls-data":
                     if (!argUtils.TryGetPath("--pulls-data", out string? PullsDataPath))
                     {
@@ -74,6 +89,15 @@ public struct Args
                     argsData.PullsModelPath = PullsModelPath;
                     break;
 
+                case "--pulls-active-model":
+                    if (!argUtils.TryGetPath("--pulls-active-model", out string? pullsActiveModelPath))
+                    {
+                        ShowUsage("--pulls-active-model requires a path.", action);
+                        return null;
+                    }
+                    argsData.PullsActiveModelPath = pullsActiveModelPath;
+                    break;
+
                 default:
                     ShowUsage($"Unrecognized argument: {argument}", action);
                     return null;
@@ -82,7 +106,9 @@ public struct Args
 
         if ((argsData.IssuesDataPath is null != argsData.IssuesModelPath is null) ||
             (argsData.PullsDataPath is null != argsData.PullsModelPath is null) ||
-            (argsData.IssuesModelPath is null && argsData.PullsModelPath is null))
+            (argsData.IssuesModelPath is null && argsData.PullsModelPath is null) ||
+            (argsData.IssuesActiveModelPath is not null && argsData.IssuesModelPath is null) ||
+            (argsData.PullsActiveModelPath is not null && argsData.PullsModelPath is null))
         {
             ShowUsage(null, action);
             return null;
