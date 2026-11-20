@@ -110,6 +110,11 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
             .OfType<HeldOutResult>()
             .Select((result, index) => $"    line \"{(index == 0 ? "New" : "ACTIVE")}\" [{FormatValues(result, index == 0)}]"));
         string seriesKey = active is null ? "Blue: New." : "Blue: New. Orange: ACTIVE.";
+        string rows = string.Join(Environment.NewLine, Targets
+            .Where(target => highlightedTargets.Contains(target.TargetPrecision))
+            .Select(target => target.Threshold is float threshold
+                ? FormattableString.Invariant($"| {target.TargetPrecision}% | {threshold:R} | {100.0 * target.Correct / target.Accepted:0.00}% | {100.0 * target.Accepted / Total:0.00}% ({target.Accepted}) |")
+                : FormattableString.Invariant($"| {target.TargetPrecision}% | Not reached | N/A | N/A |")));
 
         string FormatValues(HeldOutResult result, bool highlight) => string.Join(", ", result.Targets.Select(target =>
         {
@@ -141,7 +146,14 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
             ```
 
             {seriesKey} Each point shows the maximum test-set coverage while meeting its minimum precision target. Labels on the New curve mark selected targets.
-            Thresholds are selected and evaluated on this same split, so the curve may be optimistic. Promotion does not update the prediction threshold.
+
+            New model thresholds at selected targets:
+
+            | Minimum precision | Threshold | Precision | Coverage |
+            |---:|---:|---:|---:|
+            {rows}
+
+            Threshold is the minimum prediction score. Thresholds are selected and evaluated on this same split, so results may be optimistic. Promotion does not update the prediction threshold.
             Only the top-scoring label per item is evaluated.
             """);
 

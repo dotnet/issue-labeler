@@ -147,7 +147,10 @@ public sealed class TrainerTests
             StringAssert.Contains(report, "Blue: New. Orange: ACTIVE.");
             StringAssert.Contains(report, "ACTIVE may have trained on these items");
             StringAssert.Contains(report, "Thresholds are selected and evaluated on this same split");
-            Assert.IsFalse(report.Split('\n').Any(line => line.StartsWith("| ")));
+            string[] rows = [.. report.Split('\n').Select(line => line.TrimEnd('\r')).Where(line => line.StartsWith("| ") && line.EndsWith('|'))];
+            Assert.AreEqual(9, rows.Length);
+            Assert.AreEqual("| 90% | 0.8 | 100.00% | 10.00% (10) |", rows[^2]);
+            Assert.IsFalse(rows.Any(row => row.Contains("ACTIVE")));
         }
         finally
         {
