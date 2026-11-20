@@ -30,7 +30,7 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
 {
     internal static HeldOutResult Evaluate(MLContext context, ITransformer model, IDataView testSet)
     {
-        // Predictions have no label, so score without one. A model that reads the Label column can't see the answer.
+        // Preserve the gold label for scoring, but blank Label before prediction to prevent leakage.
         IDataView unlabeledSet = context.Transforms.CopyColumns(nameof(ReferenceLabelColumn.ReferenceLabel), nameof(BlankLabelColumn.Label))
             .Append(context.Transforms.DropColumns(nameof(BlankLabelColumn.Label)))
             .Append(context.Transforms.CustomMapping<ReferenceLabelColumn, BlankLabelColumn>(
