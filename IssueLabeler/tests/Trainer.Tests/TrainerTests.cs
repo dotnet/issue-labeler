@@ -135,7 +135,7 @@ public sealed class TrainerTests
     public void ComparisonReportUsesOneRowPerTargetAndInvariantDeployableThresholds()
     {
         var candidate = new HeldOutResult(3, [new(40, 0.8f, 2, 3), new(99, null, 0, 0)]);
-        var active = new HeldOutResult(3, [new(40, 0.8123457f, 3, 3), new(99, 0.8123457f, 3, 3)]);
+        var active = new HeldOutResult(3, [new(40, 0.8123457f, 3, 3), new(99, 0.9f, 2, 2)]);
         CultureInfo previousCulture = CultureInfo.CurrentCulture;
         try
         {
@@ -144,9 +144,12 @@ public sealed class TrainerTests
 
             StringAssert.Contains(report, "| Minimum precision | New threshold | New precision | New coverage | ACTIVE threshold | ACTIVE precision | ACTIVE coverage |");
             StringAssert.Contains(report, "| 40% | 0.8 | 66.67 % | 100.00 % (3) | 0.8123457 | 100.00 % | 100.00 % (3) |");
-            StringAssert.Contains(report, "| 99% | Not reached | N/A | N/A | 0.8123457 | 100.00 % | 100.00 % (3) |");
+            StringAssert.Contains(report, "| 99% | Not reached | N/A | N/A | 0.9 | 100.00 % | 66.67 % (2) |");
             StringAssert.Contains(report, "> Note: ACTIVE may have trained on these items, so its results may be optimistic.");
             StringAssert.Contains(report, "Promotion does not update the prediction threshold.");
+            StringAssert.Contains(report, "x-axis \"Minimum precision\" [\"40%\", \"99%\"]");
+            StringAssert.Contains(report, $"    line [100, 0]{Environment.NewLine}    line [100, 66.7]");
+            Assert.AreEqual(1, candidate.ToMarkdown().Split("line [").Length - 1);
             Assert.AreEqual(2, report.Split('\n').Count(line => line.StartsWith("| ") && line.Contains("% |")));
         }
         finally

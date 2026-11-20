@@ -112,6 +112,11 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
             string activeCells = active is null ? string.Empty : $" {FormatResult(active.Targets[index])} |";
             return $"| {target.TargetPrecision}% | {FormatResult(target)} |{activeCells}";
         });
+        string chartTitle = active is null
+            ? "Coverage at each minimum precision"
+            : "Coverage at each minimum precision (blue: New, orange: ACTIVE)";
+        string chartLines = string.Join(Environment.NewLine, new[] { this, active }.OfType<HeldOutResult>()
+            .Select(result => $"    line [{string.Join(", ", result.Targets.Select(target => FormatCoverage(target, result.Total)))}]"));
 
         return FormattableString.Invariant($"""
             ### Held-out evaluation
@@ -119,6 +124,20 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
             Evaluated {Total} items from the random 20% test split, excluded from fitting the new model. Items are scored with the Label column blank, as in prediction.
 
             {activeNotice}
+
+            ```mermaid
+            ---
+            config:
+              themeVariables:
+                xyChart:
+                  plotColorPalette: "#0969da, #bc4c00"
+            ---
+            xychart-beta
+                title "{chartTitle}"
+                x-axis "Minimum precision" [{string.Join(", ", Targets.Select(target => $"\"{target.TargetPrecision}%\""))}]
+                y-axis "Coverage (%)" 0 --> 100
+            {chartLines}
+            ```
 
             Each row maximizes coverage at or above the minimum precision. Threshold is the minimum prediction score.
 
@@ -134,5 +153,10 @@ internal sealed record HeldOutResult(int Total, PrecisionTargetResult[] Targets)
         string FormatResult(PrecisionTargetResult target) => target.Threshold is float threshold
             ? FormattableString.Invariant($"{threshold:R} | {target.Precision:P2} | {(double)target.Accepted / Total:P2} ({target.Accepted})")
             : "Not reached | N/A | N/A";
+
+        // A target that is not reached accepts no items.
+        static string FormatCoverage(PrecisionTargetResult target, int total) => target.Threshold is null
+            ? "0"
+            : FormattableString.Invariant($"{100.0 * target.Accepted / total:0.#}");
     }
 }
