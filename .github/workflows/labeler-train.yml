@@ -40,14 +40,11 @@ on:
         description: "Maximum number of pages to download for training/testing the model. Defaults to 1000 for issues, 4000 for pull requests."
         type: number
       cache_key_suffix:
-        description: "The cache key suffix to use for staged data/models (use 'ACTIVE' to bypass staging). Defaults to 'staged'."
-        required: true
-        default: "staged"
+        description: "Cache key suffix for data and models. Defaults to staged_YYYY-MM-DD (today in UTC). Use 'ACTIVE' to bypass staging."
 
 permissions: {}
 
 env:
-  CACHE_KEY: ${{ github.event.inputs.cache_key_suffix }}
   REPOSITORY: ${{ github.event.inputs.repository || github.repository }}
   LABEL_PREFIX: "area-"
   EXCLUDED_LABELS: ${{ github.event.inputs.excluded_labels }}
@@ -59,7 +56,16 @@ env:
   PAGE_LIMIT: ${{ github.event.inputs.page_limit }}
 
 jobs:
+  resolve-cache-key:
+    runs-on: ubuntu-latest
+    outputs:
+      cache_key: ${{ inputs.cache_key_suffix || format('staged_{0}', steps.date.outputs.today) }}
+    steps:
+      - id: date
+        run: date -u '+today=%F' >> "$GITHUB_OUTPUT"
+
   download-issues:
+    needs: resolve-cache-key
     if: ${{ contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
@@ -69,7 +75,7 @@ jobs:
         uses: dotnet/issue-labeler/download@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -80,6 +86,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   download-pulls:
+    needs: resolve-cache-key
     if: ${{ contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
@@ -89,7 +96,7 @@ jobs:
         uses: dotnet/issue-labeler/download@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -100,6 +107,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   download-discussions:
+    needs: resolve-cache-key
     if: ${{ contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Download Data"]'), github.event.inputs.steps) }}
     runs-on: ubuntu-latest
     permissions:
@@ -109,7 +117,7 @@ jobs:
         uses: dotnet/issue-labeler/download@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -120,10 +128,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
   check-issues-data:
-    if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
+    if: ${{ always() && needs.resolve-cache-key.result == 'success' && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
     permissions: {}
-    needs: download-issues
+    needs: [resolve-cache-key, download-issues]
     outputs:
       has_training_data: ${{ steps.check.outputs.has_training_data }}
     steps:
@@ -131,7 +139,7 @@ jobs:
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: labeler-cache/issues-data.tsv
-          key: issue-labeler/data/issues/${{ env.CACHE_KEY }}
+          key: issue-labeler/data/issues/${{ needs.resolve-cache-key.outputs.cache_key }}
           fail-on-cache-miss: true
 
       - name: "Check Issue Training Data"
@@ -148,10 +156,10 @@ jobs:
           fi
 
   check-pulls-data:
-    if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
+    if: ${{ always() && needs.resolve-cache-key.result == 'success' && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
     permissions: {}
-    needs: download-pulls
+    needs: [resolve-cache-key, download-pulls]
     outputs:
       has_training_data: ${{ steps.check.outputs.has_training_data }}
     steps:
@@ -159,7 +167,7 @@ jobs:
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: labeler-cache/pulls-data.tsv
-          key: issue-labeler/data/pulls/${{ env.CACHE_KEY }}
+          key: issue-labeler/data/pulls/${{ needs.resolve-cache-key.outputs.cache_key }}
           fail-on-cache-miss: true
 
       - name: "Check Pull Request Training Data"
@@ -176,10 +184,10 @@ jobs:
           fi
 
   check-discussions-data:
-    if: ${{ always() && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
+    if: ${{ always() && needs.resolve-cache-key.result == 'success' && contains(fromJSON('["All", "Discussions"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model", "Test Model"]'), github.event.inputs.steps) && contains(fromJSON('["success", "skipped"]'), needs.download-discussions.result) }}
     runs-on: ubuntu-latest
     permissions: {}
-    needs: download-discussions
+    needs: [resolve-cache-key, download-discussions]
     outputs:
       has_training_data: ${{ steps.check.outputs.has_training_data }}
     steps:
@@ -187,7 +195,7 @@ jobs:
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: labeler-cache/discussions-data.tsv
-          key: issue-labeler/data/discussions/${{ env.CACHE_KEY }}
+          key: issue-labeler/data/discussions/${{ needs.resolve-cache-key.outputs.cache_key }}
           fail-on-cache-miss: true
 
       - name: "Check Discussion Training Data"
@@ -208,6 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: {}
     needs:
+      - resolve-cache-key
       - download-discussions
       - check-discussions-data
     steps:
@@ -215,14 +224,15 @@ jobs:
         uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
-          data_cache_key: ${{ env.CACHE_KEY }}
-          model_cache_key: ${{ env.CACHE_KEY }}
+          data_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
+          model_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
 
   train-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-issues.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs:
+      - resolve-cache-key
       - download-issues
       - check-issues-data
     steps:
@@ -230,14 +240,15 @@ jobs:
         uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
-          data_cache_key: ${{ env.CACHE_KEY }}
-          model_cache_key: ${{ env.CACHE_KEY }}
+          data_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
+          model_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
 
   train-pulls:
     if: ${{ always() && contains(fromJSON('["All", "Pull Requests"]'), github.event.inputs.type) && contains(fromJSON('["All", "Train Model"]'), github.event.inputs.steps) && needs.check-pulls-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.download-pulls.result) }}
     runs-on: ubuntu-latest
     permissions: {}
     needs:
+      - resolve-cache-key
       - download-pulls
       - check-pulls-data
     steps:
@@ -245,8 +256,8 @@ jobs:
         uses: dotnet/issue-labeler/train@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
-          data_cache_key: ${{ env.CACHE_KEY }}
-          model_cache_key: ${{ env.CACHE_KEY }}
+          data_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
+          model_cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
 
   test-issues:
     if: ${{ always() && contains(fromJSON('["All", "Issues"]'), github.event.inputs.type) && contains(fromJSON('["All", "Test Model"]'), github.event.inputs.steps) && needs.check-issues-data.outputs.has_training_data == 'true' && contains(fromJSON('["success", "skipped"]'), needs.train-issues.result) }}
@@ -254,6 +265,7 @@ jobs:
     permissions:
       issues: read
     needs:
+      - resolve-cache-key
       - check-issues-data
       - train-issues
     steps:
@@ -261,7 +273,7 @@ jobs:
         uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -278,6 +290,7 @@ jobs:
     permissions:
       discussions: read
     needs:
+      - resolve-cache-key
       - check-discussions-data
       - train-discussions
     steps:
@@ -285,7 +298,7 @@ jobs:
         uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}
@@ -302,6 +315,7 @@ jobs:
     permissions:
       pull-requests: read
     needs:
+      - resolve-cache-key
       - check-pulls-data
       - train-pulls
     steps:
@@ -309,7 +323,7 @@ jobs:
         uses: dotnet/issue-labeler/test@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
-          cache_key: ${{ env.CACHE_KEY }}
+          cache_key: ${{ needs.resolve-cache-key.outputs.cache_key }}
           repository: ${{ env.REPOSITORY }}
           label_prefix: ${{ env.LABEL_PREFIX }}
           excluded_labels: ${{ env.EXCLUDED_LABELS }}

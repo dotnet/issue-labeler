@@ -19,18 +19,24 @@ on:
         type: boolean
         required: true
       staged_key:
-        description: "The cache key suffix to use for promoting a staged model to 'ACTIVE'. Defaults to 'staged'."
-        required: true
-        default: "staged"
+        description: "Cache key suffix of the model to promote to 'ACTIVE'. Defaults to staged_YYYY-MM-DD (today in UTC)."
       backup_key:
-        description: "The cache key suffix to use for backing up the currently active model. Defaults to 'backup'."
-        required: false
-        default: "backup"
+        description: "Cache key suffix for backing up the active model. Defaults to backup_YYYY-MM-DD (today in UTC)."
 
 permissions: {}
 
 jobs:
+  resolve-cache-keys:
+    runs-on: ubuntu-latest
+    outputs:
+      staged_key: ${{ inputs.staged_key || format('staged_{0}', steps.date.outputs.today) }}
+      backup_key: ${{ inputs.backup_key || format('backup_{0}', steps.date.outputs.today) }}
+    steps:
+      - id: date
+        run: date -u '+today=%F' >> "$GITHUB_OUTPUT"
+
   promote-issues:
+    needs: resolve-cache-keys
     if: ${{ github.event.inputs.issues == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -40,10 +46,11 @@ jobs:
         uses: dotnet/issue-labeler/promote@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "issues"
-          staged_key: ${{ github.event.inputs.staged_key }}
-          backup_key: ${{ github.event.inputs.backup_key }}
+          staged_key: ${{ needs.resolve-cache-keys.outputs.staged_key }}
+          backup_key: ${{ needs.resolve-cache-keys.outputs.backup_key }}
 
   promote-pulls:
+    needs: resolve-cache-keys
     if: ${{ github.event.inputs.pulls == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -53,10 +60,11 @@ jobs:
         uses: dotnet/issue-labeler/promote@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "pulls"
-          staged_key: ${{ github.event.inputs.staged_key }}
-          backup_key: ${{ github.event.inputs.backup_key }}
+          staged_key: ${{ needs.resolve-cache-keys.outputs.staged_key }}
+          backup_key: ${{ needs.resolve-cache-keys.outputs.backup_key }}
 
   promote-discussions:
+    needs: resolve-cache-keys
     if: ${{ github.event.inputs.discussions == 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -66,5 +74,5 @@ jobs:
         uses: dotnet/issue-labeler/promote@160b6b1e1e8d36da09beb34ef1e4806d2c0520a3 # v2.2.0
         with:
           type: "discussions"
-          staged_key: ${{ github.event.inputs.staged_key }}
-          backup_key: ${{ github.event.inputs.backup_key }}
+          staged_key: ${{ needs.resolve-cache-keys.outputs.staged_key }}
+          backup_key: ${{ needs.resolve-cache-keys.outputs.backup_key }}
