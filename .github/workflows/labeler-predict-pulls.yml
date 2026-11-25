@@ -40,8 +40,8 @@ on:
 permissions: {}
 
 env:
-  # Suppress failures on automatic runs to avoid blocking PR merges; surface failures on manual dispatch
-  ALLOW_FAILURE: ${{ github.event_name != 'workflow_dispatch' }}
+  # Suppress failures on PR events to avoid blocking merges. Scheduled runs must fail so the poll cursor doesn't advance past missed PRs.
+  ALLOW_FAILURE: ${{ github.event_name == 'pull_request_target' }}
 
   LABEL_PREFIX: "area-"
   THRESHOLD: ${{ vars.ISSUE_LABELER_PREDICTION_THRESHOLD_PULLS || vars.ISSUE_LABELER_PREDICTION_THRESHOLD || '0.15' }}
