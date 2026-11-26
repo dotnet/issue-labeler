@@ -23,18 +23,18 @@ List<Task> tasks = new();
 
 if (argsData.IssuesDataPath is not null && argsData.IssuesModelPath is not null)
 {
-    tasks.Add(Task.Run(() => CreateModel(argsData.IssuesDataPath, argsData.IssuesModelPath, ModelType.Issue, action)));
+    tasks.Add(Task.Run(() => CreateModel(argsData.IssuesDataPath, argsData.IssuesModelPath, argsData.IssuesActiveModelPath, ModelType.Issue, action)));
 }
 
 if (argsData.PullsDataPath is not null && argsData.PullsModelPath is not null)
 {
-    tasks.Add(Task.Run(() => CreateModel(argsData.PullsDataPath, argsData.PullsModelPath, ModelType.PullRequest, action)));
+    tasks.Add(Task.Run(() => CreateModel(argsData.PullsDataPath, argsData.PullsModelPath, argsData.PullsActiveModelPath, ModelType.PullRequest, action)));
 }
 
 var success = await App.RunTasks(tasks, action);
 return success ? 0 : 1;
 
-static async Task CreateModel(string dataPath, string modelPath, ModelType type, ICoreService action)
+static async Task CreateModel(string dataPath, string modelPath, string? activeModelPath, ModelType type, ICoreService action)
 {
     if (!File.Exists(dataPath))
     {
@@ -114,11 +114,30 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     var testModel = trainedModel.Transform(split.TestSet);
 
     await action.WriteStatusAsync("Evaluating against the test set...");
-    VBuffer<ReadOnlyMemory<char>> slots = default;
-    testModel.Schema[nameof(HeldOutPrediction.Score)].GetSlotNames(ref slots);
-    string[] labels = [.. slots.DenseValues().Select(label => label.ToString())];
-    var evaluation = HeldOutResult.Evaluate(
-        mlContext.Data.CreateEnumerable<HeldOutPrediction>(testModel, reuseRowObject: false), labels);
+    var evaluation = HeldOutResult.Evaluate(mlContext, trainedModel, split.TestSet);
+    HeldOutResult? activeEvaluation = null;
+    string? activeSkipReason = null;
+    if (activeModelPath is not null)
+    {
+        await action.WriteStatusAsync($"Evaluating ACTIVE model '{activeModelPath}' against the same test set...");
+        try
+        {
+            activeEvaluation = HeldOutResult.Evaluate(mlContext, mlContext.Model.Load(activeModelPath, out _), split.TestSet);
+            if (activeEvaluation.Total != evaluation.Total)
+            {
+                throw new InvalidDataException($"ACTIVE was evaluated on {activeEvaluation.Total} items and the new model on {evaluation.Total}.");
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A broken ACTIVE model must not block training its replacement.
+            activeEvaluation = null;
+            activeSkipReason = $"ACTIVE model '{activeModelPath}' could not be evaluated: {ex.Message.ReplaceLineEndings(" ")}";
+            action.WriteWarning(activeSkipReason);
+        }
+    }
+
+    string evaluationReport = evaluation.ToMarkdown(activeEvaluation, activeSkipReason);
     var metrics = mlContext.MulticlassClassification.Evaluate(testModel, labelColumnName: "LabelKey");
     var classLosses = metrics.PerClassLogLoss.Take(3)
         .Select((loss, index) => FormattableString.Invariant($"| Class {index + 1} | {loss:0.####} |"));
@@ -145,7 +164,7 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
         summary.AddRawMarkdown(metricsReport);
         summary.AddNewLine();
         summary.AddNewLine();
-        summary.AddRawMarkdown(evaluation.ToMarkdown(), true);
+        summary.AddRawMarkdown(evaluationReport, true);
     });
 
     await action.Summary.WriteAsync();
@@ -153,7 +172,7 @@ static async Task CreateModel(string dataPath, string modelPath, ModelType type,
     action.WriteInfo($"************************************************************");
     action.WriteInfo(metricsReport);
     action.WriteInfo($"************************************************************");
-    action.WriteInfo(evaluation.ToMarkdown());
+    action.WriteInfo(evaluationReport);
 
     action.WriteInfo($"Saving model to '{modelPath}'...");
     EnsureOutputDirectory(modelPath);
