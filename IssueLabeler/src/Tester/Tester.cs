@@ -18,6 +18,10 @@ var action = provider.GetRequiredService<ICoreService>();
 var config = Args.Parse(args, action);
 if (config is not Args argsData) return 1;
 
+string thresholdMessage = FormattableString.Invariant($"Prediction threshold: {argsData.Threshold:R}");
+action.WriteInfo(thresholdMessage);
+action.Summary.AddPersistent(summary => summary.AddRawMarkdown(thresholdMessage, true).AddNewLine());
+
 const string disclaimer = "This test downloads currently labeled GitHub items and may include training data. It is not an independent held-out evaluation.";
 action.WriteWarning(disclaimer);
 action.Summary.AddPersistent(summary => summary.AddAlert(disclaimer, AlertType.Warning));
